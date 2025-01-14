@@ -81,7 +81,7 @@ const signup = async ({ username, email, password, confirmpassword }) => {
     [userId, activationCode, getExpiryDate('days', 1)]
   );
 
-  const activationLink = `${process.env.APP_URL || 'http://localhost:3000'}/activate?code=${activationCode}`;
+  const activationLink = `${process.env.APP_URL || 'http://localhost:5000'}/activate?code=${activationCode}`;
   await sendEmail(email, 'Activate Your Account', `Click the link to activate your account: ${activationLink}`);
 
   await pool.query(
@@ -139,7 +139,7 @@ const resetPassword = async (email) => {
     [user.id, hashedToken, getExpiryDate('hours', 1), hashedToken, getExpiryDate('hours', 1)]
   );
 
-  const resetLink = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+  const resetLink = `${process.env.APP_URL || 'http://localhost:5000'}/reset-password?token=${resetToken}`;
   await sendEmail(email, 'Password Reset', `Click the link to reset your password: ${resetLink}`);
 
   return { message: 'If an account with the provided email exists, a password reset link has been sent.' };
