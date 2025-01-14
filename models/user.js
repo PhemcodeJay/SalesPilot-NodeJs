@@ -1,4 +1,5 @@
 const pool = require('../config/db'); // Assuming you have a database connection
+const bcrypt = require('./utils/bcryptUtils');
 
 class UserModel {
   // Create a new user
