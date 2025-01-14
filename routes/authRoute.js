@@ -23,7 +23,7 @@ router.get('/login', (req, res) => {
 router.get('/activate', (req, res) => {
   const activationCode = req.query.code; // Get the activation code from the query string
   if (!activationCode) {
-    return res.status(400).send('Activation code is required');
+    return res.status(400).json({ error: 'Activation code is required' });
   }
   res.render('auth/activate', { activationCode }); // Pass the activation code to the view
 });
@@ -37,7 +37,7 @@ router.get('/password-reset', (req, res) => {
 router.get('/recoverpwd', (req, res) => {
   const resetCode = req.query.code; // Get the reset code from the query string
   if (!resetCode) {
-    return res.status(400).send('Reset code is required');
+    return res.status(400).json({ error: 'Reset code is required' });
   }
   res.render('auth/recoverpwd', { resetCode }); // Pass the reset code to the view
 });
@@ -50,7 +50,7 @@ router.post('/signup', signup);
 router.post('/login', login);
 
 // Handle email verification
-router.get('/activate/:token', verifyEmail); // Using token for verification
+router.get('/activate/:token', verifyEmail); // Use token for email verification
 
 // Handle password recovery request (send email with reset link)
 router.post('/recoverpwd', recoverpwd);

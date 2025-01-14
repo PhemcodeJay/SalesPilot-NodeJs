@@ -33,9 +33,13 @@ const generateRandomCode = () => crypto.randomBytes(20).toString('hex');
 
 const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 
+const getExpiryDate = (unit, value) => moment().add(value, unit).toDate();
+
 const sendEmail = async (to, subject, text) => {
   const transporter = nodemailer.createTransport({
-    service: 'ionos',
+    host: process.env.EMAIL_HOST || 'smtp.ionos.com',
+    port: process.env.EMAIL_PORT || 465,
+    secure: process.env.EMAIL_SECURE !== 'false', // Defaults to true unless explicitly set
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
@@ -74,15 +78,15 @@ const signup = async ({ username, email, password, confirmpassword }) => {
   const activationCode = generateRandomCode();
   await pool.query(
     'INSERT INTO activation_codes (user_id, activation_code, expires_at) VALUES (?, ?, ?)',
-    [userId, activationCode, moment().add(1, 'day').toDate()]
+    [userId, activationCode, getExpiryDate('days', 1)]
   );
 
-  const activationLink = `${process.env.APP_URL}/activate?code=${activationCode}`;
+  const activationLink = `${process.env.APP_URL || 'http://localhost:3000'}/activate?code=${activationCode}`;
   await sendEmail(email, 'Activate Your Account', `Click the link to activate your account: ${activationLink}`);
 
   await pool.query(
     'INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, status, is_free_trial_used) VALUES (?, ?, ?, ?, ?, ?)',
-    [userId, 'trial', moment().toDate(), moment().add(3, 'months').toDate(), 'active', 1]
+    [userId, 'trial', moment().toDate(), getExpiryDate('months', 3), 'active', 1]
   );
 
   return { id: userId, username, email };
@@ -121,7 +125,10 @@ const resetPassword = async (email) => {
   if (!validator.isEmail(email)) throw new Error('Invalid email format');
 
   const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-  if (!users.length) throw new Error('No account found with this email');
+  if (!users.length) {
+    // Send generic response for security reasons
+    return { message: 'If an account with the provided email exists, a password reset link has been sent.' };
+  }
 
   const user = users[0];
   const resetToken = generateRandomCode();
@@ -129,13 +136,13 @@ const resetPassword = async (email) => {
 
   await pool.query(
     'INSERT INTO password_resets (user_id, reset_token, expires_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE reset_token = ?, expires_at = ?',
-    [user.id, hashedToken, moment().add(1, 'hour').toDate(), hashedToken, moment().add(1, 'hour').toDate()]
+    [user.id, hashedToken, getExpiryDate('hours', 1), hashedToken, getExpiryDate('hours', 1)]
   );
 
-  const resetLink = `${process.env.APP_URL}/reset-password?token=${resetToken}`;
+  const resetLink = `${process.env.APP_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
   await sendEmail(email, 'Password Reset', `Click the link to reset your password: ${resetLink}`);
 
-  return { message: 'Password reset email sent' };
+  return { message: 'If an account with the provided email exists, a password reset link has been sent.' };
 };
 
 // Export functions
