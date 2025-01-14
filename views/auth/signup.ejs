@@ -40,13 +40,19 @@
                       
                       <form action="/auth/signup" method="POST" id="signup-form">
                         <div class="input-group input-group-outline mb-3">
-                            <input type="text" id="name" name="name" class="form-control" placeholder="Enter your name" required>
+                            <input type="text" id="username" name="username" class="form-control" placeholder="Enter your username" required minlength="3">
                         </div>
                         <div class="input-group input-group-outline mb-3">
                             <input type="email" id="email" name="email" class="form-control" placeholder="Enter your email" required>
                         </div>
                         <div class="input-group input-group-outline mb-3">
-                            <input type="password" id="password" name="password" class="form-control" placeholder="Enter your password" required>
+                            <input type="text" id="phone" name="phone" class="form-control" placeholder="Enter your phone number" required pattern="^\+?[1-9]\d{1,14}$" title="Phone number should be in the correct format. Example: +1234567890">
+                        </div>
+                        <div class="input-group input-group-outline mb-3">
+                            <input type="text" id="location" name="location" class="form-control" placeholder="Enter your location" required>
+                        </div>
+                        <div class="input-group input-group-outline mb-3">
+                            <input type="password" id="password" name="password" class="form-control" placeholder="Enter your password" required minlength="6">
                         </div>
                         <div class="input-group input-group-outline mb-3">
                             <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Confirm your password" required>

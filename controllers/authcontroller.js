@@ -25,11 +25,6 @@ exports.signup = async (req, res) => {
   }
 
   try {
-    // Check if email is already registered
-    const existingUser = await User.findByEmail(email);
-    if (existingUser) {
-      return res.status(400).json({ message: 'Email already registered' });
-    }
 
     // Create a new user
     const hashedPassword = await bcrypt.hash(password, 10);

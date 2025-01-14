@@ -1,46 +1,14 @@
 const pool = require('../config/db'); // Assuming you have a database connection
-const bcrypt = require('bcryptjs');
-
-const User = {
-  create: async ({ username, email, password, phone, location }) => {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const [result] = await pool.execute(
-      `INSERT INTO users (username, email, password, phone, location) VALUES (?, ?, ?, ?, ?)`,
-      [username, email, hashedPassword, phone, location]
-    );
-    return result;
-  },
-
-  findByEmail: async (email) => {
-    const [rows] = await pool.execute(`SELECT * FROM users WHERE email = ?`, [email]);
-    return rows[0];
-  },
-
-  findById: async (id) => {
-    const [rows] = await pool.execute(`SELECT * FROM users WHERE id = ?`, [id]);
-    return rows[0];
-  },
-
-  matchPassword: async (user, password) => {
-    return bcrypt.compare(password, user.password);
-  },
-
-  activate: async (userId) => {
-    const [result] = await pool.execute(`UPDATE users SET is_active = 1 WHERE id = ?`, [userId]);
-    return result;
-  },
-};
-
-module.exports = User;
 
 class UserModel {
-  // Create a new user along with a subscription
+  // Create a new user
   static async create(userData) {
+    const hashedPassword = await bcrypt.hash(userData.password, 10); // Hash the password before inserting
     const query = 'INSERT INTO users (username, email, password, phone, role, trial_end_date) VALUES (?, ?, ?, ?, ?, ?)';
     const [userResults] = await pool.execute(query, [
       userData.username,
       userData.email,
-      userData.password,
+      hashedPassword, // Use the hashed password here
       userData.phone,
       userData.role,
       userData.trial_end_date,
@@ -61,20 +29,13 @@ class UserModel {
   }
 
   // Find user by email
-  static async findUserByEmail(email) {
+  static async findByEmail(email) {
     const query = 'SELECT * FROM users WHERE email = ?';
     const [results] = await pool.execute(query, [email]);
-    return results.length > 0 ? results[0] : null;
+    return results.length > 0 ? results[0] : null; // Returns the first match or null
   }
 
-  // Get user by email
-  static async getByEmail(email) {
-    const query = 'SELECT * FROM users WHERE email = ?';
-    const [results] = await pool.execute(query, [email]);
-    return results.length > 0 ? results[0] : null;
-  }
-
-  // Get user by ID and associated subscription data
+  // Get user by ID
   static async getById(id) {
     const query = `
       SELECT users.*, subscriptions.*
