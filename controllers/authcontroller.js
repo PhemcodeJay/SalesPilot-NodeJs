@@ -1,8 +1,10 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
-const Users = require('../models/authModel'); // Ensure this matches your authModel export
-const { sendEmail } = require('../utils/emailUtils'); // Utility for sending verification emails
+const crypto = require('crypto');
+const User = require('../models/user'); // Ensure this points to your User model
+const { ActivationCode, Subscription } = require('../models/authModel'); // Activation and Subscription models
+const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
 
 // Configure mail transporter
 const transporter = nodemailer.createTransport({
@@ -15,7 +17,7 @@ const transporter = nodemailer.createTransport({
 
 // Sign up a new user
 exports.signup = async (req, res) => {
-  const { username, email, password, confirm_password } = req.body;
+  const { username, email, password, confirm_password, phone, location } = req.body;
 
   // Check if passwords match
   if (password !== confirm_password) {
@@ -23,33 +25,54 @@ exports.signup = async (req, res) => {
   }
 
   try {
-    // Use the findUserByEmail method to check if the user already exists
-    const existingUser = await Users.findUserByEmail(email);
+    // Check if email is already registered
+    const existingUser = await User.findByEmail(email);
     if (existingUser) {
-      return res.status(400).json({ error: 'Email already in use' });
+      return res.status(400).json({ message: 'Email already registered' });
     }
 
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
     // Create a new user
-    const user = await Users.createUser({
-      username,
-      email,
-      password: hashedPassword,
-    });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = await User.create({ username, email, password: hashedPassword, phone, location });
 
-    // Generate a JWT token for email activation
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    const activationLink = `${process.env.BASE_URL}/activate/${token}`;
+    // Generate an activation code and store it
+    const activationCode = crypto.randomBytes(20).toString('hex');
+    await ActivationCode.create(newUser.id, activationCode);
 
-    // Send an activation email
-    await sendEmail(email, 'Account Activation', `Click the link to activate your account: ${activationLink}`);
+    // Send activation email
+    sendActivationEmail(email, activationCode);
 
-    res.status(201).json({ message: 'Signup successful. Please check your email for account activation.' });
-  } catch (err) {
-    console.error('Signup error:', err.message);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(201).json({ message: 'User registered, please check your email for activation' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Activate user account
+exports.activateAccount = async (req, res) => {
+  const { activation_code } = req.body;
+
+  try {
+    const activationRecord = await ActivationCode.findByCode(activation_code);
+    if (!activationRecord) {
+      return res.status(400).json({ message: 'Invalid activation code' });
+    }
+
+    const currentTime = new Date();
+    if (new Date(activationRecord.expires_at) < currentTime) {
+      return res.status(400).json({ message: 'Activation code has expired' });
+    }
+
+    // Activate user and create trial subscription
+    await User.activate(activationRecord.user_id);
+    await Subscription.createTrial(activationRecord.user_id);
+    await ActivationCode.remove(activation_code);
+
+    res.status(200).json({ message: 'Account activated successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -58,86 +81,62 @@ exports.login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Use the findUserByEmail method to fetch the user by email
-    const user = await Users.findUserByEmail(email);
+    const user = await User.findByEmail(email);
+    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!user.is_active) return res.status(400).json({ message: 'Account not activated' });
 
-    // If user does not exist or password doesn't match
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(400).json({ error: 'Invalid credentials' });
-    }
-
-    // Check if the user is active
-    if (!user.is_active) {
-      return res.status(400).json({ error: 'Please verify your email' });
-    }
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
     // Generate JWT token on successful login
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.json({ message: 'Login successful', token });
-  } catch (err) {
-    console.error('Login error:', err.message);
-    res.status(500).json({ error: 'Internal server error' });
+    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.status(200).json({ message: 'Login successful', token });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Verify user's email
-exports.verifyEmail = async (req, res) => {
-  const { token } = req.params;
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Call verifyUser method from Users model to activate the account
-    await Users.verifyUser(decoded.userId);
-
-    res.status(200).json({ message: 'Email verified successfully. You can now log in.' });
-  } catch (err) {
-    console.error('Email verification error:', err.message);
-    res.status(400).json({ error: 'Invalid or expired token' });
-  }
-};
-
-// Reset password request
-exports.recoverPassword = async (req, res) => {
+// Request password reset
+exports.resetPassword = async (req, res) => {
   const { email } = req.body;
 
   try {
-    // Use the findUserByEmail method to check if the user exists
-    const user = await Users.findUserByEmail(email);
-    if (!user) {
-      return res.status(400).json({ error: 'Email not found' });
-    }
+    const user = await User.findByEmail(email);
+    if (!user) return res.status(400).json({ message: 'User not found' });
 
-    // Generate a JWT token for password reset
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    const resetLink = `${process.env.BASE_URL}/reset-password/${token}`;
+    const resetCode = crypto.randomBytes(20).toString('hex');
+    await User.createPasswordResetRequest(user.id, resetCode);
 
-    // Send reset password email
-    await sendEmail(email, 'Password Reset Request', `Click the link to reset your password: ${resetLink}`);
-
-    res.status(200).json({ message: 'Password reset email sent. Please check your inbox.' });
-  } catch (err) {
-    console.error('Recover password error:', err.message);
-    res.status(500).json({ error: 'Internal server error' });
+    sendPasswordResetEmail(email, resetCode);
+    res.status(200).json({ message: 'Password reset email sent' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Reset password action
-exports.resetPassword = async (req, res) => {
-  const { token, newPassword } = req.body;
+// Handle password reset action
+exports.recoverPassword = async (req, res) => {
+  const { reset_code, new_password } = req.body;
 
   try {
-    // Verify the reset token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const resetRequest = await User.findPasswordResetRequest(reset_code);
+    if (!resetRequest) return res.status(400).json({ message: 'Invalid reset code' });
 
-    // Hash the new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const currentTime = new Date();
+    if (new Date(resetRequest.expires_at) < currentTime) {
+      return res.status(400).json({ message: 'Reset code has expired' });
+    }
 
-    // Update the user's password
-    await Users.updatePassword(decoded.userId, hashedPassword);
-    res.status(200).json({ message: 'Password successfully reset' });
-  } catch (err) {
-    console.error('Password reset error:', err.message);
-    res.status(400).json({ error: 'Invalid or expired token' });
+    // Hash and update password
+    const hashedPassword = await bcrypt.hash(new_password, 10);
+    await User.updatePassword(resetRequest.user_id, hashedPassword);
+    await User.deletePasswordResetRequest(reset_code);
+
+    res.status(200).json({ message: 'Password updated successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
 };

@@ -1,12 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const {
-  signup,
-  login,
-  verifyEmail,
-  recoverpwd,
-  passwordreset,
-} = require('../controllers/authcontroller'); // Ensure paths are correct
+const authController = require('../controllers/authcontroller');
+const { validateSignup, validateLogin, validateResetPassword } = require('../middleware/auth');
 
 // View Routes
 // Render the signup page
@@ -15,6 +10,26 @@ router.get('/signup', (req, res) => {
     res.render('auth/signup'); // Render the signup.ejs view
   } catch (error) {
     console.error('Error rendering signup page:', error.message);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Route for signup (POST)
+router.post('/signup', validateSignup, async (req, res, next) => {
+  try {
+    await authController.signup(req, res, next);
+  } catch (error) {
+    console.error('Signup error:', error.message);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Route for login (POST)
+router.post('/login', validateLogin, async (req, res, next) => {
+  try {
+    await authController.login(req, res, next);
+  } catch (error) {
+    console.error('Login error:', error.message);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
@@ -68,54 +83,66 @@ router.get('/recoverpwd', (req, res) => {
 });
 
 // API Routes
-// Handle user sign-up
-router.post('/signup', async (req, res, next) => {
+// Handle user sign-up (POST)
+router.post('/signup', validateSignup, async (req, res, next) => {
   try {
-    await signup(req, res, next);
+    await authController.signup(req, res, next);
   } catch (error) {
     console.error('Signup error:', error.message);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-// Handle user login
-router.post('/login', async (req, res, next) => {
+// Handle user login (POST)
+router.post('/login', validateLogin, async (req, res, next) => {
   try {
-    await login(req, res, next);
+    await authController.login(req, res, next);
   } catch (error) {
     console.error('Login error:', error.message);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-// Handle email verification
+// Handle email verification (GET)
 router.get('/activate/:token', async (req, res, next) => {
   try {
-    await verifyEmail(req, res, next);
+    await authController.verifyEmail(req, res, next);
   } catch (error) {
     console.error('Email verification error:', error.message);
     res.status(400).json({ error: 'Invalid or expired token' });
   }
 });
 
-// Handle password recovery request (send email with reset link)
+// Handle password recovery request (POST)
 router.post('/recoverpwd', async (req, res, next) => {
   try {
-    await recoverpwd(req, res, next);
+    await authController.recoverpwd(req, res, next);
   } catch (error) {
     console.error('Password recovery error:', error.message);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-// Handle password reset (after clicking the reset link)
+// Handle password reset (POST)
 router.post('/passwordreset', async (req, res, next) => {
   try {
-    await passwordreset(req, res, next);
+    await authController.passwordreset(req, res, next);
   } catch (error) {
     console.error('Password reset error:', error.message);
     res.status(400).json({ error: 'Invalid or expired token' });
   }
 });
+
+// Activate Account Route (POST)
+router.post('/activate', async (req, res, next) => {
+  try {
+    await authController.activateAccount(req, res, next);
+  } catch (error) {
+    console.error('Account activation error:', error.message);
+    res.status(400).json({ error: 'Activation failed' });
+  }
+});
+
+
 
 module.exports = router;

@@ -7,6 +7,40 @@ const validator = require('validator');
 const db = require('../config/db'); // Assuming this is your database configuration
 const User = require('../models/user'); // Importing the User model
 
+const pool = require('../config/db'); // Ensure your pool is correctly set up
+
+const ActivationCode = {
+  create: async (userId, activationCode) => {
+    const [result] = await pool.execute(
+      `INSERT INTO activation_codes (user_id, activation_code) VALUES (?, ?)`,
+      [userId, activationCode]
+    );
+    return result;
+  },
+
+  findByCode: async (activationCode) => {
+    const [rows] = await pool.execute(`SELECT * FROM activation_codes WHERE activation_code = ?`, [activationCode]);
+    return rows[0];
+  },
+
+  remove: async (activationCode) => {
+    const [result] = await pool.execute(`DELETE FROM activation_codes WHERE activation_code = ?`, [activationCode]);
+    return result;
+  },
+};
+
+const Subscription = {
+  createTrial: async (userId) => {
+    const [result] = await pool.execute(
+      `INSERT INTO subscriptions (user_id, subscription_plan, is_free_trial_used) VALUES (?, 'trial', 1)`,
+      [userId]
+    );
+    return result;
+  },
+};
+
+module.exports = { ActivationCode, Subscription };
+
 // Utility functions
 const generateRandomCode = () => crypto.randomBytes(20).toString('hex');
 
@@ -44,9 +78,14 @@ const signup = async ({ username, email, password, confirmpassword }) => {
   if (password !== confirmpassword) throw new Error('Passwords do not match');
   if (!validator.isEmail(email)) throw new Error('Invalid email format');
 
+  // Check if the user already exists
   const existingUser = await User.findUserByEmail(email);
-  if (existingUser) throw new Error('User already exists');
+  
+  if (existingUser) {
+    return { message: 'User already exists. Please log in or use a different email.' }; // If user exists, inform user
+  }
 
+  // Proceed with signup if no user exists with the email
   const hashedPassword = await bcrypt.hash(password, 10);
   const userData = {
     username,
@@ -73,14 +112,22 @@ const signup = async ({ username, email, password, confirmpassword }) => {
 };
 
 // Find a user by email
-const findUserByEmail = async (email) => {
-  try {
-    const [rows] = await db.execute('SELECT * FROM users WHERE email = ?', [email]);
-    return rows[0]; // Return the first user found (if any)
-  } catch (error) {
-    throw new Error('Error fetching user by email');
-  }
+const findUserByEmail = (email, callback) => {
+  const query = 'SELECT * FROM users WHERE email = ?';
+  db.query(query, [email], (err, rows) => {
+    if (err) {
+      console.error('Error fetching user by email:', err.message);
+      callback(null); // Handle error and pass null to callback
+    } else {
+      if (rows.length === 0) {
+        callback(null); // No user found
+      } else {
+        callback(rows[0]); // Return the first user
+      }
+    }
+  });
 };
+
 
 // Login
 const login = async (email, password) => {
