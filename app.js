@@ -12,9 +12,10 @@ require('dotenv').config();
 require('./config/passport')(passport);
 const flash = require('connect-flash');
 const cookieParser = require('cookie-parser');
-const punycode = require('punycode/');
+const tenants = require('./middleware/tenancyMiddleware');
 
 // Encode and Decode Example
+const punycode = require('punycode/');
 console.log('Encoded:', punycode.toASCII('localhost'));
 console.log('Decoded:', punycode.toUnicode('localhost'));
 
@@ -127,3 +128,4 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
+
