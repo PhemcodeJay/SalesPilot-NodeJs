@@ -97,7 +97,7 @@ const routes = {
     notification: require('./routes/notificationRoute'),
     pageAccess: require('./routes/page-accessRoute'),
     pay: require('./routes/payRoute'),
-    profile: require('./routes/profileRoute'),
+    profile: require('./routes/userRoute.js'),
     staff: require('./routes/staffRoute'),
     subscription: require('./routes/subscriptionRoute'),
     pdfRoute: require('./routes/pdfRoute'),

@@ -13,18 +13,6 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Helper function to send emails
-const sendEmail = async (to, subject, text) => {
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to,
-    subject,
-    text,
-  };
-
-  await transporter.sendMail(mailOptions);
-};
-
 // Sign up a new user
 exports.signup = async (req, res) => {
   const { username, email, password, confirm_password } = req.body;
@@ -52,7 +40,7 @@ exports.signup = async (req, res) => {
     });
 
     // Generate a JWT token for email activation
-    const token = jwt.sign({ userId: user.insertId }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
     const activationLink = `${process.env.BASE_URL}/activate/${token}`;
 
     // Send an activation email

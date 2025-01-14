@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const profileController = require('../controllers/profilecontroller'); // Ensure the path to the controller is correct
+const profileController = require('../controllers/usercontroller'); // Ensure the path to the controller is correct
 const { checkLogin } = require('../middleware/auth'); // Import middleware
 
 // Middleware for session handling (optional, depending on your app needs)
