@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
-const User = require('../models/authModel'); // Ensure this matches your authModel export
+const Users = require('../models/authModel'); // Ensure this matches your authModel export
 const { sendEmail } = require('../utils/emailUtils'); // Utility for sending verification emails
 
 // Configure mail transporter
@@ -24,7 +24,7 @@ exports.signup = async (req, res) => {
 
   try {
     // Use the findUserByEmail method to check if the user already exists
-    const existingUser = await User.findUserByEmail(email);
+    const existingUser = await Users.findUserByEmail(email);
     if (existingUser) {
       return res.status(400).json({ error: 'Email already in use' });
     }
@@ -33,7 +33,7 @@ exports.signup = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create a new user
-    const user = await User.createUser({
+    const user = await Users.createUser({
       username,
       email,
       password: hashedPassword,
@@ -59,7 +59,7 @@ exports.login = async (req, res) => {
 
   try {
     // Use the findUserByEmail method to fetch the user by email
-    const user = await User.findUserByEmail(email);
+    const user = await Users.findUserByEmail(email);
 
     // If user does not exist or password doesn't match
     if (!user || !(await bcrypt.compare(password, user.password))) {
@@ -87,8 +87,8 @@ exports.verifyEmail = async (req, res) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Call verifyUser method from User model to activate the account
-    await User.verifyUser(decoded.userId);
+    // Call verifyUser method from Users model to activate the account
+    await Users.verifyUser(decoded.userId);
 
     res.status(200).json({ message: 'Email verified successfully. You can now log in.' });
   } catch (err) {
@@ -103,7 +103,7 @@ exports.recoverPassword = async (req, res) => {
 
   try {
     // Use the findUserByEmail method to check if the user exists
-    const user = await User.findUserByEmail(email);
+    const user = await Users.findUserByEmail(email);
     if (!user) {
       return res.status(400).json({ error: 'Email not found' });
     }
@@ -134,7 +134,7 @@ exports.resetPassword = async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     // Update the user's password
-    await User.updatePassword(decoded.userId, hashedPassword);
+    await Users.updatePassword(decoded.userId, hashedPassword);
     res.status(200).json({ message: 'Password successfully reset' });
   } catch (err) {
     console.error('Password reset error:', err.message);

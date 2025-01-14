@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const moment = require('moment');
 const validator = require('validator');
-const db = require('../config/database'); // Assuming this is your database configuration
+const db = require('../config/db'); // Assuming this is your database configuration
 const User = require('../models/user'); // Importing the User model
 
 // Utility functions
