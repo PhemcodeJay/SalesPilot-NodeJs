@@ -29,10 +29,18 @@
                   <div class="col-lg-7 align-self-center">
                     <div class="p-3">
                       <h2 class="mb-2">Welcome,</h2>
-                      <p>Pls create your account.</p>
-                      <form action="/signup" method="POST" id="signup-form">
+                      <p>Please create your account.</p>
+                      
+                      <!-- Error message section -->
+                      <% if (typeof errorMessage !== 'undefined') { %>
+                        <div class="alert alert-danger">
+                          <%= errorMessage %>
+                        </div>
+                      <% } %>
+                      
+                      <form action="/auth/signup" method="POST" id="signup-form">
                         <div class="input-group input-group-outline mb-3">
-                            <input type="text" id="username" name="username" class="form-control" placeholder="Enter your username" required>
+                            <input type="text" id="name" name="name" class="form-control" placeholder="Enter your name" required>
                         </div>
                         <div class="input-group input-group-outline mb-3">
                             <input type="email" id="email" name="email" class="form-control" placeholder="Enter your email" required>
@@ -44,25 +52,25 @@
                             <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Confirm your password" required>
                         </div>
                         <button type="submit" class="btn btn-primary btn-block mb-3">Sign Up</button>
-                    </form>
-                    
-                    <script>
-                      document.addEventListener("DOMContentLoaded", function() {
-                        const signupForm = document.getElementById("signup-form");
-                    
-                        signupForm.addEventListener("submit", function(event) {
-                          const password = document.getElementById("password").value;
-                          const confirmPassword = document.getElementById("confirm_password").value;
-                    
-                          // Check if passwords match
-                          if (password !== confirmPassword) {
-                            event.preventDefault(); // Prevent form submission
-                            alert("Passwords do not match!");
-                          }
+                      </form>
+                      
+                      <script>
+                        document.addEventListener("DOMContentLoaded", function() {
+                          const signupForm = document.getElementById("signup-form");
+                      
+                          signupForm.addEventListener("submit", function(event) {
+                            const password = document.getElementById("password").value;
+                            const confirmPassword = document.getElementById("confirm_password").value;
+                      
+                            // Check if passwords match
+                            if (password !== confirmPassword) {
+                              event.preventDefault(); // Prevent form submission
+                              alert("Passwords do not match!");
+                            }
+                          });
                         });
-                      });
-                    </script>
-                                        
+                      </script>
+                                          
                       <div class="text-center">
                         <button type="button" class="btn btn-primary w-100 my-4 mb-2" onclick="window.location.href='/auth/login'">Go to Login</button>
                       </div>

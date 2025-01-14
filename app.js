@@ -6,7 +6,7 @@ const bodyParser = require('body-parser');
 const passport = require('passport');
 const bcrypt = require('./utils/bcryptUtils.js');
 const { generateToken, verifyToken } = require('./config/auth');
-const openai = require('./config/openaiconfig');
+// const openai = require('./config/openaiconfig');
 const paypalClient = require('./config/paypalconfig');
 require('dotenv').config();
 require('./config/passport')(passport);

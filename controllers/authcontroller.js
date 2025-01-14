@@ -1,10 +1,12 @@
-const User = require('../models/authModel'); // Ensure this matches your authModel export
-const Profile = require('../models/profile');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const User = require('../models/authModel'); // Ensure this matches your authModel export
+const Profile = require('../models/profile');
+const { sendVerificationEmail } = require('../utils/emailUtils'); // Utility for sending verification emails
+const { generateToken } = require('../config/auth'); // Token generation utility
 
-// Setup mail transporter
+// Configure mail transporter
 const transporter = nodemailer.createTransport({
   service: 'ionos',
   auth: {
@@ -34,17 +36,15 @@ exports.signup = async (req, res) => {
   }
 
   try {
-    const user = await User.findUserByEmail(email);
-    if (user) {
+    const existingUser = await User.findUserByEmail(email);
+    if (existingUser) {
       return res.status(400).json({ error: 'Email already in use' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.createUser({ username, email, password: hashedPassword });
 
-    const result = await User.createUser({ username, email, password: hashedPassword });
-
-    const token = jwt.sign({ userId: result.insertId }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
+    const token = jwt.sign({ userId: user.insertId }, process.env.JWT_SECRET, { expiresIn: '1h' });
     const activationLink = `${process.env.BASE_URL}/activate/${token}`;
     await sendEmail(email, 'Account Activation', `Click the link to activate your account: ${activationLink}`);
 
@@ -61,12 +61,7 @@ exports.login = async (req, res) => {
 
   try {
     const user = await User.findUserByEmail(email);
-    if (!user) {
-      return res.status(400).json({ error: 'Invalid credentials' });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
+    if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
@@ -75,23 +70,22 @@ exports.login = async (req, res) => {
     }
 
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-    res.json({ token });
+    res.json({ message: 'Login successful', token });
   } catch (err) {
     console.error('Login error:', err.message);
     res.status(500).json({ error: 'Internal server error' });
   }
 };
 
-// Verify user's email after registration
+// Verify user's email
 exports.verifyEmail = async (req, res) => {
   const { token } = req.params;
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
     await User.verifyUser(decoded.userId);
 
-    res.json({ message: 'Email verified successfully. You can now log in.' });
+    res.status(200).json({ message: 'Email verified successfully. You can now log in.' });
   } catch (err) {
     console.error('Email verification error:', err.message);
     res.status(400).json({ error: 'Invalid or expired token' });
@@ -99,7 +93,7 @@ exports.verifyEmail = async (req, res) => {
 };
 
 // Reset password request
-exports.recoverpwd = async (req, res) => {
+exports.recoverPassword = async (req, res) => {
   const { email } = req.body;
 
   try {
@@ -109,7 +103,6 @@ exports.recoverpwd = async (req, res) => {
     }
 
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
     const resetLink = `${process.env.BASE_URL}/reset-password/${token}`;
     await sendEmail(email, 'Password Reset Request', `Click the link to reset your password: ${resetLink}`);
 
@@ -121,17 +114,15 @@ exports.recoverpwd = async (req, res) => {
 };
 
 // Reset password action
-exports.passwordreset = async (req, res) => {
+exports.resetPassword = async (req, res) => {
   const { token, newPassword } = req.body;
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     await User.updatePassword(decoded.userId, hashedPassword);
-
-    res.json({ message: 'Password successfully reset' });
+    res.status(200).json({ message: 'Password successfully reset' });
   } catch (err) {
     console.error('Password reset error:', err.message);
     res.status(400).json({ error: 'Invalid or expired token' });

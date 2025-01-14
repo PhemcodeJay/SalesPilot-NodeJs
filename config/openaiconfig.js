@@ -1,11 +1,11 @@
-const { OpenAIApi, Configuration } = require('openai');
+const { Configuration, OpenAIApi } = require('openai');
 
 // Initialize OpenAI API configuration
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Create an instance of OpenAIApi
+// Create an OpenAIApi instance
 const openai = new OpenAIApi(configuration);
 
 async function main() {
@@ -17,7 +17,7 @@ async function main() {
 
     console.log('Chat Completion:', chatCompletion.data.choices[0].message.content);
   } catch (error) {
-    console.error('Error with OpenAI API:', error);
+    console.error('Error with OpenAI API:', error.response?.data || error.message);
   }
 }
 

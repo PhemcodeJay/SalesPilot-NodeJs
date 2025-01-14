@@ -19,12 +19,11 @@ const pool = mysql.createPool({
 // Test database connection
 (async () => {
   try {
-    const connection = await pool.getConnection();
+    await pool.query('SELECT 1');
     console.log('Database connected successfully');
-    connection.release();
   } catch (error) {
     console.error('Database connection error:', error);
-    process.exit(1);
+    process.exit(1); // Exit on connection failure
   }
 })();
 
@@ -37,9 +36,9 @@ const getExpiryDate = (unit, value) => moment().add(value, unit).toDate();
 
 const sendEmail = async (to, subject, text) => {
   const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.ionos.com',
-    port: process.env.EMAIL_PORT || 465,
-    secure: process.env.EMAIL_SECURE !== 'false', // Defaults to true unless explicitly set
+    host: process.env.EMAIL_HOST,
+    port: parseInt(process.env.EMAIL_PORT, 10) || 465,
+    secure: process.env.EMAIL_SECURE === 'true',
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
@@ -53,9 +52,9 @@ const sendEmail = async (to, subject, text) => {
       subject,
       text,
     });
-    console.log('Email sent successfully');
+    console.log(`Email sent successfully to ${to}`);
   } catch (error) {
-    console.error('Email sending error:', error);
+    console.error('Email sending error:', error.message);
     throw new Error('Failed to send email');
   }
 };
@@ -81,8 +80,8 @@ const signup = async ({ username, email, password, confirmpassword }) => {
     [userId, activationCode, getExpiryDate('days', 1)]
   );
 
-  const activationLink = `${process.env.APP_URL || 'http://localhost:5000'}/activate?code=${activationCode}`;
-  await sendEmail(email, 'Activate Your Account', `Click the link to activate your account: ${activationLink}`);
+  const activationLink = `${process.env.APP_URL}/activate?code=${activationCode}`;
+  await sendEmail(email, 'Activate Your Account', `Click to activate: ${activationLink}`);
 
   await pool.query(
     'INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, status, is_free_trial_used) VALUES (?, ?, ?, ?, ?, ?)',
@@ -92,6 +91,7 @@ const signup = async ({ username, email, password, confirmpassword }) => {
   return { id: userId, username, email };
 };
 
+// Login
 const login = async (email, password) => {
   if (!validator.isEmail(email)) throw new Error('Invalid email format');
 
@@ -107,27 +107,13 @@ const login = async (email, password) => {
   return { id: user.id, username: user.username, email: user.email };
 };
 
-const activateAccount = async (activationCode) => {
-  const [codes] = await pool.query(
-    'SELECT * FROM activation_codes WHERE activation_code = ? AND expires_at > NOW()',
-    [activationCode]
-  );
-  if (!codes.length) throw new Error('Invalid or expired activation code');
-
-  const code = codes[0];
-  await pool.query('UPDATE users SET is_active = 1 WHERE id = ?', [code.user_id]);
-  await pool.query('DELETE FROM activation_codes WHERE activation_code = ?', [activationCode]);
-
-  return { message: 'Account activated successfully' };
-};
-
+// Reset Password
 const resetPassword = async (email) => {
   if (!validator.isEmail(email)) throw new Error('Invalid email format');
 
   const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
   if (!users.length) {
-    // Send generic response for security reasons
-    return { message: 'If an account with the provided email exists, a password reset link has been sent.' };
+    return { message: 'If an account exists, a reset link has been sent.' };
   }
 
   const user = users[0];
@@ -139,16 +125,14 @@ const resetPassword = async (email) => {
     [user.id, hashedToken, getExpiryDate('hours', 1), hashedToken, getExpiryDate('hours', 1)]
   );
 
-  const resetLink = `${process.env.APP_URL || 'http://localhost:5000'}/reset-password?token=${resetToken}`;
-  await sendEmail(email, 'Password Reset', `Click the link to reset your password: ${resetLink}`);
+  const resetLink = `${process.env.APP_URL}/reset-password?token=${resetToken}`;
+  await sendEmail(email, 'Password Reset', `Click to reset your password: ${resetLink}`);
 
-  return { message: 'If an account with the provided email exists, a password reset link has been sent.' };
+  return { message: 'If an account exists, a reset link has been sent.' };
 };
 
-// Export functions
 module.exports = {
   signup,
   login,
-  activateAccount,
   resetPassword,
 };
