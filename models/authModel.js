@@ -1,5 +1,5 @@
 require('dotenv').config();
-const bcrypt = require('../utils/bcryptUtils');
+const bcryptUtils = require('../utils/bcryptUtils');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const moment = require('moment');
@@ -86,7 +86,7 @@ const signup = async ({ username, email, password, confirmpassword }) => {
   }
 
   // Proceed with signup if no user exists with the email
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await bcryptUtils.hash(password, 10);
   const userData = {
     username,
     email,
@@ -138,7 +138,7 @@ const login = async (email, password) => {
 
   if (!user.is_active) throw new Error('Account is not activated');
 
-  const isMatch = await bcrypt.compare(password, user.password);
+  const isMatch = await bcryptUtils.compare(password, user.password);
   if (!isMatch) throw new Error('Invalid email or password');
 
   return { id: user.id, username: user.username, email: user.email };

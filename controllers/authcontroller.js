@@ -1,11 +1,10 @@
-
+const bcryptUtils = require('../utils/bcryptUtils');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const User = require('../models/user'); // Ensure this points to your User model
 const { ActivationCode, Subscription } = require('../models/authModel'); // Activation and Subscription models
 const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
-const bcrypt = require('../utils/bcryptUtils');
 
 // Configure mail transporter
 const transporter = nodemailer.createTransport({
@@ -26,21 +25,22 @@ exports.signup = async (req, res) => {
   }
 
   try {
+    // Hash password
+    const hashedPassword = await bcryptUtils.hashPassword(password);
 
     // Create a new user
-    const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await User.create({ username, email, password: hashedPassword, phone, location });
 
     // Generate an activation code and store it
     const activationCode = crypto.randomBytes(20).toString('hex');
-    await ActivationCode.create(newUser.id, activationCode);
+    await ActivationCode.create({ user_id: newUser.id, activation_code: activationCode });
 
     // Send activation email
     sendActivationEmail(email, activationCode);
 
-    res.status(201).json({ message: 'User registered, please check your email for activation' });
+    res.status(201).json({ message: 'User registered, please check your email for activation.' });
   } catch (error) {
-    console.error(error);
+    console.error('Signup Error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -50,24 +50,27 @@ exports.activateAccount = async (req, res) => {
   const { activation_code } = req.body;
 
   try {
+    // Find activation record
     const activationRecord = await ActivationCode.findByCode(activation_code);
     if (!activationRecord) {
       return res.status(400).json({ message: 'Invalid activation code' });
     }
 
-    const currentTime = new Date();
-    if (new Date(activationRecord.expires_at) < currentTime) {
+    // Check expiration
+    if (new Date(activationRecord.expires_at) < new Date()) {
       return res.status(400).json({ message: 'Activation code has expired' });
     }
 
     // Activate user and create trial subscription
     await User.activate(activationRecord.user_id);
     await Subscription.createTrial(activationRecord.user_id);
+
+    // Remove activation code
     await ActivationCode.remove(activation_code);
 
     res.status(200).json({ message: 'Account activated successfully' });
   } catch (error) {
-    console.error(error);
+    console.error('Activation Error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -78,17 +81,29 @@ exports.login = async (req, res) => {
 
   try {
     const user = await User.findByEmail(email);
-    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
-    if (!user.is_active) return res.status(400).json({ message: 'Account not activated' });
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!user.is_active) {
+      return res.status(400).json({ message: 'Account not activated' });
+    }
 
-    // Generate JWT token on successful login
-    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const isMatch = await bcryptUtils.comparePassword(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
     res.status(200).json({ message: 'Login successful', token });
   } catch (error) {
-    console.error(error);
+    console.error('Login Error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -99,15 +114,20 @@ exports.resetPassword = async (req, res) => {
 
   try {
     const user = await User.findByEmail(email);
-    if (!user) return res.status(400).json({ message: 'User not found' });
+    if (!user) {
+      return res.status(400).json({ message: 'User not found' });
+    }
 
+    // Generate reset code
     const resetCode = crypto.randomBytes(20).toString('hex');
     await User.createPasswordResetRequest(user.id, resetCode);
 
+    // Send reset email
     sendPasswordResetEmail(email, resetCode);
+
     res.status(200).json({ message: 'Password reset email sent' });
   } catch (error) {
-    console.error(error);
+    console.error('Reset Password Error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -118,21 +138,25 @@ exports.recoverPassword = async (req, res) => {
 
   try {
     const resetRequest = await User.findPasswordResetRequest(reset_code);
-    if (!resetRequest) return res.status(400).json({ message: 'Invalid reset code' });
+    if (!resetRequest) {
+      return res.status(400).json({ message: 'Invalid reset code' });
+    }
 
-    const currentTime = new Date();
-    if (new Date(resetRequest.expires_at) < currentTime) {
+    // Check expiration
+    if (new Date(resetRequest.expires_at) < new Date()) {
       return res.status(400).json({ message: 'Reset code has expired' });
     }
 
-    // Hash and update password
-    const hashedPassword = await bcrypt.hash(new_password, 10);
+    // Hash new password
+    const hashedPassword = await bcryptUtils.hashPassword(new_password);
     await User.updatePassword(resetRequest.user_id, hashedPassword);
+
+    // Remove reset request
     await User.deletePasswordResetRequest(reset_code);
 
     res.status(200).json({ message: 'Password updated successfully' });
   } catch (error) {
-    console.error(error);
+    console.error('Recover Password Error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
