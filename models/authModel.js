@@ -1,5 +1,5 @@
 require('dotenv').config();
-const bcrypt = require('./utils/bcryptUtils');
+const bcrypt = require('../utils/bcryptUtils');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const moment = require('moment');

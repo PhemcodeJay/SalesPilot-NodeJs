@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const User = require('../models/user'); // Ensure this points to your User model
 const { ActivationCode, Subscription } = require('../models/authModel'); // Activation and Subscription models
 const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
-const bcrypt = require('./utils/bcryptUtils');
+const bcrypt = require('../utils/bcryptUtils');
 
 // Configure mail transporter
 const transporter = nodemailer.createTransport({
