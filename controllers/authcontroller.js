@@ -1,162 +1,107 @@
-const bcryptUtils = require('../utils/bcryptUtils');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
-const crypto = require('crypto');
-const User = require('../models/user'); // Ensure this points to your User model
-const { ActivationCode, Subscription } = require('../models/authModel'); // Activation and Subscription models
-const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
+const bcryptUtils = require('../utils/bcryptUtils');
+const UserModel = require('../models/UserModel');
+const mailer = require('../utils/mailer');
+const { v4: uuidv4 } = require('uuid');
 
-// Configure mail transporter
-const transporter = nodemailer.createTransport({
-  service: 'ionos',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+class AuthController {
+  async register(req, res) {
+    const { username, email, password } = req.body;
 
-// Sign up a new user
-exports.signup = async (req, res) => {
-  const { username, email, password, confirm_password, phone, location } = req.body;
+    try {
+      const existingUser = await UserModel.findOne('email', email);
+      if (existingUser) {
+        return res.status(400).json({ success: false, message: 'Email already in use' });
+      }
 
-  // Check if passwords match
-  if (password !== confirm_password) {
-    return res.status(400).json({ error: 'Passwords do not match' });
+      const result = await UserModel.create({ username, email, password });
+      if (!result.success) {
+        return res.status(500).json({ success: false, message: result.message });
+      }
+
+      res.status(201).json({ success: true, message: 'User registered successfully' });
+    } catch (error) {
+      console.error('Error during registration:', error.message);
+      res.status(500).json({ success: false, message: 'Registration failed' });
+    }
   }
 
-  try {
-    // Hash password
-    const hashedPassword = await bcryptUtils.hashPassword(password);
+  async login(req, res) {
+    const { email, password } = req.body;
 
-    // Create a new user
-    const newUser = await User.create({ username, email, password: hashedPassword, phone, location });
+    try {
+      const user = await UserModel.findOne('email', email);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
 
-    // Generate an activation code and store it
-    const activationCode = crypto.randomBytes(20).toString('hex');
-    await ActivationCode.create({ user_id: newUser.id, activation_code: activationCode });
+      const isPasswordValid = await bcryptUtils.comparePassword(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      }
 
-    // Send activation email
-    sendActivationEmail(email, activationCode);
+      const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, {
+        expiresIn: '1h',
+      });
 
-    res.status(201).json({ message: 'User registered, please check your email for activation.' });
-  } catch (error) {
-    console.error('Signup Error:', error);
-    res.status(500).json({ message: 'Server error' });
+      res.status(200).json({ success: true, token, user });
+    } catch (error) {
+      console.error('Error during login:', error.message);
+      res.status(500).json({ success: false, message: 'Login failed' });
+    }
   }
-};
 
-// Activate user account
-exports.activateAccount = async (req, res) => {
-  const { activation_code } = req.body;
+  async activateAccount(req, res) {
+    const { activationCode } = req.body;
 
-  try {
-    // Find activation record
-    const activationRecord = await ActivationCode.findByCode(activation_code);
-    if (!activationRecord) {
-      return res.status(400).json({ message: 'Invalid activation code' });
+    try {
+      const code = await db('activation_codes').where({ code: activationCode }).first();
+      if (!code || code.used) {
+        return res.status(400).json({ success: false, message: 'Invalid or expired activation code' });
+      }
+
+      await db.transaction(async (trx) => {
+        await trx('users').where({ id: code.user_id }).update({ active: true });
+        await trx('activation_codes').where({ code: activationCode }).update({ used: true });
+      });
+
+      res.status(200).json({ success: true, message: 'Account activated successfully' });
+    } catch (error) {
+      console.error('Error activating account:', error.message);
+      res.status(500).json({ success: false, message: 'Activation failed' });
     }
-
-    // Check expiration
-    if (new Date(activationRecord.expires_at) < new Date()) {
-      return res.status(400).json({ message: 'Activation code has expired' });
-    }
-
-    // Activate user and create trial subscription
-    await User.activate(activationRecord.user_id);
-    await Subscription.createTrial(activationRecord.user_id);
-
-    // Remove activation code
-    await ActivationCode.remove(activation_code);
-
-    res.status(200).json({ message: 'Account activated successfully' });
-  } catch (error) {
-    console.error('Activation Error:', error);
-    res.status(500).json({ message: 'Server error' });
   }
-};
 
-// Log in a user
-exports.login = async (req, res) => {
-  const { email, password } = req.body;
+  async resetPassword(req, res) {
+    const { email } = req.body;
 
-  try {
-    const user = await User.findByEmail(email);
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+    try {
+      const user = await UserModel.findOne('email', email);
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+
+      const resetToken = uuidv4();
+      const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+
+      await db('password_resets').insert({
+        user_id: user.id,
+        token: resetToken,
+        created_at: new Date(),
+      });
+
+      await mailer.sendEmail({
+        to: email,
+        subject: 'Password Reset Request',
+        text: `Reset your password using the link: ${resetUrl}`,
+      });
+
+      res.status(200).json({ success: true, message: 'Password reset email sent' });
+    } catch (error) {
+      console.error('Error during password reset:', error.message);
+      res.status(500).json({ success: false, message: 'Password reset failed' });
     }
-
-    if (!user.is_active) {
-      return res.status(400).json({ message: 'Account not activated' });
-    }
-
-    const isMatch = await bcryptUtils.comparePassword(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: user.id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
-
-    res.status(200).json({ message: 'Login successful', token });
-  } catch (error) {
-    console.error('Login Error:', error);
-    res.status(500).json({ message: 'Server error' });
   }
-};
+}
 
-// Request password reset
-exports.resetPassword = async (req, res) => {
-  const { email } = req.body;
-
-  try {
-    const user = await User.findByEmail(email);
-    if (!user) {
-      return res.status(400).json({ message: 'User not found' });
-    }
-
-    // Generate reset code
-    const resetCode = crypto.randomBytes(20).toString('hex');
-    await User.createPasswordResetRequest(user.id, resetCode);
-
-    // Send reset email
-    sendPasswordResetEmail(email, resetCode);
-
-    res.status(200).json({ message: 'Password reset email sent' });
-  } catch (error) {
-    console.error('Reset Password Error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// Handle password reset action
-exports.recoverPassword = async (req, res) => {
-  const { reset_code, new_password } = req.body;
-
-  try {
-    const resetRequest = await User.findPasswordResetRequest(reset_code);
-    if (!resetRequest) {
-      return res.status(400).json({ message: 'Invalid reset code' });
-    }
-
-    // Check expiration
-    if (new Date(resetRequest.expires_at) < new Date()) {
-      return res.status(400).json({ message: 'Reset code has expired' });
-    }
-
-    // Hash new password
-    const hashedPassword = await bcryptUtils.hashPassword(new_password);
-    await User.updatePassword(resetRequest.user_id, hashedPassword);
-
-    // Remove reset request
-    await User.deletePasswordResetRequest(reset_code);
-
-    res.status(200).json({ message: 'Password updated successfully' });
-  } catch (error) {
-    console.error('Recover Password Error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
+module.exports = new AuthController();
