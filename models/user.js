@@ -1,64 +1,186 @@
-const db = require('../config/db');
-const bcryptUtils = require('../utils/bcryptUtils');
+const pool = require('../config/db'); // Database connection
+const bcryptUtils = require('../utils/bcryptUtils'); // Utility for password hashing
 
 class UserModel {
-  async create(user) {
-    const { username, email, password } = user;
-    const subscriptionStartDate = new Date().toISOString().split('T')[0];
-    const subscriptionEndDate = '2030-12-31';
-
+  // Create a new user and their subscription
+  static async create(userData) {
     try {
+      if (!userData || typeof userData !== 'object') {
+        throw new Error('Invalid user data provided.');
+      }
+
+      const {
+        username,
+        email,
+        password,
+        phone = null,
+        role = 'sales',
+        user_image,
+        location,
+        subscription_plan = 'trial',
+        start_date = null,
+        end_date = '2030-12-31 20:59:59',
+        status = 'active',
+        is_free_trial_used = false,
+      } = userData;
+
+      if (!username || !email || !password || !user_image || !location) {
+        throw new Error(
+          'Missing required fields: username, email, password, user_image, or location.'
+        );
+      }
+
+      // Check if user with username or email already exists
+      const checkUserQuery = `
+        SELECT * FROM users WHERE username = ? OR email = ?
+      `;
+      const [existingUser] = await pool.execute(checkUserQuery, [
+        username,
+        email,
+      ]);
+
+      if (existingUser.length > 0) {
+        throw new Error('User with this username or email already exists.');
+      }
+
+      // Hash the password
       const hashedPassword = await bcryptUtils.hashPassword(password);
 
-      await db.transaction(async (trx) => {
-        const [userId] = await trx('users')
-          .insert({ username, email, password: hashedPassword })
-          .returning('id');
+      // Insert user into the database
+      const userQuery = `
+        INSERT INTO users (username, email, password, phone, role, user_image, location, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      const [userResults] = await pool.execute(userQuery, [
+        username,
+        email,
+        hashedPassword,
+        phone,
+        role,
+        user_image,
+        location,
+        status,
+      ]);
 
-        await trx('subscriptions').insert({
-          user_id: userId,
-          start_date: subscriptionStartDate,
-          end_date: subscriptionEndDate,
-          status: 'active',
-        });
-      });
+      if (!userResults || userResults.affectedRows === 0) {
+        throw new Error('Failed to create user.');
+      }
 
-      return { success: true, message: 'User created successfully' };
+      // Insert subscription details if applicable
+      if (subscription_plan || start_date || end_date || status) {
+        const subscriptionQuery = `
+          INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, status, is_free_trial_used)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `;
+        const [subscriptionResults] = await pool.execute(subscriptionQuery, [
+          userResults.insertId,
+          subscription_plan,
+          start_date || new Date(),
+          end_date,
+          status,
+          is_free_trial_used,
+        ]);
+
+        if (!subscriptionResults || subscriptionResults.affectedRows === 0) {
+          throw new Error('Failed to create subscription.');
+        }
+      }
+
+      return { success: true, userId: userResults.insertId };
     } catch (error) {
       console.error('Error creating user:', error.message);
-      return { success: false, message: 'Failed to create user' };
+      throw new Error(`Error creating user: ${error.message}`);
     }
   }
 
-  async update(userId, updates) {
+  // Method to find a user by a specific field
+  static async findOne(field, value) {
     try {
-      await db('users').where({ id: userId }).update(updates);
-      return { success: true, message: 'User updated successfully' };
+      if (!field || !value) {
+        throw new Error('Field and value are required for finding a user.');
+      }
+
+      const query = `
+        SELECT * FROM users WHERE ${field} = ?
+      `;
+      const [results] = await pool.execute(query, [value]);
+
+      if (results.length === 0) {
+        return null; // No user found
+      }
+
+      return results[0]; // Return the first result
+    } catch (error) {
+      console.error(`Error finding user by ${field}:`, error.message);
+      throw new Error(`Error finding user by ${field}: ${error.message}`);
+    }
+  }
+
+  // Method to get user by ID
+  static async getById(userId) {
+    return this.findOne('id', userId);
+  }
+
+  // Method to update user details
+  static async update(userId, userData) {
+    try {
+      const {
+        username,
+        email,
+        phone,
+        role,
+        user_image,
+        location,
+        status,
+      } = userData;
+
+      const updateQuery = `
+        UPDATE users
+        SET username = ?, email = ?, phone = ?, role = ?, user_image = ?, location = ?, status = ?
+        WHERE id = ?
+      `;
+
+      const [updateResult] = await pool.execute(updateQuery, [
+        username,
+        email,
+        phone,
+        role,
+        user_image,
+        location,
+        status,
+        userId,
+      ]);
+
+      if (updateResult.affectedRows === 0) {
+        throw new Error('Failed to update user.');
+      }
+
+      return { success: true };
     } catch (error) {
       console.error('Error updating user:', error.message);
-      return { success: false, message: 'Failed to update user' };
+      throw new Error(`Error updating user: ${error.message}`);
     }
   }
 
-  async delete(userId) {
+  // Method to delete user
+  static async delete(userId) {
     try {
-      await db('users').where({ id: userId }).del();
-      return { success: true, message: 'User deleted successfully' };
+      const deleteQuery = `
+        DELETE FROM users WHERE id = ?
+      `;
+
+      const [deleteResult] = await pool.execute(deleteQuery, [userId]);
+
+      if (deleteResult.affectedRows === 0) {
+        throw new Error('Failed to delete user.');
+      }
+
+      return { success: true };
     } catch (error) {
       console.error('Error deleting user:', error.message);
-      return { success: false, message: 'Failed to delete user' };
-    }
-  }
-
-  async findOne(field, value) {
-    try {
-      const user = await db('users').where({ [field]: value }).first();
-      return user || null;
-    } catch (error) {
-      console.error('Error finding user:', error.message);
-      throw new Error('Failed to find user');
+      throw new Error(`Error deleting user: ${error.message}`);
     }
   }
 }
 
-module.exports = new UserModel();
+module.exports = UserModel;
