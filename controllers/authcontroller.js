@@ -3,8 +3,8 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const nodemailer = require('nodemailer');
-const User = require('../models/User'); // Ensure this points to your User model
-const { ActivationCode, Subscription } = require('../models/authModel'); // ActivationCode and Subscription models
+const User = require('../models/User');
+const { ActivationCode, Subscription } = require('../models/authModel');
 const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
 
 // Configure mail transporter
@@ -21,6 +21,10 @@ class AuthController {
   async signup(req, res) {
     const { username, email, password, confirm_password, phone, location } = req.body;
 
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
     if (password !== confirm_password) {
       return res.status(400).json({ success: false, message: 'Passwords do not match' });
     }
@@ -29,7 +33,7 @@ class AuthController {
       // Check if user exists
       const existingUser = await User.findOne({ where: { email } });
       if (existingUser) {
-        return res.status(400).json({ success: false, message: 'Email is already signuped' });
+        return res.status(400).json({ success: false, message: 'Email is already signed up' });
       }
 
       // Hash the password
@@ -47,18 +51,18 @@ class AuthController {
         subscription_plan: 'trial',
         start_date: new Date(),
         end_date: '2030-12-31 20:59:59',
-        status: 'active',
+        status: 'inactive', // default status until activated
         is_free_trial_used: false,
       });
 
       // Generate activation code
       const activationCode = crypto.randomBytes(20).toString('hex');
-      await ActivationCode.create({ user_id: user.id, activation_code: activationCode });
+      await ActivationCode.create({ user_id: user.id, activation_code: activationCode, expires_at: new Date(Date.now() + 3600000) }); // 1 hour expiry
 
       // Send activation email
       await sendActivationEmail(email, activationCode);
 
-      res.status(201).json({ success: true, message: 'User signuped successfully. Check your email for activation.' });
+      res.status(201).json({ success: true, message: 'User signed up successfully. Check your email for activation.' });
     } catch (error) {
       console.error('Error during registration:', error.message);
       res.status(500).json({ success: false, message: 'Server error during registration.' });
@@ -68,6 +72,10 @@ class AuthController {
   // Account Activation
   async activateAccount(req, res) {
     const { activation_code } = req.body;
+
+    if (!activation_code) {
+      return res.status(400).json({ success: false, message: 'Activation code is required' });
+    }
 
     try {
       const activationRecord = await ActivationCode.findOne({ where: { activation_code } });
@@ -93,6 +101,10 @@ class AuthController {
   // User Login
   async login(req, res) {
     const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    }
 
     try {
       const user = await User.findOne({ where: { email } });
@@ -121,6 +133,10 @@ class AuthController {
   async requestPasswordReset(req, res) {
     const { email } = req.body;
 
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
     try {
       const user = await User.findOne({ where: { email } });
       if (!user) {
@@ -131,7 +147,7 @@ class AuthController {
       await ActivationCode.create({
         user_id: user.id,
         activation_code: resetToken,
-        expires_at: new Date(Date.now() + 3600000), // 1 hour
+        expires_at: new Date(Date.now() + 3600000), // 1 hour expiry
       });
 
       const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
@@ -148,6 +164,10 @@ class AuthController {
   async resetPassword(req, res) {
     const { reset_code, new_password } = req.body;
 
+    if (!reset_code || !new_password) {
+      return res.status(400).json({ success: false, message: 'Reset code and new password are required' });
+    }
+
     try {
       const resetRecord = await ActivationCode.findOne({ where: { activation_code: reset_code } });
       if (!resetRecord) {
@@ -160,7 +180,7 @@ class AuthController {
 
       const hashedPassword = await bcryptUtils.hashPassword(new_password);
       await User.update({ password: hashedPassword }, { where: { id: resetRecord.user_id } });
-      await ActivationCode.destroy({ where: { activation_code: reset_code } });
+      await ActivationCode.destroy({ where: { activation_code } });
 
       res.status(200).json({ success: true, message: 'Password reset successfully' });
     } catch (error) {
