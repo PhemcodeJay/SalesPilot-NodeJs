@@ -46,9 +46,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(3000, () => {
-  console.log('Server running on http://localhost:5000');
-});
+
 
 
 // Session Configuration

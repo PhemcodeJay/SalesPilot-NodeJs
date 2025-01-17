@@ -42,7 +42,7 @@ class UserModel {
       if (existingUser.length > 0) {
         throw new Error('User with this username or email already exists.');
       }
-
+      
       // Hash the password
       const hashedPassword = await bcryptUtils.hashPassword(password);
 
