@@ -14,6 +14,8 @@ const flash = require('connect-flash');
 const cookieParser = require('cookie-parser');
 const tenants = require('./middleware/tenancyMiddleware');
 
+const asyncHandler = require('./middleware/asyncHandler');
+const rateLimiter = require('./middleware/rateLimiter');
 // Encode and Decode Example
 const punycode = require('punycode/');
 console.log('Encoded:', punycode.toASCII('localhost'));
@@ -21,6 +23,33 @@ console.log('Decoded:', punycode.toUnicode('localhost'));
 
 // Initialize Express App
 const app = express();
+
+// Apply global rate limiter
+app.use(rateLimiter);
+
+// Example route with asyncHandler
+app.get(
+  '/api/example',
+  asyncHandler(async (req, res) => {
+    // Your async code here
+    res.json({ success: true, data: 'Hello, World!' });
+  })
+);
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    success: false,
+    message: 'Internal Server Error',
+    error: err.message,
+  });
+});
+
+app.listen(3000, () => {
+  console.log('Server running on http://localhost:5000');
+});
+
 
 // Session Configuration
 app.use(

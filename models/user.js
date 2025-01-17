@@ -94,31 +94,46 @@ class UserModel {
   }
 
   // Method to find a user by a specific field
-  static async findOne(field, value) {
-    try {
-      if (!field || !value) {
-        throw new Error('Field and value are required for finding a user.');
-      }
-
-      const query = `
-        SELECT * FROM users WHERE ${field} = ?
-      `;
-      const [results] = await pool.execute(query, [value]);
-
-      if (results.length === 0) {
-        return null; // No user found
-      }
-
-      return results[0]; // Return the first result
-    } catch (error) {
-      console.error(`Error finding user by ${field}:`, error.message);
-      throw new Error(`Error finding user by ${field}: ${error.message}`);
+static async findOne(query) {
+  try {
+    if (!query || typeof query !== 'object') {
+      throw new Error('Invalid query object provided.');
     }
+
+    const keys = Object.keys(query);
+    if (keys.length !== 1) {
+      throw new Error('Query object must have exactly one key.');
+    }
+
+    const field = keys[0];
+    const value = query[field];
+
+    // Use parameterized query to prevent SQL injection
+    const queryString = `
+      SELECT * FROM users WHERE ${field} = ?
+    `;
+    const [results] = await pool.execute(queryString, [value]);
+
+    if (results.length === 0) {
+      return null; // No user found
+    }
+
+    return results[0]; // Return the first result
+  } catch (error) {
+    console.error(`Error finding user by field '${JSON.stringify(query)}':`, error.message);
+    throw new Error(`Error finding user: ${error.message}`);
   }
+}
+
 
   // Method to get user by ID
   static async getById(userId) {
-    return this.findOne('id', userId);
+    try {
+      return await this.findOne({ id: userId });
+    } catch (error) {
+      console.error(`Error getting user by ID: ${error.message}`);
+      throw error;
+    }
   }
 
   // Method to update user details
