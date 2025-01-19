@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -13,6 +14,7 @@
   <link rel="stylesheet" href="/assets/vendor/line-awesome/dist/line-awesome/css/line-awesome.min.css">
   <link rel="stylesheet" href="/assets/vendor/remixicon/fonts/remixicon.css">  
 </head>
+
 <body>
   <!-- loader Start -->
   <div id="loading">
@@ -33,7 +35,14 @@
                       <h2 class="mb-2">Login</h2>
                       <p>Welcome back! Please login to your account.</p>
 
-                      <form action="/login" method="POST" autocomplete="off">
+                      <!-- Displaying errors if any -->
+                      <% if (typeof errorMessage !== 'undefined') { %>
+                        <div class="alert alert-danger">
+                          <%= errorMessage %>
+                        </div>
+                      <% } %>
+
+                      <form action="/auth/login" method="POST" autocomplete="off">
                         <div class="input-group input-group-outline mb-3">
                           <input type="text" name="email" id="email" class="form-control" placeholder="Enter your email" required>
                         </div>
@@ -54,7 +63,7 @@
                         </div>
                       </form>
                       
-                      
+
                       <div class="text-center">
                         <button type="button" id="signupButton" class="btn btn-primary w-100 my-4 mb-2" onclick="location.href='/auth/signup';">Sign Up</button>
                       </div>
@@ -81,4 +90,5 @@
   <!-- app JavaScript -->
   <script src="/assets/js/app.js"></script>
 </body>
+
 </html>

@@ -33,8 +33,6 @@ class AuthController {
       return res.status(400).json({ success: false, message: 'Email is already signed up.' });
     }
 
-    
-
     // Hash the password
     const hashedPassword = await bcryptUtils.hashPassword(password);
 
@@ -95,28 +93,64 @@ class AuthController {
     res.status(200).json({ success: true, message: 'Account activated successfully.' });
   });
 
-  // User Login
+  // User Login - API Route (returns token and user data in JSON)
   login = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
+    // Check if email and password are provided
     if (!email || !password) {
       return res.status(400).json({ success: false, message: 'Email and password are required.' });
     }
 
+    // Find user by email
     const user = await User.findOne({ where: { email } });
     if (!user || user.status !== 'active') {
       return res.status(400).json({ success: false, message: 'Invalid credentials or account not activated.' });
     }
 
+    // Validate password
     const isPasswordValid = await bcryptUtils.comparePassword(password, user.password);
     if (!isPasswordValid) {
       return res.status(400).json({ success: false, message: 'Invalid credentials.' });
     }
 
+    // Generate JWT token
     const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
+    // Return success response with token and user data
     res.status(200).json({ success: true, token, user });
   });
+
+  // User Login - View Route (renders login page with error message)
+  loginView = async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      // Check if the user exists
+      const user = await User.findOne({ where: { email } });
+      if (!user) {
+        return res.render('auth/login', { errorMessage: 'Invalid email or password.' });
+      }
+
+      // Validate password
+      const isPasswordValid = await bcryptUtils.comparePassword(password, user.password);
+      if (!isPasswordValid) {
+        return res.render('auth/login', { errorMessage: 'Invalid email or password.' });
+      }
+
+      // Successful login: create JWT token and redirect to dashboard
+      const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+      // Set token in a cookie (optional)
+      res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
+
+      // Redirect to dashboard or home page
+      res.redirect('/dashboard');
+    } catch (error) {
+      console.error('Login error:', error.message);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  };
 
   // Request Password Reset
   requestPasswordReset = asyncHandler(async (req, res) => {
