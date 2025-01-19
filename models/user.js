@@ -110,7 +110,14 @@ static async findOne(query) {
 
     const queryString = `SELECT * FROM users WHERE ${field} = ?`;
 
-    const [results] = await pool.execute(queryString, [value]);
+    let results;
+    try {
+      [results] = await pool.execute(queryString, [value]);
+      console.log('Database Query Results:', results); // Debugging Log
+    } catch (dbError) {
+      console.error('Database Query Error:', dbError.message);
+      throw new Error('Database query failed.');
+    }
 
     if (!Array.isArray(results)) {
       throw new Error('Database query did not return an array.');
@@ -118,7 +125,7 @@ static async findOne(query) {
 
     return results.length > 0 ? results[0] : null;
   } catch (error) {
-    console.error(`Error finding user by field '${JSON.stringify(query)}':`, error.message);
+    console.error(`Error in findOne method: ${error.message}`);
     throw new Error(`Internal Server Error: ${error.message}`);
   }
 }
