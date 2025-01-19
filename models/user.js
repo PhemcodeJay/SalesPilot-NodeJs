@@ -93,34 +93,67 @@ class UserModel {
     }
   }
 
-  // Method to find a user by a specific field
+// Method to find a user by a specific field
 static async findOne(query) {
   try {
+    // Validate query object
     if (!query || typeof query !== 'object') {
       throw new Error('Invalid query object provided.');
     }
 
-    const keys = Object.keys(query);
-    if (keys.length !== 1) {
-      throw new Error('Query object must have exactly one key.');
+    let field, value;
+
+    // Handle the case where query uses a "where" clause
+    if (query.where && typeof query.where === 'object') {
+      const whereKeys = Object.keys(query.where);
+
+      // Ensure the "where" object has exactly one key
+      if (whereKeys.length !== 1) {
+        throw new Error('"where" object must have exactly one key.');
+      }
+
+      field = whereKeys[0]; // Extract the field name
+      value = query.where[field]; // Extract the corresponding value
+    } else {
+      const keys = Object.keys(query);
+
+      // Ensure the query object has exactly one key
+      if (keys.length !== 1) {
+        throw new Error('Query object must have exactly one key.');
+      }
+
+      field = keys[0]; // Extract the field name
+      value = query[field]; // Extract the corresponding value
     }
 
-    const field = keys[0];
-    const value = query[field];
+    // Define allowed fields to prevent SQL injection
+    const allowedFields = ["id", "username", "email", "phone"]; // Add valid column names here
 
-    // Use parameterized query to prevent SQL injection
-    const queryString = `
-      SELECT * FROM users WHERE ${field} = ?
-    `;
+    // Validate the field against allowed fields
+    if (!allowedFields.includes(field)) {
+      throw new Error(`Invalid field: ${field}`);
+    }
+
+    // Construct and execute the query using parameterized input
+    const queryString = `SELECT * FROM users WHERE ${field} = ?`;
     const [results] = await pool.execute(queryString, [value]);
 
-    if (results.length === 0) {
-      return null; // No user found
+    // Check if results are undefined or not an array
+    if (!Array.isArray(results)) {
+      console.error('Unexpected response from database:', results);
+      throw new Error('Unexpected response from database.');
     }
 
-    return results[0]; // Return the first result
+    // Return null if no user is found
+    if (results.length === 0) {
+      return null;
+    }
+
+    // Return the first matching result
+    return results[0];
   } catch (error) {
-    console.error(`Error finding user by field '${JSON.stringify(query)}':`, error.message);
+    // Log the complete error stack for debugging
+    console.error(`Error finding user by field '${JSON.stringify(query)}':`, error);
     throw new Error(`Error finding user: ${error.message}`);
   }
 }
