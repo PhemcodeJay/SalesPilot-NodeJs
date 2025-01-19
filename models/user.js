@@ -2,7 +2,7 @@ const pool = require('../config/db'); // Database connection
 const bcryptUtils = require('../utils/bcryptUtils'); // Utility for password hashing
 
 class UserModel {
-  // Create a new user and their subscription
+  // Create a new user
   static async create(userData) {
     try {
       if (!userData || typeof userData !== 'object') {
@@ -12,20 +12,18 @@ class UserModel {
       const {
         username,
         email,
-        password,
         phone = null,
-        role = 'sales',
-        user_image,
+        password,
         location,
+        role = 'sales',
         subscription_plan = 'trial',
         start_date = null,
         end_date = '2030-12-31 20:59:59',
-        status = 'active',
         is_free_trial_used = false,
       } = userData;
 
-      if (!username || !email || !password || !user_image || !location) {
-        throw new Error('Missing required fields: username, email, password, user_image, or location.');
+      if (!username || !email || !password || !location) {
+        throw new Error('Missing required fields: username, email, password, or location.');
       }
 
       // Hash the password
@@ -33,18 +31,16 @@ class UserModel {
 
       // Insert user into the database
       const userQuery = `
-        INSERT INTO users (username, email, password, phone, role, user_image, location, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (username, email, phone, password, location, role)
+        VALUES (?, ?, ?, ?, ?, ?)
       `;
       const [userResults] = await pool.execute(userQuery, [
         username,
         email,
-        hashedPassword,
         phone,
-        role,
-        user_image,
+        hashedPassword,
         location,
-        status,
+        role,
       ]);
 
       if (!userResults || userResults.affectedRows === 0) {
@@ -52,17 +48,16 @@ class UserModel {
       }
 
       // Insert subscription details if applicable
-      if (subscription_plan || start_date || end_date || status) {
+      if (subscription_plan || start_date || end_date) {
         const subscriptionQuery = `
-          INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, status, is_free_trial_used)
-          VALUES (?, ?, ?, ?, ?, ?)
+          INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, is_free_trial_used)
+          VALUES (?, ?, ?, ?, ?)
         `;
         const [subscriptionResults] = await pool.execute(subscriptionQuery, [
           userResults.insertId,
           subscription_plan,
           start_date || new Date(),
           end_date,
-          status,
           is_free_trial_used,
         ]);
 
@@ -128,7 +123,7 @@ class UserModel {
   }
 
   // Signup method
-  static async signup(email, username, phone, password) {
+  static async signup(email, username, phone, password, location) {
     try {
       const existingUser = await this.findOne({ where: { email } });
 
@@ -141,8 +136,7 @@ class UserModel {
         username,
         phone,
         password,
-        user_image: 'default.jpg', // Adjust default image as needed
-        location: 'Unknown', // Adjust default location as needed
+        location,
       });
 
       return newUser;
@@ -165,19 +159,11 @@ class UserModel {
   // Method to update user details
   static async update(userId, userData) {
     try {
-      const {
-        username,
-        email,
-        phone,
-        role,
-        user_image,
-        location,
-        status,
-      } = userData;
+      const { username, email, phone, role, location } = userData;
 
       const updateQuery = `
         UPDATE users
-        SET username = ?, email = ?, phone = ?, role = ?, user_image = ?, location = ?, status = ?
+        SET username = ?, email = ?, phone = ?, role = ?, location = ?
         WHERE id = ?
       `;
 
@@ -186,9 +172,7 @@ class UserModel {
         email,
         phone,
         role,
-        user_image,
         location,
-        status,
         userId,
       ]);
 
