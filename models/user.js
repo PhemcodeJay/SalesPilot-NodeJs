@@ -73,54 +73,56 @@ class UserModel {
     }
   }
 
-  // Method to find a user by a specific field
-  static async findOne(query) {
-    try {
-      if (!query || typeof query !== 'object') {
-        throw new Error('Invalid query object provided.');
-      }
-
-      let field, value;
-
-      if (query.where && typeof query.where === 'object') {
-        const whereKeys = Object.keys(query.where);
-
-        if (whereKeys.length !== 1) {
-          throw new Error('"where" object must have exactly one key.');
-        }
-
-        field = whereKeys[0];
-        value = query.where[field];
-      } else {
-        const keys = Object.keys(query);
-
-        if (keys.length !== 1) {
-          throw new Error('Query object must have exactly one key.');
-        }
-
-        field = keys[0];
-        value = query[field];
-      }
-
-      const allowedFields = ["id", "username", "email", "phone"];
-
-      if (!allowedFields.includes(field)) {
-        throw new Error(`Invalid field: ${field}`);
-      }
-
-      const queryString = `SELECT * FROM users WHERE ${field} = ?`;
-      const [results] = await pool.execute(queryString, [value]);
-
-      if (!Array.isArray(results)) {
-        throw new Error('Unexpected response from database.');
-      }
-
-      return results.length > 0 ? results[0] : null;
-    } catch (error) {
-      console.error(`Error finding user by field '${JSON.stringify(query)}':`, error);
-      throw new Error(`Error finding user: ${error.message}`);
+// Method to find a user by a specific field
+static async findOne(query) {
+  try {
+    if (!query || typeof query !== 'object') {
+      throw new Error('Invalid query object provided.');
     }
+
+    let field, value;
+
+    if (query.where && typeof query.where === 'object') {
+      const whereKeys = Object.keys(query.where);
+
+      if (whereKeys.length !== 1) {
+        throw new Error('"where" object must have exactly one key.');
+      }
+
+      field = whereKeys[0];
+      value = query.where[field];
+    } else {
+      const keys = Object.keys(query);
+
+      if (keys.length !== 1) {
+        throw new Error('Query object must have exactly one key.');
+      }
+
+      field = keys[0];
+      value = query[field];
+    }
+
+    const allowedFields = ["id", "username", "email", "phone"];
+
+    if (!allowedFields.includes(field)) {
+      throw new Error(`Invalid field: ${field}`);
+    }
+
+    const queryString = `SELECT * FROM users WHERE ${field} = ?`;
+
+    const [results] = await pool.execute(queryString, [value]);
+
+    if (!Array.isArray(results)) {
+      throw new Error('Database query did not return an array.');
+    }
+
+    return results.length > 0 ? results[0] : null;
+  } catch (error) {
+    console.error(`Error finding user by field '${JSON.stringify(query)}':`, error.message);
+    throw new Error(`Internal Server Error: ${error.message}`);
   }
+}
+
 
   // Signup method
   static async signup(email, username, phone, password, location) {
