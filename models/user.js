@@ -69,7 +69,6 @@ class UserModel {
       return { success: true, userId: userResults.insertId };
     } catch (error) {
       console.error('Error creating user:', error.message);
-      throw new Error(`Error creating user: ${error.message}`);
     }
   }
 
@@ -126,7 +125,6 @@ static async findOne(query) {
     return results.length > 0 ? results[0] : null;
   } catch (error) {
     console.error(`Error in findOne method: ${error.message}`);
-    throw new Error(`Internal Server Error: ${error.message}`);
   }
 }
 
