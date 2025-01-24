@@ -121,36 +121,98 @@ class AuthController {
     res.status(200).json({ success: true, token, user });
   });
 
-  // User Login - View Route (renders login page with error message)
-  loginView = async (req, res) => {
-    try {
-      const { email, password } = req.body;
-
-      // Check if the user exists
-      const user = await User.findOne({ where: { email } });
-      if (!user) {
-        return res.render('auth/login', { errorMessage: 'Invalid email or password.' });
+  class AuthController {
+    // User Registration
+    signup = asyncHandler(async (req, res) => {
+      const { username, email, password, confirm_password, phone, location } = req.body;
+  
+      // Validation
+      if (!email || !password || !username) {
+        return res.status(400).json({ success: false, message: 'Username, email, and password are required.' });
       }
-
-      // Validate password
-      const isPasswordValid = await bcryptUtils.comparePassword(password, user.password);
-      if (!isPasswordValid) {
-        return res.render('auth/login', { errorMessage: 'Invalid email or password.' });
+      if (password !== confirm_password) {
+        return res.status(400).json({ success: false, message: 'Passwords do not match.' });
       }
-
-      // Successful login: create JWT token and redirect to dashboard
-      const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
-      // Set token in a cookie (optional)
-      res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production' });
-
-      // Redirect to dashboard or home page
-      res.redirect('/dashboard');
-    } catch (error) {
-      console.error('Login error:', error.message);
-      res.status(500).json({ error: 'Internal Server Error' });
-    }
-  };
+      if (password.length < 8 || !/\d/.test(password) || !/[a-zA-Z]/.test(password)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Password must be at least 8 characters long and include letters and numbers.',
+        });
+      }
+  
+      // Check if user exists
+      const existingUser = await User.findOne({ where: { email } });
+      if (existingUser) {
+        return res.status(400).json({ success: false, message: 'Email is already signed up.' });
+      }
+  
+      // Hash the password
+      const hashedPassword = await bcryptUtils.hashPassword(password);
+  
+      // Create user
+      const user = await User.create({
+        username,
+        email,
+        password: hashedPassword,
+        phone,
+        location,
+        user_image: req.body.user_image || 'default-image.jpg',
+        role: 'sales',
+        status: 'inactive', // default status until activated
+      });
+  
+      // Generate activation code
+      const activationCode = crypto.randomBytes(20).toString('hex');
+      await ActivationCode.create({
+        user_id: user.id,
+        activation_code: activationCode,
+        expires_at: new Date(Date.now() + 3600000), // 1-hour expiry
+      });
+  
+      // Send activation email
+      await sendActivationEmail(email, activationCode);
+  
+      res.status(201).json({
+        success: true,
+        message: 'User signed up successfully. Check your email for activation.',
+      });
+    });
+  
+    // Account Activation
+    activateAccount = asyncHandler(async (req, res) => {
+      const { activation_code } = req.body;
+  
+      if (!activation_code) {
+        return res.status(400).json({ success: false, message: 'Activation code is required.' });
+      }
+  
+      const activationRecord = await ActivationCode.findOne({ where: { activation_code } });
+      if (!activationRecord) {
+        return res.status(400).json({ success: false, message: 'Invalid activation code.' });
+      }
+  
+      if (new Date(activationRecord.expires_at) < new Date()) {
+        return res.status(400).json({ success: false, message: 'Activation code has expired.' });
+      }
+  
+      // Activate user and remove activation code
+      await User.update({ status: 'active' }, { where: { id: activationRecord.user_id } });
+      await ActivationCode.destroy({ where: { activation_code } });
+  
+      // Grant free trial subscription
+      try {
+        const trialSubscription = await Subscription.createTrial(activationRecord.user_id);
+        if (!trialSubscription.affectedRows) {
+          return res.status(500).json({ success: false, message: 'Failed to activate free trial subscription.' });
+        }
+      } catch (error) {
+        return res.status(500).json({ success: false, message: 'Error granting free trial subscription.', error });
+      }
+  
+      res.status(200).json({ success: true, message: 'Account activated successfully and free trial started.' });
+    });
+  }
+  
 
   // Request Password Reset
   requestPasswordReset = asyncHandler(async (req, res) => {

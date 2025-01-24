@@ -7,7 +7,7 @@ const db = mysql.createPool({
   host: 'localhost',
   user: 'root',
   password: '',
-  database: 'dbs13455438',
+  database: 'salespilot',
 });
 
 /**
@@ -17,14 +17,14 @@ const checkAndDeactivateSubscriptions = async () => {
   try {
     // Fetch all active subscriptions with expiration dates
     const [subscriptions] = await db.execute(
-      'SELECT id, user_id, expiration_date FROM subscriptions WHERE status = "active"'
+      'SELECT id, user_id, end_date FROM subscriptions WHERE status = "active"'
     );
 
     // Current date for comparison
     const now = DateTime.now();
 
     for (const subscription of subscriptions) {
-      const expirationDate = DateTime.fromISO(subscription.expiration_date);
+      const expirationDate = DateTime.fromISO(subscription.end_date);
 
       if (expirationDate < now) {
         // Update the subscription status to "inactive"
