@@ -1,42 +1,31 @@
-const { Sequelize } = require('sequelize');
-const mysql = require('mysql2/promise');
-require('dotenv').config();
+const { getTenantDatabase } = require('../config/db');  // Import the database function
 
-// Function to get tenant-specific database configurations
-const getTenantDatabase = (tenantDbName) => {
-  if (!tenantDbName) {
-    throw new Error("tenantDbName must be provided for tenant database configuration.");
+module.exports = (req, res, next) => {
+  // Attempt to get tenant identifier from request (either from headers or subdomains)
+  const tenantId = req.headers['tenant-id'] || req.subdomains[0];  // Modify this based on your system
+
+  if (!tenantId) {
+    return res.status(400).json({ message: 'Tenant ID is required.' });
   }
 
-  const mysqlPDO = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: tenantDbName,  // Dynamically use the tenant's database
-    charset: 'utf8mb4',      // Support extended UTF-8 characters
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-  });
+  // Assuming your tenant databases are named in the format 'tenant_db_{tenantId}'
+  const tenantDbName = `tenant_db_${tenantId}`;  // Customize this naming convention if necessary
 
-  const sequelize = new Sequelize(tenantDbName, process.env.DB_USER || 'root', process.env.DB_PASSWORD || '', {
-    host: process.env.DB_HOST || 'localhost',
-    dialect: 'mysql', // MySQL or MariaDB dialect
-    logging: false,   // Disable SQL query logging in console
-  });
+  try {
+    // Get the tenant's database configurations
+    const { sequelize, mysqlPDO } = getTenantDatabase(tenantDbName);
 
-  return { mysqlPDO, sequelize };
-};
+    // Attach the sequelize instance to the request object
+    req.sequelize = sequelize;
+    req.mysqlPDO = mysqlPDO;
 
-// Default Sequelize configuration (for shared, global configurations)
-const sequelize = new Sequelize(process.env.DB_NAME || 'salespilot', process.env.DB_USER || 'root', process.env.DB_PASSWORD || '', {
-  host: process.env.DB_HOST || 'localhost',
-  dialect: 'mysql',
-  logging: false,
-});
+    // Log the tenant info for debugging (optional)
+    console.log(`Tenant database for ${tenantId}: ${tenantDbName}`);
 
-// Export both the default sequelize instance and the tenant-specific function
-module.exports = {
-  sequelize,
-  getTenantDatabase,
+    // Proceed to the next middleware or route handler
+    next();
+  } catch (error) {
+    console.error('Error fetching tenant database configuration:', error);
+    return res.status(500).json({ message: 'Tenant database configuration error' });
+  }
 };

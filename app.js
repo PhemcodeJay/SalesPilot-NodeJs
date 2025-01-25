@@ -1,6 +1,6 @@
 const express = require('express');
 const path = require('path');
-const { sequelize } = require('./config/db'); // Import Sequelize configuration
+const { sequelize } = require('./config/db'); // Import Sequelize configuration (global DB)
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const passport = require('passport');
@@ -72,7 +72,6 @@ app.use(passport.session());
 // Flash messaging middleware
 app.use(flash());
 
-
 // Set View Engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -80,6 +79,22 @@ app.set('views', path.join(__dirname, 'views'));
 // Serve Static Files
 app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
 app.use('/home_assets', express.static(path.join(__dirname, 'public', 'home_assets')));
+
+// Middleware to handle setting tenant info based on the request
+app.use(async (req, res, next) => {
+  const tenantId = req.headers['tenant-id']; // Assume tenant is passed in headers or subdomains
+  if (!tenantId) {
+    return res.status(400).json({ message: 'Tenant ID is required.' });
+  }
+
+  // Get tenant-specific database configuration
+  const { mysqlPDO, sequelize } = require('./config/db').getTenantDatabase(tenantId);
+
+  // Attach the tenant's database connections to the request for future use
+  req.db = { mysqlPDO, sequelize };
+
+  next();
+});
 
 // Routes to Serve Views
 app.get('/', (req, res) => {
@@ -127,30 +142,27 @@ app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Cron Jobs (Example Cron Task)
+
+// Run cron job immediately when the server starts
+cron.schedule('* * * * *', () => {
+  console.log('Cron job triggered immediately on server startup!');
+  // Add any tasks that should run when the server connects here
+  // e.g., data cleanup, subscription reminders, etc.
+});
+
+// Scheduled Cron Job (Example: Runs at midnight every day)
 cron.schedule('0 0 * * *', () => {
   console.log('Cron job running at midnight every day!');
-  // Add your cron job tasks here (e.g., data cleanup, subscription reminders, etc.)
+  // Add your recurring cron tasks here (e.g., data cleanup, subscription reminders, etc.)
 });
 
-// Middleware to handle setting tenant info based on the request
-app.use((req, res, next) => {
-  const tenantId = req.headers['tenant-id']; // Assume tenant is passed in headers or subdomains
-  if (!tenantId) {
-    return res.status(400).json({ message: 'Tenant ID is required.' });
-  }
-
-  // Set tenant context for this request
-  tenancy.setTenant(tenantId);
-
-  next();
-});
 
 // Example of a route to fetch tenant details
 app.get('/tenant', async (req, res) => {
-  const Tenant = require('./models/tenant');
+  const tenantId = req.headers['tenant-id'];
   try {
-    const tenant = await Tenant.findOne({ where: { id: req.headers['tenant-id'] } });
+    const Tenant = require('./models/tenant');
+    const tenant = await Tenant.findOne({ where: { id: tenantId } });
     if (!tenant) {
       return res.status(404).json({ message: 'Tenant not found.' });
     }
@@ -161,9 +173,9 @@ app.get('/tenant', async (req, res) => {
   }
 });
 
-// Initialize Sequelize and check DB connection
+// Initialize Sequelize and check DB connection for the global DB
 sequelize.authenticate()
-  .then(() => console.log('Database connected successfully'))
+  .then(() => console.log('Global database connected successfully'))
   .catch(err => console.error('Database connection error: ', err));
 
 // Start the server
