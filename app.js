@@ -1,80 +1,67 @@
 const express = require('express');
 const path = require('path');
-const mysql = require('mysql2/promise');
+const { sequelize } = require('./config/db'); // Import Sequelize configuration
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const passport = require('passport');
 const bcrypt = require('bcryptjs');
 const { generateToken, verifyToken } = require('./config/auth');
-// const openai = require('./config/openaiconfig');
 const paypalClient = require('./config/paypalconfig');
 require('dotenv').config();
 require('./config/passport')(passport);
 const flash = require('connect-flash');
 const cookieParser = require('cookie-parser');
 const tenants = require('./middleware/tenancyMiddleware');
-
 const asyncHandler = require('./middleware/asyncHandler');
 const rateLimiter = require('./middleware/rateLimiter');
-// Encode and Decode Example
-const punycode = require('punycode/');
-console.log('Encoded:', punycode.toASCII('localhost'));
-console.log('Decoded:', punycode.toUnicode('localhost'));
+const cron = require('node-cron');  // Importing cron job package
 
-// app.js or another entry point
-const sequelize = require('./config/db');
-
-sequelize.authenticate()
-  .then(() => {
-    console.log('Connection has been established successfully.');
-  })
-  .catch(err => {
-    console.error('Unable to connect to the database:', err);
-  });
-
+// Import routes
+const routes = {
+  auth: require('./routes/authRoute'),
+  dashboard: require('./routes/dashboardRoute'),
+  supplier: require('./routes/supplierRoute'),
+  invoice: require('./routes/invoiceRoute'),
+  sales: require('./routes/salesRoute'),
+  categoryReport: require('./routes/category-reportRoute'),
+  productReport: require('./routes/product-reportRoute'),
+  product: require('./routes/productRoute'),
+  chart: require('./routes/chartRoute'),
+  chartReport: require('./routes/chart-reportRoute'),
+  category: require('./routes/categoryRoute'),
+  customer: require('./routes/customerRoute'),
+  expense: require('./routes/expenseRoute'),
+  inventory: require('./routes/inventoryRoute'),
+  notification: require('./routes/notificationRoute'),
+  pageAccess: require('./routes/page-accessRoute'),
+  pay: require('./routes/payRoute'),
+  profile: require('./routes/userRoute'),
+  staff: require('./routes/staffRoute'),
+  subscription: require('./routes/subscriptionRoute'),
+  pdfRoute: require('./routes/pdfRoute'),
+};
 
 // Initialize Express App
 const app = express();
 
+// Use the tenancy middleware to resolve the tenant from the subdomain or URL
+app.use(tenants);
+
 // Apply global rate limiter
 app.use(rateLimiter);
 
-// Example route with asyncHandler
-app.get(
-  '/api/example',
-  asyncHandler(async (req, res) => {
-    // Your async code here
-    res.json({ success: true, data: 'Hello, World!' });
-  })
-);
-
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    success: false,
-    message: 'Internal Server Error',
-    error: err.message,
-  });
-});
-
-
-
-
 // Session Configuration
 app.use(
-    session({
-        secret: process.env.SESSION_SECRET || 'your-secret-key',
-        resave: false,
-        saveUninitialized: true,
-        cookie: { secure: false }, // Use true if HTTPS is enabled
-    })
+  session({
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false }, // Use true if HTTPS is enabled
+  })
 );
 app.use(flash());
 
 // Middleware Setup
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -91,80 +78,70 @@ app.use('/home_assets', express.static(path.join(__dirname, 'public', 'home_asse
 
 // Routes to Serve Views
 app.get('/', (req, res) => {
-    res.render('home/index', { title: 'Home' });
+  res.render('home/index', { title: 'Home' });
 });
 
 // PayPal Payment Example
 app.post('/create-payment', verifyToken, async (req, res) => {
-    const order = {
-        intent: 'CAPTURE',
-        purchase_units: [{ amount: { value: req.body.amount } }],
-        application_context: {
-            return_url: 'http://localhost:5000/payment-success',
-            cancel_url: 'http://localhost:5000/payment-cancel',
-        },
-    };
+  const order = {
+    intent: 'CAPTURE',
+    purchase_units: [{ amount: { value: req.body.amount } }],
+    application_context: {
+      return_url: 'http://localhost:5000/payment-success',
+      cancel_url: 'http://localhost:5000/payment-cancel',
+    },
+  };
 
-    const request = new paypalClient.orders.OrdersCreateRequest();
-    request.requestBody(order);
+  const request = new paypalClient.orders.OrdersCreateRequest();
+  request.requestBody(order);
 
-    try {
-        const orderResponse = await paypalClient.execute(request);
-        res.json({ orderId: orderResponse.result.id });
-    } catch (error) {
-        console.error('PayPal Error:', error);
-        res.status(500).json({ error: 'Payment creation failed' });
-    }
+  try {
+    const orderResponse = await paypalClient.execute(request);
+    res.json({ orderId: orderResponse.result.id });
+  } catch (error) {
+    console.error('PayPal Error:', error);
+    res.status(500).json({ error: 'Payment creation failed' });
+  }
 });
 
-// Import and Attach Additional Routes
-const routes = {
-    auth: require('./routes/authRoute'),
-    dashboard: require('./routes/dashboardRoute'),
-    supplier: require('./routes/supplierRoute'),
-    invoice: require('./routes/invoiceRoute'),
-    sales: require('./routes/salesRoute'),
-    categoryReport: require('./routes/category-reportRoute'),
-    productReport: require('./routes/product-reportRoute'),
-    product: require('./routes/productRoute'),
-    chart: require('./routes/chartRoute'),
-    chartReport: require('./routes/chart-reportRoute'),
-    category: require('./routes/categoryRoute'),
-    customer: require('./routes/customerRoute'),
-    expense: require('./routes/expenseRoute'),
-    inventory: require('./routes/inventoryRoute'),
-    notification: require('./routes/notificationRoute'),
-    pageAccess: require('./routes/page-accessRoute'),
-    pay: require('./routes/payRoute'),
-    profile: require('./routes/userRoute.js'),
-    staff: require('./routes/staffRoute'),
-    subscription: require('./routes/subscriptionRoute'),
-    pdfRoute: require('./routes/pdfRoute'),
-};
-
-app.use('/auth', routes.auth);
+// Attach the imported routes dynamically
 Object.entries(routes).forEach(([name, route]) => {
-    if (name !== 'auth') app.use(`/${name}`, route);
+  app.use(`/${name}`, route);
 });
 
-// Cron Jobs
-require('./cron/subscriptioncron');
+// Example route with asyncHandler
+app.get(
+  '/api/example',
+  asyncHandler(async (req, res) => {
+    res.json({ success: true, data: 'Hello, World!' });
+  })
+);
 
-// Error Handling
+// Global error handler for non-existent routes
 app.use((req, res) => {
-    res.status(404).json({ message: 'Route not found' });
+  res.status(404).json({ message: 'Route not found' });
 });
 
-app.use((err, req, res, next) => {
-    console.error('Error:', err);
-    res.status(500).json({ message: 'Internal Server Error', error: err.message });
+// Punycode Example
+const punycode = require('punycode/');
+console.log('Encoded:', punycode.toASCII('localhost'));
+console.log('Decoded:', punycode.toUnicode('localhost'));
+
+// Cron Jobs (Example Cron Task)
+cron.schedule('0 0 * * *', () => {
+  console.log('Cron job running at midnight every day!');
+  // Add your cron job tasks here (e.g., data cleanup, subscription reminders, etc.)
 });
 
-// Start Server
+
+sequelize.authenticate()
+  .then(() => console.log('Database connected successfully'))
+  .catch(err => console.error('Database connection error: ', err));
+
+// Start the server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
 
 module.exports = app;
-

@@ -6,7 +6,7 @@ const moment = require('moment');
 const validator = require('validator');
 const pool = require('../config/db'); // Assuming a MySQL connection pool
 const User = require('../models/user'); // User model
-const Subscription = require('../services/subscriptionservice'); // Subscription model
+const Subscription = require('../models/subscriptions'); // Subscription model
 const jwt = require('jsonwebtoken');
 
 // Utility Functions

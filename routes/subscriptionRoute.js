@@ -14,6 +14,45 @@ const { checkLogin } = require('../middleware/auth');
 
 const router = express.Router();
 
+// ========================
+// Subscription Routes
+// ========================
+
+const { createSubscription, getActiveSubscriptions, cancelSubscription } = require('../services/subscriptionservice');
+const { verifyToken } = require('../config/auth'); // Assuming you have token-based authentication
+
+// Route to create a subscription
+router.post('/create', verifyToken, async (req, res) => {
+    try {
+        const { userId, planId, paymentDetails } = req.body;
+        const subscription = await createSubscription(userId, planId, paymentDetails);
+        res.status(201).json({ success: true, data: subscription });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Route to get active subscriptions for a user
+router.get('/active', verifyToken, async (req, res) => {
+    try {
+        const { userId } = req.query; // Assuming user ID is passed in query params
+        const subscriptions = await getActiveSubscriptions(userId);
+        res.json({ success: true, data: subscriptions });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Route to cancel a subscription
+router.post('/cancel', verifyToken, async (req, res) => {
+    try {
+        const { subscriptionId } = req.body;
+        const subscription = await cancelSubscription(subscriptionId);
+        res.json({ success: true, data: subscription });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
 
 // ========================
 // API Routes

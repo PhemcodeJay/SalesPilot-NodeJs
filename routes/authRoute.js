@@ -83,16 +83,6 @@ router.get('/recoverpwd', (req, res) => {
 });
 
 // API Routes
-// Handle user sign-up (POST)
-router.post('/signup', validateSignup, async (req, res, next) => {
-  try {
-    await authController.signup(req, res, next);
-  } catch (error) {
-    console.error('Signup error:', error.message);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
 // Handle user login (POST)
 router.post('/login', validateLogin, async (req, res, next) => {
   try {
@@ -143,6 +133,20 @@ router.post('/activate', async (req, res, next) => {
   }
 });
 
+// Example route where we interact with the tenant's database
+router.get('/tenant-data', async (req, res) => {
+  try {
+    // Ensure that tenantSequelize is available for the current tenant
+    if (!req.tenantSequelize) {
+      return res.status(400).json({ error: 'Tenant data not available' });
+    }
 
+    const [rows] = await req.tenantSequelize.query('SELECT * FROM some_table');
+    res.json(rows);  // Send tenant-specific data back to the client
+  } catch (err) {
+    console.error('Database query error:', err.message);
+    res.status(500).json({ message: 'Error fetching tenant data' });
+  }
+});
 
 module.exports = router;
