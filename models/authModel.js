@@ -8,7 +8,7 @@ const pool = require('../config/db'); // Assuming a MySQL connection pool
 const User = require('../models/user'); // User model
 const Subscription = require('../models/subscriptions'); // Subscription model
 const jwt = require('jsonwebtoken');
-const tenancy = require('tenancy'); // Assuming you're using tenancy package for multi-tenant
+const tenancy = require('../middleware/tenancyMiddleware'); // Assuming you're using tenancy package for multi-tenant
 
 // Utility Functions
 const generateRandomCode = () => crypto.randomBytes(20).toString('hex');
