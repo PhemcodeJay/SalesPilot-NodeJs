@@ -11,7 +11,7 @@ require('dotenv').config();
 require('./config/passport')(passport);
 const flash = require('connect-flash');
 const cookieParser = require('cookie-parser');
-const tenants = require('./middleware/tenancyMiddleware');
+const tenants = require('./middleware/tenancyMiddleware'); // Middleware for tenancy handling
 const asyncHandler = require('./middleware/asyncHandler');
 const rateLimiter = require('./middleware/rateLimiter');
 const cron = require('node-cron');  // Importing cron job package
@@ -133,7 +133,38 @@ cron.schedule('0 0 * * *', () => {
   // Add your cron job tasks here (e.g., data cleanup, subscription reminders, etc.)
 });
 
+// Tenancy Middleware to Handle Tenant Context
+const tenancy = require('./config/database'); // Import your tenancy config
 
+// Middleware to handle setting tenant info based on the request
+app.use((req, res, next) => {
+  const tenantId = req.headers['tenant-id']; // Assume tenant is passed in headers or subdomains
+  if (!tenantId) {
+    return res.status(400).json({ message: 'Tenant ID is required.' });
+  }
+
+  // Set tenant context for this request
+  tenancy.setTenant(tenantId);
+
+  next();
+});
+
+// Example of a route to fetch tenant details
+app.get('/tenant', async (req, res) => {
+  const Tenant = require('./models/tenant');
+  try {
+    const tenant = await Tenant.findOne({ where: { id: req.headers['tenant-id'] } });
+    if (!tenant) {
+      return res.status(404).json({ message: 'Tenant not found.' });
+    }
+
+    res.json(tenant);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching tenant data.' });
+  }
+});
+
+// Initialize Sequelize and check DB connection
 sequelize.authenticate()
   .then(() => console.log('Database connected successfully'))
   .catch(err => console.error('Database connection error: ', err));

@@ -1,5 +1,3 @@
-// middleware/tenancyMiddleware.js
-
 const { sequelize } = require('../config/db');  // Import Sequelize configuration
 
 // Tenant middleware to identify and set the tenant's database configuration
@@ -18,17 +16,28 @@ const tenancyMiddleware = async (req, res, next) => {
       type: sequelize.QueryTypes.SELECT,
     });
 
+    // If no tenant is found, handle the empty DB scenario smoothly
     if (!tenant || tenant.length === 0) {
-      return res.status(404).json({ message: 'Tenant not found' });
+      console.warn(`Tenant ${tenantDomain} not found in the database.`);
+
+      // Optionally, create a new tenant (you can add extra checks like unique domain)
+      await sequelize.query('INSERT INTO tenants (domain, db_name) VALUES (?, ?)', {
+        replacements: [tenantDomain, `${tenantDomain}_db`],
+        type: sequelize.QueryTypes.INSERT,
+      });
+
+      // Notify that a new tenant entry has been created (this can be adjusted to your needs)
+      return res.status(404).json({
+        message: `Tenant not found. A new tenant entry has been created with the domain ${tenantDomain}.`
+      });
     }
 
-    // Dynamically set the tenant's database connection if needed
+    // If tenant found, attach the tenant information to the request object
     req.tenant = tenant[0]; // Attach the tenant info to the request object
 
-    // You can also dynamically configure a Sequelize instance here
-    // or change the database connection based on the tenant if needed
     console.log(`Tenant identified: ${tenantDomain} - Database: ${tenant[0].db_name}`);
-    
+
+    // Continue with the next middleware or route handler
     next();
   } catch (err) {
     console.error('Error in tenancy middleware:', err.message);

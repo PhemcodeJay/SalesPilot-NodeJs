@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
 const asyncHandler = require('../middleware/asyncHandler');
-const { User, ActivationCode, Subscription } = require('../models'); // Import models
+const { User, ActivationCode, Subscription, Tenant } = require('../models'); // Add Tenant model
 
 class AuthController {
   // User Registration with Free Trial Subscription
@@ -50,9 +50,17 @@ class AuthController {
       status: 'inactive', // Initially inactive until email is activated
     });
 
-    // Create free trial subscription for the user
+    // Create tenant for the user (assuming tenancy model exists)
+    const tenant = await Tenant.create({
+      user_id: user.id,
+      tenant_name: `${user.username}'s Tenant`, // Can be customized to be more descriptive
+      tenant_status: 'active', // Default active status
+    });
+
+    // Create free trial subscription for the user under the created tenant
     const subscription = await Subscription.create({
       user_id: user.id,
+      tenant_id: tenant.id, // Associate the subscription with the tenant
       type: 'free_trial',
       start_date: new Date(),
       end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days trial

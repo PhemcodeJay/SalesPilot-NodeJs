@@ -8,6 +8,7 @@ const pool = require('../config/db'); // Assuming a MySQL connection pool
 const User = require('../models/user'); // User model
 const Subscription = require('../models/subscriptions'); // Subscription model
 const jwt = require('jsonwebtoken');
+const tenancy = require('tenancy'); // Assuming you're using tenancy package for multi-tenant
 
 // Utility Functions
 const generateRandomCode = () => crypto.randomBytes(20).toString('hex');
@@ -145,11 +146,12 @@ const resetPassword = async (email) => {
   return { message: 'If an account exists, a reset link has been sent.' };
 };
 
-// AuthModel for handling JWT tokens
+// AuthModel for handling JWT tokens with tenancy logic
 class AuthModel {
-  static async verifyCredentials(email, password) {
+  static async verifyCredentials(email, password, tenant) {
     try {
-      const [results] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
+      const tenantDb = await tenancy.getTenantDatabase(tenant); // Assuming you have a method to fetch the tenant's database connection
+      const [results] = await tenantDb.execute('SELECT * FROM users WHERE email = ?', [email]);
 
       if (!results || results.length === 0) {
         throw new Error('User not found.');
@@ -197,9 +199,9 @@ class AuthModel {
     }
   }
 
-  static async authenticate(email, password) {
+  static async authenticate(email, password, tenant) {
     try {
-      const user = await this.verifyCredentials(email, password);
+      const user = await this.verifyCredentials(email, password, tenant);
 
       const token = this.generateToken(user);
 

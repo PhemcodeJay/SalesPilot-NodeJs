@@ -53,6 +53,7 @@
     "router": "^2.0.0",
     "sequelize": "^6.37.5",
     "sequelize-cli": "^6.6.2",
+    "tenancy": "^0.0.4",
     "uuid": "^11.0.5",
     "validator": "^13.12.0",
     "whatwg-url": "^14.1.0"

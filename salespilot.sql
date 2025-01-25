@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 27, 2024 at 12:40 AM
+-- Generation Time: Jan 25, 2025 at 06:49 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -371,11 +371,27 @@ CREATE TABLE `suppliers` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `tenants`
+--
+
+CREATE TABLE `tenants` (
+  `id` int(11) NOT NULL,
+  `domain` varchar(255) NOT NULL,
+  `db_host` varchar(255) NOT NULL,
+  `db_username` varchar(255) NOT NULL,
+  `db_password` varchar(255) NOT NULL,
+  `db_name` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `users`
 --
 
 CREATE TABLE `users` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `tenant_id` int(11) NOT NULL,  -- Add tenant_id column
   `username` varchar(50) NOT NULL,
   `email` varchar(100) NOT NULL,
   `password` varchar(255) NOT NULL,
@@ -386,7 +402,10 @@ CREATE TABLE `users` (
   `phone` varchar(20) NOT NULL,
   `location` varchar(255) NOT NULL,
   `google_id` varchar(255) DEFAULT NULL,
-  `status` int(1) NOT NULL
+  `status` int(1) NOT NULL,
+  `trial_end_date` date DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  FOREIGN KEY (`tenant_id`) REFERENCES tenants(`id`)  -- Assumes a 'tenants' table exists with an 'id' column
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -500,6 +519,13 @@ ALTER TABLE `subscriptions`
 --
 ALTER TABLE `suppliers`
   ADD PRIMARY KEY (`supplier_id`);
+
+--
+-- Indexes for table `tenants`
+--
+ALTER TABLE `tenants`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `domain` (`domain`);
 
 --
 -- Indexes for table `users`
@@ -620,10 +646,16 @@ ALTER TABLE `suppliers`
   MODIFY `supplier_id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `tenants`
+--
+ALTER TABLE `tenants`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

@@ -3,12 +3,13 @@ const bcryptUtils = require('../utils/bcryptUtils');
 
 class UserModel {
   /**
-   * Create a new user and their subscription details
+   * Create a new user and their subscription details for a specific tenant
    * @param {Object} userData - User data to insert into the database
+   * @param {String} tenantDomain - The tenant's domain/subdomain for identifying the tenant's database
    * @returns {Object} The created user and subscription details
    * @throws {Error} If user creation fails
    */
-  static async create(userData) {
+  static async create(userData, tenantDomain) {
     try {
       if (!userData || typeof userData !== 'object') {
         throw new Error('Invalid user data provided.');
@@ -31,8 +32,8 @@ class UserModel {
         throw new Error('Missing required fields: username, email, password, or location.');
       }
 
-      // Check if the email already exists
-      const existingUser = await this.findOne({ where: { email } });
+      // Check if the email already exists for the tenant
+      const existingUser = await this.findOne({ where: { email, tenant_domain: tenantDomain } });
       if (existingUser) {
         throw new Error('A user with the provided email already exists.');
       }
@@ -40,10 +41,10 @@ class UserModel {
       // Hash the password
       const hashedPassword = await bcryptUtils.hashPassword(password);
 
-      // Insert user into the database
+      // Insert user into the database for the specific tenant
       const [userResult] = await pool.execute(
-        'INSERT INTO users (username, email, phone, password, location, role) VALUES (?, ?, ?, ?, ?, ?)',
-        [username, email, phone, hashedPassword, location, role]
+        'INSERT INTO users (username, email, phone, password, location, role, tenant_domain) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [username, email, phone, hashedPassword, location, role, tenantDomain]
       );
 
       // Ensure user result contains insertId
@@ -53,7 +54,7 @@ class UserModel {
 
       const userId = userResult.insertId;
 
-      // Add subscription details
+      // Add subscription details for the user
       const [subscriptionResult] = await pool.execute(
         'INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, is_free_trial_used) VALUES (?, ?, ?, ?, ?)',
         [userId, subscription_plan, start_date, end_date, is_free_trial_used]
@@ -76,12 +77,13 @@ class UserModel {
   }
 
   /**
-   * Find a user by specific criteria
+   * Find a user by specific criteria for a specific tenant
    * @param {Object} query - Query object with a "where" clause
+   * @param {String} tenantDomain - The tenant's domain/subdomain
    * @returns {Object|null} The user record or null if not found
    * @throws {Error} If the query is invalid
    */
-  static async findOne(query) {
+  static async findOne(query, tenantDomain) {
     try {
       if (!query || typeof query !== 'object' || !query.where) {
         throw new Error('Invalid query object provided.');
@@ -95,7 +97,9 @@ class UserModel {
         throw new Error(`Invalid query field: ${field}`);
       }
 
-      const [results] = await pool.execute(`SELECT * FROM users WHERE ${field} = ?`, [value]);
+      // Add tenant domain to the query
+      const queryString = `SELECT * FROM users WHERE ${field} = ? AND tenant_domain = ?`;
+      const [results] = await pool.execute(queryString, [value, tenantDomain]);
 
       if (!results || results.length === 0) {
         return null;
@@ -109,13 +113,14 @@ class UserModel {
   }
 
   /**
-   * Update user details and subscription
+   * Update user details and subscription for a specific tenant
    * @param {Number} userId - The ID of the user to update
    * @param {Object} data - Fields to update for the user and subscription
+   * @param {String} tenantDomain - The tenant's domain/subdomain
    * @returns {Object} Success status
    * @throws {Error} If the update fails
    */
-  static async update(userId, data) {
+  static async update(userId, data, tenantDomain) {
     try {
       if (!userId || !data || typeof data !== 'object') {
         throw new Error('User ID and data are required for update.');
@@ -130,9 +135,9 @@ class UserModel {
         const updateQuery = `
           UPDATE users
           SET ${userUpdates.map(field => `${field} = ?`).join(', ')}
-          WHERE id = ?
+          WHERE id = ? AND tenant_domain = ?
         `;
-        const updateValues = [...userUpdates.map(field => userFields[field]), userId];
+        const updateValues = [...userUpdates.map(field => userFields[field]), userId, tenantDomain];
         const [result] = await pool.execute(updateQuery, updateValues);
 
         if (result.affectedRows === 0) {
@@ -147,9 +152,9 @@ class UserModel {
         const subscriptionQuery = `
           UPDATE subscriptions
           SET ${subscriptionUpdates.map(field => `${field} = ?`).join(', ')}
-          WHERE user_id = ?
+          WHERE user_id = ? AND tenant_domain = ?
         `;
-        const subscriptionValues = [...subscriptionUpdates.map(field => subscriptionFields[field]), userId];
+        const subscriptionValues = [...subscriptionUpdates.map(field => subscriptionFields[field]), userId, tenantDomain];
         const [subResult] = await pool.execute(subscriptionQuery, subscriptionValues);
 
         if (subResult.affectedRows === 0) {
@@ -165,22 +170,23 @@ class UserModel {
   }
 
   /**
-   * Delete a user and their subscription
+   * Delete a user and their subscription for a specific tenant
    * @param {Number} userId - The ID of the user to delete
+   * @param {String} tenantDomain - The tenant's domain/subdomain
    * @returns {Object} Success status
    * @throws {Error} If the deletion fails
    */
-  static async delete(userId) {
+  static async delete(userId, tenantDomain) {
     try {
       if (!userId) {
         throw new Error('User ID is required for deletion.');
       }
 
-      const deleteUserQuery = 'DELETE FROM users WHERE id = ?';
-      const deleteSubscriptionQuery = 'DELETE FROM subscriptions WHERE user_id = ?';
+      const deleteUserQuery = 'DELETE FROM users WHERE id = ? AND tenant_domain = ?';
+      const deleteSubscriptionQuery = 'DELETE FROM subscriptions WHERE user_id = ? AND tenant_domain = ?';
 
-      await pool.execute(deleteSubscriptionQuery, [userId]);
-      const [result] = await pool.execute(deleteUserQuery, [userId]);
+      await pool.execute(deleteSubscriptionQuery, [userId, tenantDomain]);
+      const [result] = await pool.execute(deleteUserQuery, [userId, tenantDomain]);
 
       if (result.affectedRows === 0) {
         throw new Error('Failed to delete user.');
@@ -194,23 +200,24 @@ class UserModel {
   }
 
   /**
-   * Signup a new user
+   * Signup a new user for a specific tenant
    * @param {Object} userData - User data for signup
+   * @param {String} tenantDomain - The tenant's domain/subdomain
    * @returns {Object} The created user and subscription details
    * @throws {Error} If signup fails
    */
-  static async signup(userData) {
+  static async signup(userData, tenantDomain) {
     try {
       const { email } = userData;
 
-      // Check if the user already exists
-      const existingUser = await this.findOne({ where: { email } });
+      // Check if the user already exists for the tenant
+      const existingUser = await this.findOne({ where: { email }, tenantDomain });
       if (existingUser) {
         throw new Error('User already exists. Please log in instead.');
       }
 
       // Create a new user
-      return await this.create(userData);
+      return await this.create(userData, tenantDomain);
     } catch (error) {
       console.error('Error during signup:', error.message);
       throw error;
@@ -219,4 +226,3 @@ class UserModel {
 }
 
 module.exports = UserModel;
-
