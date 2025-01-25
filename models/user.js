@@ -1,5 +1,5 @@
-const pool = require('../config/db'); // Database connection
-const bcryptUtils = require('../utils/bcryptUtils'); // Utility for password hashing
+const pool = require('../config/db');
+const bcryptUtils = require('../utils/bcryptUtils');
 
 class UserModel {
   /**
@@ -41,38 +41,25 @@ class UserModel {
       const hashedPassword = await bcryptUtils.hashPassword(password);
 
       // Insert user into the database
-      const userQuery = `
-        INSERT INTO users (username, email, phone, password, location, role)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `;
-      const [userResult] = await pool.execute(userQuery, [
-        username,
-        email,
-        phone,
-        hashedPassword,
-        location,
-        role,
-      ]);
+      const [userResult] = await pool.execute(
+        'INSERT INTO users (username, email, phone, password, location, role) VALUES (?, ?, ?, ?, ?, ?)',
+        [username, email, phone, hashedPassword, location, role]
+      );
 
-      if (!userResult || userResult.affectedRows === 0) {
+      // Ensure user result contains insertId
+      if (!userResult || !userResult.insertId) {
         throw new Error('Failed to create user.');
       }
 
       const userId = userResult.insertId;
 
       // Add subscription details
-      const subscriptionQuery = `
-        INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, is_free_trial_used)
-        VALUES (?, ?, ?, ?, ?)
-      `;
-      const [subscriptionResult] = await pool.execute(subscriptionQuery, [
-        userId,
-        subscription_plan,
-        start_date,
-        end_date,
-        is_free_trial_used,
-      ]);
+      const [subscriptionResult] = await pool.execute(
+        'INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, is_free_trial_used) VALUES (?, ?, ?, ?, ?)',
+        [userId, subscription_plan, start_date, end_date, is_free_trial_used]
+      );
 
+      // Ensure subscription result contains affectedRows
       if (!subscriptionResult || subscriptionResult.affectedRows === 0) {
         throw new Error('Failed to create subscription.');
       }
@@ -108,10 +95,13 @@ class UserModel {
         throw new Error(`Invalid query field: ${field}`);
       }
 
-      const sql = `SELECT * FROM users WHERE ${field} = ?`;
-      const [results] = await pool.execute(sql, [value]);
+      const [results] = await pool.execute(`SELECT * FROM users WHERE ${field} = ?`, [value]);
 
-      return results.length > 0 ? results[0] : null;
+      if (!results || results.length === 0) {
+        return null;
+      }
+
+      return results[0];
     } catch (error) {
       console.error('Error in findOne method:', error.message);
       throw error;
@@ -229,3 +219,4 @@ class UserModel {
 }
 
 module.exports = UserModel;
+

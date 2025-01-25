@@ -6,7 +6,8 @@ const moment = require('moment');
 const validator = require('validator');
 const pool = require('../config/db'); // Assuming a MySQL connection pool
 const User = require('../models/user'); // User model
-const Subscription = require('../models/subscriptions'); // Subscription model
+const Subscription = require('../services/subscriptionservice'); // Subscription model
+const jwt = require('jsonwebtoken');
 
 // Utility Functions
 const generateRandomCode = () => crypto.randomBytes(20).toString('hex');
@@ -60,20 +61,17 @@ const ActivationCode = {
   },
 };
 
-// Subscription Model
+// Subscription Service
 const SubscriptionService = {
   createTrial: async (userId) => {
-    // Using the Subscription model's method to create a free trial
     return Subscription.createFreeTrial(userId);
   },
 
   createSubscription: async (userId, plan, startDate, endDate) => {
-    // Using the Subscription model's method to create a paid subscription
     return Subscription.createSubscription(userId, plan, startDate, endDate);
   },
 
   getSubscriptionByUser: async (userId) => {
-    // Using the Subscription model's method to fetch a user's subscription
     return Subscription.getActiveSubscription(userId);
   },
 };
@@ -105,6 +103,9 @@ const signup = async ({ username, email, password, confirmpassword }) => {
 
   // Create free trial subscription for the user
   await SubscriptionService.createTrial(userId);
+
+  // Activate the user after signup
+  await User.activateUser(userId); // Assuming you have an `activateUser` function in the User model
 
   return { id: userId, username, email };
 };
@@ -144,10 +145,77 @@ const resetPassword = async (email) => {
   return { message: 'If an account exists, a reset link has been sent.' };
 };
 
+// AuthModel for handling JWT tokens
+class AuthModel {
+  static async verifyCredentials(email, password) {
+    try {
+      const [results] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
+
+      if (!results || results.length === 0) {
+        throw new Error('User not found.');
+      }
+
+      const user = results[0];
+
+      const isPasswordValid = await bcryptUtils.compare(password, user.password);
+      if (!isPasswordValid) {
+        throw new Error('Invalid password.');
+      }
+
+      return user;
+    } catch (error) {
+      console.error('Error during credential verification:', error.message);
+      throw error;
+    }
+  }
+
+  static generateToken(user) {
+    try {
+      const payload = {
+        user_id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      };
+
+      const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+      return token;
+    } catch (error) {
+      console.error('Error generating token:', error.message);
+      throw new Error('Could not generate token.');
+    }
+  }
+
+  static decodeToken(token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      return decoded;
+    } catch (error) {
+      console.error('Error decoding token:', error.message);
+      throw new Error('Invalid token.');
+    }
+  }
+
+  static async authenticate(email, password) {
+    try {
+      const user = await this.verifyCredentials(email, password);
+
+      const token = this.generateToken(user);
+
+      return { user, token };
+    } catch (error) {
+      console.error('Error during authentication:', error.message);
+      throw error;
+    }
+  }
+}
+
 module.exports = {
   signup,
   login,
   resetPassword,
   ActivationCode,
   SubscriptionService,
+  AuthModel,
 };

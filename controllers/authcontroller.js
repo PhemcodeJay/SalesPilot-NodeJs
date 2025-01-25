@@ -4,9 +4,7 @@ const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
 const asyncHandler = require('../middleware/asyncHandler');
-const User = require('../models/user');
-const { ActivationCode } = require('../models/authModel');
-const Subscription = require('../models/subscriptions'); // Import Subscription model
+const { User, ActivationCode, Subscription } = require('../models'); // Import models
 
 class AuthController {
   // User Registration with Free Trial Subscription
@@ -53,7 +51,12 @@ class AuthController {
     });
 
     // Create free trial subscription for the user
-    const subscription = await Subscription.createFreeTrial(user.id);
+    const subscription = await Subscription.create({
+      user_id: user.id,
+      type: 'free_trial',
+      start_date: new Date(),
+      end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days trial
+    });
 
     // Generate and save activation code
     const activationCode = crypto.randomBytes(20).toString('hex');
@@ -69,7 +72,7 @@ class AuthController {
     res.status(201).json({
       success: true,
       message: 'Registration successful. Please check your email to activate your account.',
-      subscriptionId: subscription.id,
+      subscriptionId: subscription.id, // Include subscription ID in the response
     });
   });
 

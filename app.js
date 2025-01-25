@@ -21,6 +21,18 @@ const punycode = require('punycode/');
 console.log('Encoded:', punycode.toASCII('localhost'));
 console.log('Decoded:', punycode.toUnicode('localhost'));
 
+// app.js or another entry point
+const sequelize = require('./config/db');
+
+sequelize.authenticate()
+  .then(() => {
+    console.log('Connection has been established successfully.');
+  })
+  .catch(err => {
+    console.error('Unable to connect to the database:', err);
+  });
+
+
 // Initialize Express App
 const app = express();
 
