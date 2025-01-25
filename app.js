@@ -82,19 +82,28 @@ app.use('/home_assets', express.static(path.join(__dirname, 'public', 'home_asse
 
 // Middleware to handle setting tenant info based on the request
 app.use(async (req, res, next) => {
-  const tenantId = req.headers['tenant-id']; // Assume tenant is passed in headers or subdomains
-  if (!tenantId) {
-    return res.status(400).json({ message: 'Tenant ID is required.' });
+  const tenantId = req.headers['tenant-id']; // Tenant ID passed in headers or subdomains
+
+  if (tenantId) {
+    try {
+      // Get tenant-specific database configuration if tenant ID is provided
+      const { mysqlPDO, sequelize } = require('./config/db').getTenantDatabase(tenantId);
+
+      // Attach the tenant's database connections to the request for future use
+      req.db = { mysqlPDO, sequelize };
+      console.log(`Tenant database for ${tenantId} attached to request.`);
+    } catch (error) {
+      console.error(`Error fetching tenant database for ${tenantId}:`, error);
+      return res.status(500).json({ message: 'Error fetching tenant database configuration.' });
+    }
+  } else {
+    console.log('No tenant ID provided. Proceeding without tenant-specific database.');
   }
 
-  // Get tenant-specific database configuration
-  const { mysqlPDO, sequelize } = require('./config/db').getTenantDatabase(tenantId);
-
-  // Attach the tenant's database connections to the request for future use
-  req.db = { mysqlPDO, sequelize };
-
+  // Continue to the next middleware or route handler
   next();
 });
+
 
 // Routes to Serve Views
 app.get('/', (req, res) => {

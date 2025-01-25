@@ -1,14 +1,28 @@
-const { getTenantDatabase } = require('../config/db');  // Import the database function
+// middleware/tenancyMiddleware.js
 
-module.exports = (req, res, next) => {
+const { getTenantDatabase, createTenantDatabase } = require('../config/db');  // Ensure proper import
+
+module.exports = async (req, res, next) => {
   // Attempt to get tenant identifier from request (either from headers or subdomains)
-  const tenantId = req.headers['tenant-id'] || req.subdomains[0];  // Modify this based on your system
+  let tenantId = req.headers['tenant-id'] || req.subdomains[0];  // Modify this based on your system
 
   if (!tenantId) {
-    return res.status(400).json({ message: 'Tenant ID is required.' });
+    // If no tenant ID exists, generate a new tenant ID
+    tenantId = `tenant_${Date.now()}`;  // Example: Generates a unique tenant ID using the current timestamp
+    console.log(`Generated new tenant ID: ${tenantId}`);
+    
+    try {
+      // Create the new tenant's database (this might vary depending on your actual database creation logic)
+      const newTenantDbName = `tenant_db_${tenantId}`; // Customize the naming convention as necessary
+      await createTenantDatabase(newTenantDbName);
+      console.log(`New tenant database created: ${newTenantDbName}`);
+    } catch (error) {
+      console.error('Error creating new tenant database:', error);
+      return res.status(500).json({ message: 'Error creating new tenant database' });
+    }
   }
 
-  // Assuming your tenant databases are named in the format 'tenant_db_{tenantId}'
+  // Now that we have the tenantId (whether from the request or newly created), we get its database configurations
   const tenantDbName = `tenant_db_${tenantId}`;  // Customize this naming convention if necessary
 
   try {
@@ -18,6 +32,7 @@ module.exports = (req, res, next) => {
     // Attach the sequelize instance to the request object
     req.sequelize = sequelize;
     req.mysqlPDO = mysqlPDO;
+    req.tenantId = tenantId;  // Attach tenantId to the request for further use
 
     // Log the tenant info for debugging (optional)
     console.log(`Tenant database for ${tenantId}: ${tenantDbName}`);
