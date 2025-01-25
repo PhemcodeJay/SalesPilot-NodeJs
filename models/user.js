@@ -2,7 +2,12 @@ const pool = require('../config/db'); // Database connection
 const bcryptUtils = require('../utils/bcryptUtils'); // Utility for password hashing
 
 class UserModel {
-  // Create a new user
+  /**
+   * Create a new user and their subscription details
+   * @param {Object} userData - User data to insert into the database
+   * @returns {Object} The created user and subscription details
+   * @throws {Error} If user creation fails
+   */
   static async create(userData) {
     try {
       if (!userData || typeof userData !== 'object') {
@@ -17,13 +22,19 @@ class UserModel {
         location,
         role = 'sales',
         subscription_plan = 'trial',
-        start_date = null,
-        end_date = '2030-12-31 20:59:59',
+        start_date = new Date().toISOString(),
+        end_date = '2030-12-31 23:59:59',
         is_free_trial_used = false,
       } = userData;
 
       if (!username || !email || !password || !location) {
         throw new Error('Missing required fields: username, email, password, or location.');
+      }
+
+      // Check if the email already exists
+      const existingUser = await this.findOne({ where: { email } });
+      if (existingUser) {
+        throw new Error('A user with the provided email already exists.');
       }
 
       // Hash the password
@@ -34,7 +45,7 @@ class UserModel {
         INSERT INTO users (username, email, phone, password, location, role)
         VALUES (?, ?, ?, ?, ?, ?)
       `;
-      const [userResults] = await pool.execute(userQuery, [
+      const [userResult] = await pool.execute(userQuery, [
         username,
         email,
         phone,
@@ -43,172 +54,176 @@ class UserModel {
         role,
       ]);
 
-      if (!userResults || userResults.affectedRows === 0) {
+      if (!userResult || userResult.affectedRows === 0) {
         throw new Error('Failed to create user.');
       }
 
-      // Insert subscription details if applicable
-      if (subscription_plan || start_date || end_date) {
-        const subscriptionQuery = `
-          INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, is_free_trial_used)
-          VALUES (?, ?, ?, ?, ?)
-        `;
-        const [subscriptionResults] = await pool.execute(subscriptionQuery, [
-          userResults.insertId,
-          subscription_plan,
-          start_date || new Date(),
-          end_date,
-          is_free_trial_used,
-        ]);
+      const userId = userResult.insertId;
 
-        if (!subscriptionResults || subscriptionResults.affectedRows === 0) {
-          throw new Error('Failed to create subscription.');
-        }
+      // Add subscription details
+      const subscriptionQuery = `
+        INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, is_free_trial_used)
+        VALUES (?, ?, ?, ?, ?)
+      `;
+      const [subscriptionResult] = await pool.execute(subscriptionQuery, [
+        userId,
+        subscription_plan,
+        start_date,
+        end_date,
+        is_free_trial_used,
+      ]);
+
+      if (!subscriptionResult || subscriptionResult.affectedRows === 0) {
+        throw new Error('Failed to create subscription.');
       }
 
-      return { success: true, userId: userResults.insertId };
+      return {
+        success: true,
+        user: { id: userId, username, email, phone, location, role },
+        subscription: { subscription_plan, start_date, end_date, is_free_trial_used },
+      };
     } catch (error) {
       console.error('Error creating user:', error.message);
-    }
-  }
-
-// Method to find a user by a specific field
-static async findOne(query) {
-  try {
-    if (!query || typeof query !== 'object') {
-      throw new Error('Invalid query object provided.');
-    }
-
-    let field, value;
-
-    if (query.where && typeof query.where === 'object') {
-      const whereKeys = Object.keys(query.where);
-
-      if (whereKeys.length !== 1) {
-        throw new Error('"where" object must have exactly one key.');
-      }
-
-      field = whereKeys[0];
-      value = query.where[field];
-    } else {
-      const keys = Object.keys(query);
-
-      if (keys.length !== 1) {
-        throw new Error('Query object must have exactly one key.');
-      }
-
-      field = keys[0];
-      value = query[field];
-    }
-
-    const allowedFields = ["id", "username", "email", "phone"];
-
-    if (!allowedFields.includes(field)) {
-      throw new Error(`Invalid field: ${field}`);
-    }
-
-    const queryString = `SELECT * FROM users WHERE ${field} = ?`;
-
-    let results;
-    try {
-      [results] = await pool.execute(queryString, [value]);
-      console.log('Database Query Results:', results); // Debugging Log
-    } catch (dbError) {
-      console.error('Database Query Error:', dbError.message);
-      throw new Error('Database query failed.');
-    }
-
-    if (!Array.isArray(results)) {
-      throw new Error('Database query did not return an array.');
-    }
-
-    return results.length > 0 ? results[0] : null;
-  } catch (error) {
-    console.error(`Error in findOne method: ${error.message}`);
-  }
-}
-
-
-  // Signup method
-  static async signup(email, username, phone, password, location) {
-    try {
-      const existingUser = await this.findOne({ where: { email } });
-
-      if (existingUser) {
-        throw new Error('User already exists. Please login instead.');
-      }
-
-      const newUser = await this.create({
-        email,
-        username,
-        phone,
-        password,
-        location,
-      });
-
-      return newUser;
-    } catch (error) {
-      console.error('Error during signup:', error.message);
-      throw new Error('Signup failed. Please try again later.');
-    }
-  }
-
-  // Method to get user by ID
-  static async getById(userId) {
-    try {
-      return await this.findOne({ id: userId });
-    } catch (error) {
-      console.error(`Error getting user by ID: ${error.message}`);
       throw error;
     }
   }
 
-  // Method to update user details
-  static async update(userId, userData) {
+  /**
+   * Find a user by specific criteria
+   * @param {Object} query - Query object with a "where" clause
+   * @returns {Object|null} The user record or null if not found
+   * @throws {Error} If the query is invalid
+   */
+  static async findOne(query) {
     try {
-      const { username, email, phone, role, location } = userData;
+      if (!query || typeof query !== 'object' || !query.where) {
+        throw new Error('Invalid query object provided.');
+      }
 
-      const updateQuery = `
-        UPDATE users
-        SET username = ?, email = ?, phone = ?, role = ?, location = ?
-        WHERE id = ?
-      `;
+      const field = Object.keys(query.where)[0];
+      const value = query.where[field];
 
-      const [updateResult] = await pool.execute(updateQuery, [
-        username,
-        email,
-        phone,
-        role,
-        location,
-        userId,
-      ]);
+      const allowedFields = ['id', 'username', 'email', 'phone'];
+      if (!allowedFields.includes(field)) {
+        throw new Error(`Invalid query field: ${field}`);
+      }
 
-      if (updateResult.affectedRows === 0) {
-        throw new Error('Failed to update user.');
+      const sql = `SELECT * FROM users WHERE ${field} = ?`;
+      const [results] = await pool.execute(sql, [value]);
+
+      return results.length > 0 ? results[0] : null;
+    } catch (error) {
+      console.error('Error in findOne method:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Update user details and subscription
+   * @param {Number} userId - The ID of the user to update
+   * @param {Object} data - Fields to update for the user and subscription
+   * @returns {Object} Success status
+   * @throws {Error} If the update fails
+   */
+  static async update(userId, data) {
+    try {
+      if (!userId || !data || typeof data !== 'object') {
+        throw new Error('User ID and data are required for update.');
+      }
+
+      const { username, email, phone, role, location, subscription_plan, end_date, is_free_trial_used } = data;
+
+      // Update user details
+      const userFields = { username, email, phone, role, location };
+      const userUpdates = Object.keys(userFields).filter(key => userFields[key] !== undefined);
+      if (userUpdates.length > 0) {
+        const updateQuery = `
+          UPDATE users
+          SET ${userUpdates.map(field => `${field} = ?`).join(', ')}
+          WHERE id = ?
+        `;
+        const updateValues = [...userUpdates.map(field => userFields[field]), userId];
+        const [result] = await pool.execute(updateQuery, updateValues);
+
+        if (result.affectedRows === 0) {
+          throw new Error('Failed to update user details.');
+        }
+      }
+
+      // Update subscription details
+      const subscriptionFields = { subscription_plan, end_date, is_free_trial_used };
+      const subscriptionUpdates = Object.keys(subscriptionFields).filter(key => subscriptionFields[key] !== undefined);
+      if (subscriptionUpdates.length > 0) {
+        const subscriptionQuery = `
+          UPDATE subscriptions
+          SET ${subscriptionUpdates.map(field => `${field} = ?`).join(', ')}
+          WHERE user_id = ?
+        `;
+        const subscriptionValues = [...subscriptionUpdates.map(field => subscriptionFields[field]), userId];
+        const [subResult] = await pool.execute(subscriptionQuery, subscriptionValues);
+
+        if (subResult.affectedRows === 0) {
+          throw new Error('Failed to update subscription details.');
+        }
       }
 
       return { success: true };
     } catch (error) {
-      console.error('Error updating user:', error.message);
-      throw new Error(`Error updating user: ${error.message}`);
+      console.error('Error in update method:', error.message);
+      throw error;
     }
   }
 
-  // Method to delete user
+  /**
+   * Delete a user and their subscription
+   * @param {Number} userId - The ID of the user to delete
+   * @returns {Object} Success status
+   * @throws {Error} If the deletion fails
+   */
   static async delete(userId) {
     try {
-      const deleteQuery = `DELETE FROM users WHERE id = ?`;
+      if (!userId) {
+        throw new Error('User ID is required for deletion.');
+      }
 
-      const [deleteResult] = await pool.execute(deleteQuery, [userId]);
+      const deleteUserQuery = 'DELETE FROM users WHERE id = ?';
+      const deleteSubscriptionQuery = 'DELETE FROM subscriptions WHERE user_id = ?';
 
-      if (deleteResult.affectedRows === 0) {
+      await pool.execute(deleteSubscriptionQuery, [userId]);
+      const [result] = await pool.execute(deleteUserQuery, [userId]);
+
+      if (result.affectedRows === 0) {
         throw new Error('Failed to delete user.');
       }
 
       return { success: true };
     } catch (error) {
       console.error('Error deleting user:', error.message);
-      throw new Error(`Error deleting user: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Signup a new user
+   * @param {Object} userData - User data for signup
+   * @returns {Object} The created user and subscription details
+   * @throws {Error} If signup fails
+   */
+  static async signup(userData) {
+    try {
+      const { email } = userData;
+
+      // Check if the user already exists
+      const existingUser = await this.findOne({ where: { email } });
+      if (existingUser) {
+        throw new Error('User already exists. Please log in instead.');
+      }
+
+      // Create a new user
+      return await this.create(userData);
+    } catch (error) {
+      console.error('Error during signup:', error.message);
+      throw error;
     }
   }
 }
