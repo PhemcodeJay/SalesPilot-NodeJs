@@ -7,7 +7,6 @@ const asyncHandler = require('../middleware/asyncHandler');
 const User = require('../models/user');
 const { ActivationCode } = require('../models/authModel');
 
-// Auth Controller
 class AuthController {
   // User Registration
   signup = asyncHandler(async (req, res) => {
@@ -93,7 +92,7 @@ class AuthController {
     res.status(200).json({ success: true, message: 'Account activated successfully.' });
   });
 
-  // User Login - API Route (returns token and user data in JSON)
+  // User Login
   login = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
@@ -117,102 +116,8 @@ class AuthController {
     // Generate JWT token
     const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-    // Return success response with token and user data
     res.status(200).json({ success: true, token, user });
   });
-
-  class AuthController {
-    // User Registration
-    signup = asyncHandler(async (req, res) => {
-      const { username, email, password, confirm_password, phone, location } = req.body;
-  
-      // Validation
-      if (!email || !password || !username) {
-        return res.status(400).json({ success: false, message: 'Username, email, and password are required.' });
-      }
-      if (password !== confirm_password) {
-        return res.status(400).json({ success: false, message: 'Passwords do not match.' });
-      }
-      if (password.length < 8 || !/\d/.test(password) || !/[a-zA-Z]/.test(password)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Password must be at least 8 characters long and include letters and numbers.',
-        });
-      }
-  
-      // Check if user exists
-      const existingUser = await User.findOne({ where: { email } });
-      if (existingUser) {
-        return res.status(400).json({ success: false, message: 'Email is already signed up.' });
-      }
-  
-      // Hash the password
-      const hashedPassword = await bcryptUtils.hashPassword(password);
-  
-      // Create user
-      const user = await User.create({
-        username,
-        email,
-        password: hashedPassword,
-        phone,
-        location,
-        user_image: req.body.user_image || 'default-image.jpg',
-        role: 'sales',
-        status: 'inactive', // default status until activated
-      });
-  
-      // Generate activation code
-      const activationCode = crypto.randomBytes(20).toString('hex');
-      await ActivationCode.create({
-        user_id: user.id,
-        activation_code: activationCode,
-        expires_at: new Date(Date.now() + 3600000), // 1-hour expiry
-      });
-  
-      // Send activation email
-      await sendActivationEmail(email, activationCode);
-  
-      res.status(201).json({
-        success: true,
-        message: 'User signed up successfully. Check your email for activation.',
-      });
-    });
-  
-    // Account Activation
-    activateAccount = asyncHandler(async (req, res) => {
-      const { activation_code } = req.body;
-  
-      if (!activation_code) {
-        return res.status(400).json({ success: false, message: 'Activation code is required.' });
-      }
-  
-      const activationRecord = await ActivationCode.findOne({ where: { activation_code } });
-      if (!activationRecord) {
-        return res.status(400).json({ success: false, message: 'Invalid activation code.' });
-      }
-  
-      if (new Date(activationRecord.expires_at) < new Date()) {
-        return res.status(400).json({ success: false, message: 'Activation code has expired.' });
-      }
-  
-      // Activate user and remove activation code
-      await User.update({ status: 'active' }, { where: { id: activationRecord.user_id } });
-      await ActivationCode.destroy({ where: { activation_code } });
-  
-      // Grant free trial subscription
-      try {
-        const trialSubscription = await Subscription.createTrial(activationRecord.user_id);
-        if (!trialSubscription.affectedRows) {
-          return res.status(500).json({ success: false, message: 'Failed to activate free trial subscription.' });
-        }
-      } catch (error) {
-        return res.status(500).json({ success: false, message: 'Error granting free trial subscription.', error });
-      }
-  
-      res.status(200).json({ success: true, message: 'Account activated successfully and free trial started.' });
-    });
-  }
-  
 
   // Request Password Reset
   requestPasswordReset = asyncHandler(async (req, res) => {
