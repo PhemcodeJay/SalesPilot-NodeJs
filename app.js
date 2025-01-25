@@ -44,29 +44,34 @@ const routes = {
 // Initialize Express App
 const app = express();
 
+// Middleware Setup
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
 // Use the tenancy middleware to resolve the tenant from the subdomain or URL
 app.use(tenancy);
 
 // Apply global rate limiter
 app.use(rateLimiter);
 
-// Session Configuration
+// Session Configuration (Ensure it's correctly placed before any passport usage)
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: true,
-    cookie: { secure: false }, // Use true if HTTPS is enabled
+    cookie: { secure: process.env.NODE_ENV === 'production' }, // Set to true if HTTPS is enabled in production
   })
 );
-app.use(flash());
 
-// Middleware Setup
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
+// Initialize Passport.js
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Flash messaging middleware
+app.use(flash());
+
 
 // Set View Engine
 app.set('view engine', 'ejs');
@@ -122,17 +127,11 @@ app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Punycode Example
-const punycode = require('punycode/');
-console.log('Encoded:', punycode.toASCII('localhost'));
-console.log('Decoded:', punycode.toUnicode('localhost'));
-
 // Cron Jobs (Example Cron Task)
 cron.schedule('0 0 * * *', () => {
   console.log('Cron job running at midnight every day!');
   // Add your cron job tasks here (e.g., data cleanup, subscription reminders, etc.)
 });
-
 
 // Middleware to handle setting tenant info based on the request
 app.use((req, res, next) => {
