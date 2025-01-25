@@ -136,7 +136,7 @@ class UserModel {
         const updateQuery = ` 
           UPDATE users
           SET ${userUpdates.map(field => `${field} = ?`).join(', ')}
-          WHERE id = ? AND tenant_domain = ?
+          WHERE id = ? AND tenant_domain = ?;
         `;
         const updateValues = [...userUpdates.map(field => userFields[field]), userId, tenantDomain];
         const [result] = await pool.execute(updateQuery, updateValues);
@@ -153,7 +153,7 @@ class UserModel {
         const subscriptionQuery = `
           UPDATE subscriptions
           SET ${subscriptionUpdates.map(field => `${field} = ?`).join(', ')}
-          WHERE user_id = ? AND tenant_domain = ?
+          WHERE user_id = ? AND tenant_domain = ?;
         `;
         const subscriptionValues = [...subscriptionUpdates.map(field => subscriptionFields[field]), userId, tenantDomain];
         const [subResult] = await pool.execute(subscriptionQuery, subscriptionValues);

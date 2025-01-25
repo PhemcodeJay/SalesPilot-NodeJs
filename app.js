@@ -15,6 +15,8 @@ const tenancy = require('./middleware/tenancyMiddleware'); // Middleware for ten
 const asyncHandler = require('./middleware/asyncHandler');
 const rateLimiter = require('./middleware/rateLimiter');
 const cron = require('node-cron');  // Importing cron job package
+const { checkAndDeactivateSubscriptions } = require('./controllers/subscriptioncontroller');
+
 
 // Import routes
 const routes = {
@@ -151,19 +153,30 @@ app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-
 // Run cron job immediately when the server starts
-cron.schedule('* * * * *', () => {
+cron.schedule('* * * * *', async () => {
   console.log('Cron job triggered immediately on server startup!');
-  // Add any tasks that should run when the server connects here
-  // e.g., data cleanup, subscription reminders, etc.
+  try {
+    // Call the function to check and deactivate expired subscriptions immediately
+    await checkAndDeactivateSubscriptions();
+    console.log('Initial subscription check completed.');
+  } catch (error) {
+    console.error('Error during initial subscription check:', error.message);
+  }
 });
 
-// Scheduled Cron Job (Example: Runs at midnight every day)
-cron.schedule('0 0 * * *', () => {
-  console.log('Cron job running at midnight every day!');
-  // Add your recurring cron tasks here (e.g., data cleanup, subscription reminders, etc.)
+// Scheduled Cron Job (Runs at midnight every day)
+cron.schedule('0 0 * * *', async () => {
+  console.log('Running cron job to check and deactivate expired subscriptions...');
+  try {
+    // Call the function to check and deactivate expired subscriptions
+    await checkAndDeactivateSubscriptions();
+    console.log('Expired subscriptions have been deactivated successfully.');
+  } catch (error) {
+    console.error('Error while checking and deactivating subscriptions:', error.message);
+  }
 });
+
 
 
 // Example of a route to fetch tenant details
