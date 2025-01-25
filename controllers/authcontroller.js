@@ -50,7 +50,7 @@ class AuthController {
       status: 'inactive', // Initially inactive until email is activated
     });
 
-    // Create tenant for the user (assuming tenancy model exists)
+    // Create tenant for the user
     const tenant = await Tenant.create({
       user_id: user.id,
       tenant_name: `${user.username}'s Tenant`, // Can be customized to be more descriptive
@@ -129,13 +129,13 @@ class AuthController {
       return res.status(400).json({ success: false, message: 'Invalid credentials.' });
     }
 
-    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ userId: user.id, role: user.role, tenantId: user.tenant_id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     res.status(200).json({
       success: true,
       message: 'Login successful.',
       token,
-      user: { id: user.id, username: user.username, email: user.email, role: user.role },
+      user: { id: user.id, username: user.username, email: user.email, role: user.role, tenant_id: user.tenant_id },
     });
   });
 

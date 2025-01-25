@@ -3,13 +3,13 @@ const bcryptUtils = require('../utils/bcryptUtils');
 
 class UserModel {
   /**
-   * Create a new user and their subscription details for a specific tenant
-   * @param {Object} userData - User data to insert into the database
-   * @param {String} tenantDomain - The tenant's domain/subdomain for identifying the tenant's database
+   * Signup a new user for a specific tenant
+   * @param {Object} userData - User data for signup
+   * @param {String} tenantDomain - The tenant's domain/subdomain
    * @returns {Object} The created user and subscription details
-   * @throws {Error} If user creation fails
+   * @throws {Error} If signup fails
    */
-  static async create(userData, tenantDomain) {
+  static async signup(userData, tenantDomain) {
     try {
       if (!userData || typeof userData !== 'object') {
         throw new Error('Invalid user data provided.');
@@ -28,6 +28,7 @@ class UserModel {
         is_free_trial_used = false,
       } = userData;
 
+      // Validate required fields
       if (!username || !email || !password || !location) {
         throw new Error('Missing required fields: username, email, password, or location.');
       }
@@ -56,8 +57,8 @@ class UserModel {
 
       // Add subscription details for the user
       const [subscriptionResult] = await pool.execute(
-        'INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, is_free_trial_used) VALUES (?, ?, ?, ?, ?)',
-        [userId, subscription_plan, start_date, end_date, is_free_trial_used]
+        'INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, is_free_trial_used, tenant_domain) VALUES (?, ?, ?, ?, ?, ?)',
+        [userId, subscription_plan, start_date, end_date, is_free_trial_used, tenantDomain]
       );
 
       // Ensure subscription result contains affectedRows
@@ -71,7 +72,7 @@ class UserModel {
         subscription: { subscription_plan, start_date, end_date, is_free_trial_used },
       };
     } catch (error) {
-      console.error('Error creating user:', error.message);
+      console.error('Error during signup:', error.message);
       throw error;
     }
   }
@@ -132,7 +133,7 @@ class UserModel {
       const userFields = { username, email, phone, role, location };
       const userUpdates = Object.keys(userFields).filter(key => userFields[key] !== undefined);
       if (userUpdates.length > 0) {
-        const updateQuery = `
+        const updateQuery = ` 
           UPDATE users
           SET ${userUpdates.map(field => `${field} = ?`).join(', ')}
           WHERE id = ? AND tenant_domain = ?
@@ -195,31 +196,6 @@ class UserModel {
       return { success: true };
     } catch (error) {
       console.error('Error deleting user:', error.message);
-      throw error;
-    }
-  }
-
-  /**
-   * Signup a new user for a specific tenant
-   * @param {Object} userData - User data for signup
-   * @param {String} tenantDomain - The tenant's domain/subdomain
-   * @returns {Object} The created user and subscription details
-   * @throws {Error} If signup fails
-   */
-  static async signup(userData, tenantDomain) {
-    try {
-      const { email } = userData;
-
-      // Check if the user already exists for the tenant
-      const existingUser = await this.findOne({ where: { email }, tenantDomain });
-      if (existingUser) {
-        throw new Error('User already exists. Please log in instead.');
-      }
-
-      // Create a new user
-      return await this.create(userData, tenantDomain);
-    } catch (error) {
-      console.error('Error during signup:', error.message);
       throw error;
     }
   }

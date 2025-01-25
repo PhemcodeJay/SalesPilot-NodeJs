@@ -111,10 +111,13 @@ const signup = async ({ username, email, password, confirmpassword }) => {
   return { id: userId, username, email };
 };
 
-const login = async (email, password) => {
+const login = async (email, password, tenant) => {
   if (!validator.isEmail(email)) throw new Error('Invalid email format');
 
-  const user = await User.getByEmail(email);
+  // Fetch tenant-specific database connection
+  const tenantDb = await tenancy.getTenantDatabase(tenant);
+
+  const user = await User.getByEmail(email, tenantDb);
   if (!user) throw new Error('Invalid email or password');
   if (!user.is_active) throw new Error('Account is not activated');
 
@@ -150,7 +153,7 @@ const resetPassword = async (email) => {
 class AuthModel {
   static async verifyCredentials(email, password, tenant) {
     try {
-      const tenantDb = await tenancy.getTenantDatabase(tenant); // Assuming you have a method to fetch the tenant's database connection
+      const tenantDb = await tenancy.getTenantDatabase(tenant); // Fetch the tenant-specific database connection
       const [results] = await tenantDb.execute('SELECT * FROM users WHERE email = ?', [email]);
 
       if (!results || results.length === 0) {
