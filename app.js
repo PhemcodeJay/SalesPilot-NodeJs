@@ -1,6 +1,6 @@
 const express = require('express');
 const path = require('path');
-const { sequelize } = require('./config/db'); // Import Sequelize configuration (global DB)
+const { getTenantDatabase } = require('./config/db'); // Import function to get tenant DB
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const passport = require('passport');
@@ -14,9 +14,9 @@ const cookieParser = require('cookie-parser');
 const tenancy = require('./middleware/tenancyMiddleware'); // Middleware for tenancy handling
 const asyncHandler = require('./middleware/asyncHandler');
 const rateLimiter = require('./middleware/rateLimiter');
-const cron = require('node-cron');  // Importing cron job package
+const cron = require('node-cron'); // Cron job package
 const { checkAndDeactivateSubscriptions } = require('./controllers/subscriptioncontroller');
-
+const PORT = process.env.PORT || 5000;
 
 // Import routes
 const routes = {
@@ -40,7 +40,7 @@ const routes = {
   profile: require('./routes/userRoute'),
   staff: require('./routes/staffRoute'),
   subscription: require('./routes/subscriptionRoute'),
-  pdfRoute: require('./routes/pdfRoute'),
+  pdf: require('./routes/pdfRoute'),
 };
 
 // Initialize Express App
@@ -50,20 +50,22 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-// Use the tenancy middleware to resolve the tenant from the subdomain or URL
+// Apply tenancy middleware to set the tenant's database dynamically
 app.use(tenancy);
 
 // Apply global rate limiter
 app.use(rateLimiter);
 
-// Session Configuration (Ensure it's correctly placed before any passport usage)
+// Session Configuration
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: true,
-    cookie: { secure: process.env.NODE_ENV === 'production' }, // Set to true if HTTPS is enabled in production
+    cookie: { secure: process.env.NODE_ENV === 'production' },
   })
 );
 
@@ -71,7 +73,7 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Flash messaging middleware
+// Flash messages
 app.use(flash());
 
 // Set View Engine
@@ -82,38 +84,18 @@ app.set('views', path.join(__dirname, 'views'));
 app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
 app.use('/home_assets', express.static(path.join(__dirname, 'public', 'home_assets')));
 
-// Middleware to handle setting tenant info based on the request
-app.use(async (req, res, next) => {
-  const tenantId = req.headers['tenant-id']; // Tenant ID passed in headers or subdomains
-
-  if (tenantId) {
-    try {
-      // Get tenant-specific database configuration if tenant ID is provided
-      const { mysqlPDO, sequelize } = require('./config/db').getTenantDatabase(tenantId);
-
-      // Attach the tenant's database connections to the request for future use
-      req.db = { mysqlPDO, sequelize };
-      console.log(`Tenant database for ${tenantId} attached to request.`);
-    } catch (error) {
-      console.error(`Error fetching tenant database for ${tenantId}:`, error);
-      return res.status(500).json({ message: 'Error fetching tenant database configuration.' });
-    }
-  } else {
-    console.log('No tenant ID provided. Proceeding without tenant-specific database.');
-  }
-
-  // Continue to the next middleware or route handler
-  next();
+// Attach imported routes dynamically
+Object.entries(routes).forEach(([name, route]) => {
+  app.use(`/${name}`, route);
 });
 
-
-// Routes to Serve Views
+// Home Route
 app.get('/', (req, res) => {
   res.render('home/index', { title: 'Home' });
 });
 
 // PayPal Payment Example
-app.post('/create-payment', verifyToken, async (req, res) => {
+app.post('/create-payment', verifyToken, asyncHandler(async (req, res) => {
   const order = {
     intent: 'CAPTURE',
     purchase_units: [{ amount: { value: req.body.amount } }],
@@ -126,21 +108,11 @@ app.post('/create-payment', verifyToken, async (req, res) => {
   const request = new paypalClient.orders.OrdersCreateRequest();
   request.requestBody(order);
 
-  try {
-    const orderResponse = await paypalClient.execute(request);
-    res.json({ orderId: orderResponse.result.id });
-  } catch (error) {
-    console.error('PayPal Error:', error);
-    res.status(500).json({ error: 'Payment creation failed' });
-  }
-});
+  const orderResponse = await paypalClient.execute(request);
+  res.json({ orderId: orderResponse.result.id });
+}));
 
-// Attach the imported routes dynamically
-Object.entries(routes).forEach(([name, route]) => {
-  app.use(`/${name}`, route);
-});
-
-// Example route with asyncHandler
+// Example Route with asyncHandler
 app.get(
   '/api/example',
   asyncHandler(async (req, res) => {
@@ -148,16 +120,15 @@ app.get(
   })
 );
 
-// Global error handler for non-existent routes
+// Global Error Handler for Non-existent Routes
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Run cron job immediately when the server starts
+// Run Initial Cron Job
 cron.schedule('* * * * *', async () => {
-  console.log('Cron job triggered immediately on server startup!');
+  console.log('Running initial subscription check...');
   try {
-    // Call the function to check and deactivate expired subscriptions immediately
     await checkAndDeactivateSubscriptions();
     console.log('Initial subscription check completed.');
   } catch (error) {
@@ -165,45 +136,30 @@ cron.schedule('* * * * *', async () => {
   }
 });
 
-// Scheduled Cron Job (Runs at midnight every day)
+// Scheduled Cron Job (Runs at midnight daily)
 cron.schedule('0 0 * * *', async () => {
-  console.log('Running cron job to check and deactivate expired subscriptions...');
+  console.log('Running daily subscription check...');
   try {
-    // Call the function to check and deactivate expired subscriptions
     await checkAndDeactivateSubscriptions();
-    console.log('Expired subscriptions have been deactivated successfully.');
+    console.log('Expired subscriptions deactivated successfully.');
   } catch (error) {
-    console.error('Error while checking and deactivating subscriptions:', error.message);
+    console.error('Error during daily subscription check:', error.message);
   }
 });
 
-
-
-// Example of a route to fetch tenant details
-app.get('/tenant', async (req, res) => {
-  const tenantId = req.headers['tenant-id'];
-  try {
-    const Tenant = require('./models/tenant');
-    const tenant = await Tenant.findOne({ where: { id: tenantId } });
-    if (!tenant) {
-      return res.status(404).json({ message: 'Tenant not found.' });
-    }
-
-    res.json(tenant);
-  } catch (error) {
-    res.status(500).json({ message: 'Error fetching tenant data.' });
-  }
-});
-
-// Initialize Sequelize and check DB connection for the global DB
-sequelize.authenticate()
-  .then(() => console.log('Global database connected successfully'))
-  .catch(err => console.error('Database connection error: ', err));
+// Define the global database name (or fetch it from environment variables)
+const GLOBAL_DB_NAME = process.env.GLOBAL_DB_NAME || 'global_database';
 
 // Start the server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`);
+
+  // Example of dynamically selecting tenant database
+  const tenantDbName = 'tenant_db_example'; // You should dynamically get the tenant DB name
+  const { mysqlPDO, sequelize } = getTenantDatabase(tenantDbName);
+  console.log(`Tenant database connected: ${tenantDbName}`);
+
+  // Additional startup logic if required
 });
 
 module.exports = app;

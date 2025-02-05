@@ -1,46 +1,41 @@
-// middleware/tenancyMiddleware.js
-
-const { getTenantDatabase, createTenantDatabase } = require('../config/db');  // Ensure proper import
+const { getTenantDatabase } = require('../config/db');
+const { v4: uuidv4 } = require('uuid'); // Import UUID for fallback Tenant ID
 
 module.exports = async (req, res, next) => {
-  // Attempt to get tenant identifier from request (either from headers or subdomains)
-  let tenantId = req.headers['tenant-id'] || req.subdomains[0];  // Modify this based on your system
+  const publicRoutes = ['/login', '/signup', '/index']; // Define public routes
 
-  if (!tenantId) {
-    // If no tenant ID exists, generate a new tenant ID
-    tenantId = `tenant_${Date.now()}`;  // Example: Generates a unique tenant ID using the current timestamp
-    console.log(`Generated new tenant ID: ${tenantId}`);
-    
-    try {
-      // Create the new tenant's database (this might vary depending on your actual database creation logic)
-      const newTenantDbName = `tenant_db_${tenantId}`; // Customize the naming convention as necessary
-      await createTenantDatabase(newTenantDbName);
-      console.log(`New tenant database created: ${newTenantDbName}`);
-    } catch (error) {
-      console.error('Error creating new tenant database:', error);
-      return res.status(500).json({ message: 'Error creating new tenant database' });
-    }
+  console.log(`Incoming request: ${req.path}`);
+  console.log('Request Headers:', req.headers);
+
+  // If it's a public route, bypass tenant logic
+  if (publicRoutes.includes(req.path)) {
+    console.log(`Public route accessed: ${req.path}, skipping tenant check.`);
+    return next();
   }
 
-  // Now that we have the tenantId (whether from the request or newly created), we get its database configurations
-  const tenantDbName = `tenant_db_${tenantId}`;  // Customize this naming convention if necessary
+  // Extract Tenant ID from headers
+  let tenantId = req.headers['tenant-id'];
+
+  // Generate a UUID-based Tenant ID if missing
+  if (!tenantId) {
+    console.warn('Tenant ID missing, generating new Tenant ID.');
+    tenantId = `tenant_${uuidv4().slice(0, 8)}`;
+  }
 
   try {
-    // Get the tenant's database configurations
+    const tenantDbName = `tenant_db_${tenantId}`;
+    console.log(`Fetching tenant database: ${tenantDbName}`);
+
     const { sequelize, mysqlPDO } = getTenantDatabase(tenantDbName);
 
-    // Attach the sequelize instance to the request object
     req.sequelize = sequelize;
     req.mysqlPDO = mysqlPDO;
-    req.tenantId = tenantId;  // Attach tenantId to the request for further use
+    req.tenantId = tenantId;
 
-    // Log the tenant info for debugging (optional)
-    console.log(`Tenant database for ${tenantId}: ${tenantDbName}`);
-
-    // Proceed to the next middleware or route handler
+    console.log(`Tenant database initialized for: ${tenantId}`);
     next();
   } catch (error) {
-    console.error('Error fetching tenant database configuration:', error);
-    return res.status(500).json({ message: 'Tenant database configuration error' });
+    console.error('Error setting up tenant database:', error.message);
+    return res.status(500).json({ message: 'Error initializing tenant database.' });
   }
 };
