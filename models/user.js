@@ -1,8 +1,43 @@
 const bcryptUtils = require('../utils/bcryptUtils');
-const { getTenantDatabase } = require('../config/db');
-const pool = require('../config/db'); // Use the pool to interact with the database
+const { executeQuery } = require('../config/db'); // Import the executeQuery function
 
 class UserModel {
+  /**
+   * Find a user by a specific field (like username or email) for a specific tenant
+   * @param {Object} query - Query object with a "where" clause
+   * @param {String} tenantDomain - The tenant's domain/subdomain
+   * @returns {Object|null} The user record
+   * @throws {Error} If the query is invalid or the query fails
+   */
+  static async findOne(query, tenantDomain = 'localhost') {
+    try {
+      if (!query || typeof query !== 'object' || !query.where) {
+        throw new Error('Invalid query object provided.');
+      }
+
+      const field = Object.keys(query.where)[0];
+      const value = query.where[field];
+
+      // Validate query field
+      const allowedFields = ['id', 'username', 'email', 'phone'];
+      if (!allowedFields.includes(field)) {
+        throw new Error(`Invalid query field: ${field}`);
+      }
+
+      const queryString = `SELECT * FROM users WHERE ${field} = ? AND tenant_domain = ?`;
+      const results = await executeQuery(queryString, [value, tenantDomain]);
+
+      if (results.length > 0) {
+        return results[0];
+      } else {
+        return null; // Return null if no user is found
+      }
+    } catch (error) {
+      console.error('Error in findOne method:', error.message);
+      throw error;
+    }
+  }
+
   /**
    * Signup a new user for a specific tenant
    * @param {Object} userData - User data for signup
@@ -10,7 +45,7 @@ class UserModel {
    * @returns {Object} The created user and subscription details
    * @throws {Error} If signup fails
    */
-  static async signup(userData, tenantDomain = 'localhost') { // Default to localhost for tenantDomain
+  static async signup(userData, tenantDomain = 'localhost') {
     try {
       if (!userData || typeof userData !== 'object') {
         throw new Error('Invalid user data provided.');
@@ -23,9 +58,9 @@ class UserModel {
         password,
         location,
         role = 'sales',
-        subscription_plan = 'trial',
+        subscription_plan = 'trial',  // Default to 'trial' if not provided
         start_date = new Date().toISOString(),
-        end_date = '2030-12-31 23:59:59',
+        end_date = '2030-12-31 23:59:59',  // Set an end date if necessary
         is_free_trial_used = false,
       } = userData;
 
@@ -43,10 +78,11 @@ class UserModel {
       const hashedPassword = await bcryptUtils.hashPassword(password);
 
       // Insert the user into the database
-      const [userResult] = await pool.execute(
-        'INSERT INTO users (username, email, phone, password, location, role, tenant_domain) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [username, email, phone, hashedPassword, location, role, tenantDomain]
-      );
+      const query = `
+        INSERT INTO users (username, email, phone, password, confirm_password, location, role, tenant_domain)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      const userResult = await executeQuery(query, [username, email, phone, hashedPassword, confirm_password, location, role, tenantDomain]);
 
       if (!userResult || !userResult.insertId) {
         throw new Error('Failed to create user.');
@@ -54,10 +90,11 @@ class UserModel {
 
       const userId = userResult.insertId;
 
-      // Insert the subscription into the database
-      const [subscriptionResult] = await pool.execute(
+      // Automatically assign the trial subscription if 'trial' is the plan
+      const subscriptionEndDate = subscription_plan === 'trial' ? '2030-12-31 23:59:59' : end_date;
+      const [subscriptionResult] = await executeQuery(
         'INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, is_free_trial_used, tenant_domain) VALUES (?, ?, ?, ?, ?, ?)',
-        [userId, subscription_plan, start_date, end_date, is_free_trial_used, tenantDomain]
+        [userId, subscription_plan, start_date, subscriptionEndDate, is_free_trial_used, tenantDomain]
       );
 
       if (!subscriptionResult || subscriptionResult.affectedRows === 0) {
@@ -67,52 +104,10 @@ class UserModel {
       return {
         success: true,
         user: { id: userId, username, email, phone, location, role },
-        subscription: { subscription_plan, start_date, end_date, is_free_trial_used },
+        subscription: { subscription_plan, start_date, end_date: subscriptionEndDate, is_free_trial_used },
       };
     } catch (error) {
       console.error('Error during signup:', error.message);
-      throw error;
-    }
-  }
-
-  /**
-   * Find a user by specific criteria for a specific tenant or proceed with signup if not found
-   * @param {Object} query - Query object with a "where" clause
-   * @param {String} tenantDomain - The tenant's domain/subdomain
-   * @param {Function} signupCallback - Callback function to execute the signup process
-   * @returns {Object|null} The user record or result of the signup process
-   * @throws {Error} If the query is invalid
-   */
-  static async findOne(query, tenantDomain = 'localhost', signupCallback) { // Default tenantDomain to localhost
-    try {
-      if (!query || typeof query !== 'object' || !query.where) {
-        throw new Error('Invalid query object provided.');
-      }
-
-      const field = Object.keys(query.where)[0];
-      const value = query.where[field];
-
-      // Validate query field
-      const allowedFields = ['id', 'username', 'email', 'phone'];
-      if (!allowedFields.includes(field)) {
-        throw new Error(`Invalid query field: ${field}`);
-      }
-
-      const queryString = `SELECT * FROM users WHERE ${field} = ? AND tenant_domain = ?`;
-      const [results] = await pool.execute(queryString, [value, tenantDomain]);
-
-      if (results.length > 0) {
-        return results[0];
-      } else {
-        console.log('No user found. Proceeding with signup...');
-        if (typeof signupCallback === 'function') {
-          return await signupCallback();
-        } else {
-          throw new Error('Signup callback function not provided.');
-        }
-      }
-    } catch (error) {
-      console.error('Error in findOne method:', error.message);
       throw error;
     }
   }
@@ -125,7 +120,7 @@ class UserModel {
    * @returns {Object} Success status
    * @throws {Error} If the update fails
    */
-  static async update(userId, data, tenantDomain = 'localhost') { // Default to localhost for tenantDomain
+  static async update(userId, data, tenantDomain = 'localhost') {
     try {
       if (!userId || !data || typeof data !== 'object') {
         throw new Error('User ID and data are required for update.');
@@ -138,7 +133,7 @@ class UserModel {
 
       if (userUpdates.length > 0) {
         const updateQuery = `UPDATE users SET ${userUpdates.map(field => `${field} = ?`).join(', ')} WHERE id = ? AND tenant_domain = ?`;
-        await pool.execute(updateQuery, [...userUpdates.map(field => userFields[field]), userId, tenantDomain]);
+        await executeQuery(updateQuery, [...userUpdates.map(field => userFields[field]), userId, tenantDomain]);
       }
 
       if (subscription_plan || end_date || is_free_trial_used !== undefined) {
@@ -147,7 +142,7 @@ class UserModel {
 
         if (subscriptionUpdates.length > 0) {
           const updateSubscriptionQuery = `UPDATE subscriptions SET ${subscriptionUpdates.map(field => `${field} = ?`).join(', ')} WHERE user_id = ? AND tenant_domain = ?`;
-          await pool.execute(updateSubscriptionQuery, [...subscriptionUpdates.map(field => subscriptionFields[field]), userId, tenantDomain]);
+          await executeQuery(updateSubscriptionQuery, [...subscriptionUpdates.map(field => subscriptionFields[field]), userId, tenantDomain]);
         }
       }
 

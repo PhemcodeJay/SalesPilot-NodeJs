@@ -6,6 +6,7 @@ const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailU
 const asyncHandler = require('../middleware/asyncHandler');
 const { User, ActivationCode, Subscription, Tenant } = require('../models'); // Add Tenant model
 
+
 class AuthController {
   // User Registration with Free Trial Subscription
   signup = asyncHandler(async (req, res) => {
@@ -64,6 +65,7 @@ class AuthController {
       type: 'free_trial',
       start_date: new Date(),
       end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days trial
+      status: 'active', // Set subscription status to active
     });
 
     // Generate and save activation code

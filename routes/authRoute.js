@@ -59,7 +59,7 @@ router.get('/activate', (req, res) => {
 });
 
 // Render the password reset request page
-router.get('/password-reset', (req, res) => {
+router.get('/passwordreset', (req, res) => {
   try {
     res.render('auth/passwordreset'); // Render the passwordreset.ejs view
   } catch (error) {
