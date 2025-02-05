@@ -4,45 +4,65 @@ const { executeQuery } = require('../config/db'); // Import the executeQuery fun
 class UserModel {
 
   /**
-   * Create a new user record
-   * @param {Object} userData - The user data to insert
-   * @param {String} tenantDomain - The tenant's domain/subdomain
-   * @returns {Object} The created user
-   * @throws {Error} If creation fails
-   */
-  static async create(userData, tenantDomain = 'localhost') {
-    try {
-      if (!userData || typeof userData !== 'object') {
-        throw new Error('Invalid user data provided.');
-      }
-
-      const { username, email, phone = null, password, confirm_password, location, role = 'sales' } = userData;
-
-      // Validate password confirmation
-      if (password !== confirm_password) {
-        throw new Error('Passwords do not match.');
-      }
-
-      // Hash the password
-      const hashedPassword = await bcryptUtils.hashPassword(password);
-
-      // Insert the user into the database
-      const query = `
-        INSERT INTO users (username, email, phone, password, confirm_password, location, role, tenant_domain)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-      const userResult = await executeQuery(query, [username, email, phone, hashedPassword, confirm_password, location, role, tenantDomain]);
-
-      if (!userResult || !userResult.insertId) {
-        throw new Error('Failed to create user.');
-      }
-
-      return { id: userResult.insertId, username, email, phone, location, role };
-    } catch (error) {
-      console.error('Error in create method:', error.message);
-      throw error;
+ * Create a new user record
+ * @param {Object} userData - The user data to insert
+ * @param {String} tenantDomain - The tenant's domain/subdomain
+ * @returns {Object} The created user
+ * @throws {Error} If creation fails
+ */
+static async create(userData, tenantDomain = 'localhost') {
+  try {
+    if (!userData || typeof userData !== 'object') {
+      throw new Error('Invalid user data provided.');
     }
+
+    const { username, email, phone, password, confirm_password, location, role = 'sales' } = userData;
+
+    
+    // Hash the password
+    const hashedPassword = await bcryptUtils.hashPassword(password);
+
+    // Check if the tenant already exists
+    let tenant_id;
+    const tenantCheckQuery = `SELECT tenant_id FROM tenants WHERE domain = ?`;
+    const tenantResult = await executeQuery(tenantCheckQuery, [tenantDomain]);
+
+    if (tenantResult.length > 0) {
+      // Tenant exists, use existing tenant_id
+      tenant_id = tenantResult[0].tenant_id;
+    } else {
+      // Tenant does not exist, create a new tenant
+      const insertTenantQuery = `
+        INSERT INTO tenants (domain)
+        VALUES (?)
+      `;
+      const insertTenantResult = await executeQuery(insertTenantQuery, [tenantDomain]);
+
+      if (!insertTenantResult || !insertTenantResult.insertId) {
+        throw new Error('Failed to create tenant.');
+      }
+
+      tenant_id = insertTenantResult.insertId;
+    }
+
+    // Insert the user into the database with the tenant_id
+    const query = `
+      INSERT INTO users (username, email, phone, password, confirm_password, location, role, tenant_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const userResult = await executeQuery(query, [username, email, phone, hashedPassword, confirm_password, location, role, tenant_id]);
+
+    if (!userResult || !userResult.insertId) {
+      throw new Error('Failed to create user.');
+    }
+
+    return { id: userResult.insertId, username, email, phone, location, role, tenant_id };
+  } catch (error) {
+    console.error('Error in create method:', error.message);
+    throw error;
   }
+}
+
   
   /**
    * Find a user by a specific field (like username or email) for a specific tenant

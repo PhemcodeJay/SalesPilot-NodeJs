@@ -63,11 +63,11 @@
                       <script>
                         document.addEventListener("DOMContentLoaded", function() {
                           const signupForm = document.getElementById("signup-form");
-                      
+                          
                           signupForm.addEventListener("submit", function(event) {
                             const password = document.getElementById("password").value;
                             const confirmPassword = document.getElementById("confirm_password").value;
-                      
+                            
                             // Check if passwords match
                             if (password !== confirmPassword) {
                               event.preventDefault(); // Prevent form submission
@@ -76,6 +76,7 @@
                           });
                         });
                       </script>
+                      
                                           
                       <div class="text-center">
                         <button type="button" class="btn btn-primary w-100 my-4 mb-2" onclick="window.location.href='/auth/login'">Go to Login</button>
