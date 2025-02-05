@@ -2,6 +2,48 @@ const bcryptUtils = require('../utils/bcryptUtils');
 const { executeQuery } = require('../config/db'); // Import the executeQuery function
 
 class UserModel {
+
+  /**
+   * Create a new user record
+   * @param {Object} userData - The user data to insert
+   * @param {String} tenantDomain - The tenant's domain/subdomain
+   * @returns {Object} The created user
+   * @throws {Error} If creation fails
+   */
+  static async create(userData, tenantDomain = 'localhost') {
+    try {
+      if (!userData || typeof userData !== 'object') {
+        throw new Error('Invalid user data provided.');
+      }
+
+      const { username, email, phone = null, password, confirm_password, location, role = 'sales' } = userData;
+
+      // Validate password confirmation
+      if (password !== confirm_password) {
+        throw new Error('Passwords do not match.');
+      }
+
+      // Hash the password
+      const hashedPassword = await bcryptUtils.hashPassword(password);
+
+      // Insert the user into the database
+      const query = `
+        INSERT INTO users (username, email, phone, password, confirm_password, location, role, tenant_domain)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      const userResult = await executeQuery(query, [username, email, phone, hashedPassword, confirm_password, location, role, tenantDomain]);
+
+      if (!userResult || !userResult.insertId) {
+        throw new Error('Failed to create user.');
+      }
+
+      return { id: userResult.insertId, username, email, phone, location, role };
+    } catch (error) {
+      console.error('Error in create method:', error.message);
+      throw error;
+    }
+  }
+  
   /**
    * Find a user by a specific field (like username or email) for a specific tenant
    * @param {Object} query - Query object with a "where" clause
@@ -56,6 +98,7 @@ class UserModel {
         email,
         phone = null,
         password,
+        confirm_password,
         location,
         role = 'sales',
         subscription_plan = 'trial',  // Default to 'trial' if not provided
@@ -64,8 +107,14 @@ class UserModel {
         is_free_trial_used = false,
       } = userData;
 
+      // Validate required fields
       if (!username || !email || !password || !location) {
         throw new Error('Missing required fields: username, email, password, or location.');
+      }
+
+      // Check if passwords match
+      if (password !== confirm_password) {
+        throw new Error('Passwords do not match.');
       }
 
       // Check if the user already exists

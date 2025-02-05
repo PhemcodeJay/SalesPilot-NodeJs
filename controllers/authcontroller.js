@@ -44,6 +44,7 @@ class AuthController {
       username,
       email,
       password: hashedPassword,
+      confirm_password,
       phone,
       location,
       user_image: user_image || 'default-image.jpg',
