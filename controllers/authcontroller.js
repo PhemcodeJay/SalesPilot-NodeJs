@@ -54,9 +54,9 @@ class AuthController {
 
     // Create tenant for the user
     const tenant = await Tenant.create({
-      user_id: user.id,
-      tenant_name: `${user.username}'s Tenant`, // Can be customized to be more descriptive
-      tenant_status: 'active', // Default active status
+      name: `${user.username}'s Tenant`, // Fix: Use "name" instead of "tenant_name"
+      status: 'active',
+      email: user.email, // Add this if necessary
     });
     
 
