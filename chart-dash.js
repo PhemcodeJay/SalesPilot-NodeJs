@@ -8,7 +8,7 @@ const connection = mysql.createConnection({
   host: 'localhost', // replace with your host
   user: 'root', // replace with your database username
   password: '', // replace with your database password
-  database: 'dbs13455438' // replace with your database name
+  database: 'salespilot' // replace with your database name
 });
 
 // Function to get the date range based on the selected period
