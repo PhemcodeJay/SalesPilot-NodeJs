@@ -4,87 +4,77 @@ const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
 const asyncHandler = require('../middleware/asyncHandler');
-const { User, ActivationCode, Subscription, Tenant } = require('../models'); // Add Tenant model
-
+const { User, ActivationCode, Subscription, Tenant, PasswordResetToken } = require('../models');
 
 class AuthController {
-  // User Registration with Free Trial Subscription
+  // User Signup with Free Trial
   signup = asyncHandler(async (req, res) => {
     const { username, email, password, confirm_password, phone, location, user_image } = req.body;
 
-    // Validate required fields
     if (!username || !email || !password || !confirm_password) {
-      return res.status(400).json({ success: false, message: 'Username, email, password, and confirm password are required.' });
+      return res.status(400).json({ success: false, message: 'All fields are required.' });
     }
 
-    // Validate passwords match
     if (password !== confirm_password) {
       return res.status(400).json({ success: false, message: 'Passwords do not match.' });
     }
 
-    // Validate password strength
     if (password.length < 8 || !/\d/.test(password) || !/[a-zA-Z]/.test(password)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password must be at least 8 characters long and include both letters and numbers.',
-      });
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long and include letters and numbers.' });
     }
 
-    // Check if user already exists
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
-      return res.status(400).json({ success: false, message: 'Email is already registered.' });
+      return res.status(400).json({ success: false, message: 'Email already registered.' });
     }
 
-    // Hash password
     const hashedPassword = await bcryptUtils.hashPassword(password);
 
-    // Create user
+    // Create Tenant (Unique per user)
+    const tenant = await Tenant.create({
+      name: `${username}'s Business`,
+      owner_email: email
+    });
+
+    // Create User
     const user = await User.create({
       username,
       email,
       password: hashedPassword,
-      confirm_password,
+      confirm_password: hashedPassword, // Store confirm password as well
       phone,
       location,
       user_image: user_image || 'default-image.jpg',
       role: 'sales',
-      status: 'inactive', // Initially inactive until email is activated
+      status: 'inactive',
+      tenant_id: tenant.id
     });
 
-    // Create tenant for the user
-    const tenant = await Tenant.create({
-      name: `${user.username}'s Tenant`, // Fix: Use "name" instead of "tenant_name"
-      status: 'active',
-      email: user.email, // Add this if necessary
-    });
-    
-
-    // Create free trial subscription for the user under the created tenant
+    // Create Free Trial Subscription
     const subscription = await Subscription.create({
       user_id: user.id,
-      tenant_id: tenant.id, // Associate the subscription with the tenant
+      tenant_id: tenant.id,
       type: 'free_trial',
       start_date: new Date(),
-      end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days trial
-      status: 'active', // Set subscription status to active
+      end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      status: 'active'
     });
 
-    // Generate and save activation code
+    // Generate and Save Activation Code
     const activationCode = crypto.randomBytes(20).toString('hex');
     await ActivationCode.create({
       user_id: user.id,
       activation_code: activationCode,
-      expires_at: new Date(Date.now() + 3600000), // 1-hour expiry
+      expires_at: new Date(Date.now() + 3600000) // 1 hour
     });
 
-    // Send activation email
+    // Send Activation Email
     await sendActivationEmail(email, activationCode);
 
     res.status(201).json({
       success: true,
       message: 'Registration successful. Please check your email to activate your account.',
-      subscriptionId: subscription.id, // Include subscription ID in the response
+      subscriptionId: subscription.id
     });
   });
 
@@ -112,104 +102,98 @@ class AuthController {
   });
 
   // Login User
-login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  login = asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
 
-  // Validate input
-  if (!email || !password) {
-    return res.status(400).json({ success: false, message: 'Email and password are required.' });
-  }
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required.' });
+    }
 
-  // Fetch user (Ensure email comparison is case-insensitive)
-  const user = await User.findOne({ where: { email: email.toLowerCase() } });
+    const user = await User.findOne({ where: { email: email.toLowerCase() } });
 
-  // Check if user exists
-  if (!user) {
-    return res.status(401).json({ success: false, message: 'Invalid email or password.' });
-  }
+    if (!user || !(await bcryptUtils.comparePassword(password, user.password))) {
+      return res.status(401).json({ success: false, message: 'Invalid email or password.' });
+    }
 
-  // Check if the account is activated
-  if (user.status !== 'active') {
-    return res.status(403).json({ success: false, message: 'Account is not activated. Please contact support.' });
-  }
+    if (user.status !== 'active') {
+      return res.status(403).json({ success: false, message: 'Please activate your account first.' });
+    }
 
-  // Verify password
-  const isPasswordValid = await bcryptUtils.comparePassword(password, user.password);
-  if (!isPasswordValid) {
-    return res.status(401).json({ success: false, message: 'Invalid email or password.' });
-  }
+    const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, {
+      expiresIn: '7d'
+    });
 
-  // Generate JWT token
-  const token = jwt.sign(
-    { userId: user.id, role: user.role, tenantId: user.tenant_id },
-    process.env.JWT_SECRET,
-    { expiresIn: '1h' }
-  );
-
-  // Return success response
-  return res.status(200).json({
-    success: true,
-    message: 'Login successful.',
-    token,
-    user: {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role,
-      tenant_id: user.tenant_id,
-    },
+    res.status(200).json({ success: true, token, user });
   });
-});
-
 
   // Request Password Reset
   requestPasswordReset = asyncHandler(async (req, res) => {
     const { email } = req.body;
 
-    if (!email) {
-      return res.status(400).json({ success: false, message: 'Email is required.' });
-    }
-
     const user = await User.findOne({ where: { email } });
     if (!user) {
-      return res.status(400).json({ success: false, message: 'No user found with that email address.' });
+      return res.status(404).json({ success: false, message: 'Email not found.' });
     }
 
-    const resetToken = uuidv4();
-    await ActivationCode.create({
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    await PasswordResetToken.create({
       user_id: user.id,
-      activation_code: resetToken,
-      expires_at: new Date(Date.now() + 3600000), // 1-hour expiry
+      token: resetToken,
+      expires_at: new Date(Date.now() + 3600000) // 1 hour
     });
 
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-    await sendPasswordResetEmail(email, resetUrl);
+    await sendPasswordResetEmail(email, resetToken);
 
-    res.status(200).json({ success: true, message: 'Password reset email sent.' });
+    res.status(200).json({ success: true, message: 'Password reset link sent to your email.' });
   });
 
   // Reset Password
   resetPassword = asyncHandler(async (req, res) => {
-    const { reset_code, new_password } = req.body;
+    const { token, new_password, confirm_new_password } = req.body;
 
-    if (!reset_code || !new_password) {
-      return res.status(400).json({ success: false, message: 'Reset code and new password are required.' });
+    if (!token || !new_password || !confirm_new_password) {
+      return res.status(400).json({ success: false, message: 'All fields are required.' });
     }
 
-    const resetRecord = await ActivationCode.findOne({ where: { activation_code: reset_code } });
+    if (new_password !== confirm_new_password) {
+      return res.status(400).json({ success: false, message: 'Passwords do not match.' });
+    }
+
+    const resetRecord = await PasswordResetToken.findOne({ where: { token } });
     if (!resetRecord) {
-      return res.status(400).json({ success: false, message: 'Invalid reset code.' });
-    }
-
-    if (new Date(resetRecord.expires_at) < new Date()) {
-      return res.status(400).json({ success: false, message: 'Reset code has expired.' });
+      return res.status(400).json({ success: false, message: 'Invalid or expired token.' });
     }
 
     const hashedPassword = await bcryptUtils.hashPassword(new_password);
-    await User.update({ password: hashedPassword }, { where: { id: resetRecord.user_id } });
-    await ActivationCode.destroy({ where: { activation_code: reset_code } });
 
-    res.status(200).json({ success: true, message: 'Password reset successfully.' });
+    await User.update(
+      { password: hashedPassword, confirm_password: hashedPassword },
+      { where: { id: resetRecord.user_id } }
+    );
+
+    await PasswordResetToken.destroy({ where: { token } });
+
+    res.status(200).json({ success: true, message: 'Password reset successful.' });
+  });
+
+  // Refresh Token
+  refreshToken = asyncHandler(async (req, res) => {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ success: false, message: 'Token is required.' });
+    }
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const newToken = jwt.sign({ id: decoded.id, email: decoded.email }, process.env.JWT_SECRET, {
+        expiresIn: '7d'
+      });
+
+      res.status(200).json({ success: true, token: newToken });
+    } catch (error) {
+      res.status(401).json({ success: false, message: 'Invalid token.' });
+    }
   });
 }
 
