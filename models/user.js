@@ -24,7 +24,7 @@ static async create(userData, tenantDomain = 'localhost') {
 
     // Check if the tenant already exists
     let tenant_id;
-    const tenantCheckQuery = `SELECT tenant_id FROM tenants WHERE domain = ?`;
+    const tenantCheckQuery = `SELECT tenant_id FROM tenants WHERE tenant_domain = ?`;
     const tenantResult = await executeQuery(tenantCheckQuery, [tenantDomain]);
 
     if (tenantResult.length > 0) {

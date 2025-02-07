@@ -58,6 +58,7 @@ class AuthController {
       tenant_name: `${user.username}'s Tenant`, // Can be customized to be more descriptive
       tenant_status: 'active', // Default active status
     });
+    
 
     // Create free trial subscription for the user under the created tenant
     const subscription = await Subscription.create({
