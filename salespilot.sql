@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Feb 07, 2025 at 12:56 PM
+-- Generation Time: Feb 07, 2025 at 04:36 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -375,13 +375,23 @@ CREATE TABLE `suppliers` (
 --
 
 CREATE TABLE `tenants` (
-  `tenant_id` int(11) NOT NULL,
-  `tenant_domain` varchar(255) NOT NULL,
-  `db_host` varchar(255) NOT NULL,
-  `db_username` varchar(255) NOT NULL,
-  `db_password` varchar(255) NOT NULL,
-  `db_name` varchar(255) NOT NULL
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `phone` varchar(255) DEFAULT NULL,
+  `address` varchar(255) DEFAULT NULL,
+  `status` enum('active','inactive') DEFAULT 'inactive',
+  `subscription_type` enum('free_trial','basic','premium','enterprise') NOT NULL DEFAULT 'free_trial',
+  `subscription_end_date` datetime NOT NULL,
+  `subscription_start_date` datetime NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `tenants`
+--
+
+INSERT INTO `tenants` (`id`, `name`, `email`, `phone`, `address`, `status`, `subscription_type`, `subscription_end_date`, `subscription_start_date`) VALUES
+('', '', '', NULL, NULL, 'inactive', 'free_trial', '0000-00-00 00:00:00', '0000-00-00 00:00:00');
 
 -- --------------------------------------------------------
 
@@ -407,6 +417,13 @@ CREATE TABLE `users` (
   `status` tinyint(1) NOT NULL,
   `trial_end_date` timestamp NOT NULL DEFAULT (current_timestamp() + interval 90 day)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `users`
+--
+
+INSERT INTO `users` (`id`, `tenant_id`, `username`, `email`, `password`, `confirm_password`, `is_active`, `role`, `date`, `user_image`, `phone`, `location`, `google_id`, `tenant_domain`, `status`, `trial_end_date`) VALUES
+(1, 0, 'megastores', 'olphemie@gmail.com', '$2a$10$dJZnR394.FielI06fRdc4.A3ptINVZ2sHSE5f2UXIpU2YcY7A2pFa', 'mega1234', 1, 'sales', '2025-02-07 12:06:30', '', '+254111826872', 'Texas', NULL, NULL, 1, '2025-05-08 12:06:30');
 
 --
 -- Indexes for dumped tables
@@ -521,6 +538,17 @@ ALTER TABLE `suppliers`
   ADD PRIMARY KEY (`supplier_id`);
 
 --
+-- Indexes for table `tenants`
+--
+ALTER TABLE `tenants`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `email` (`email`),
+  ADD UNIQUE KEY `email_2` (`email`),
+  ADD UNIQUE KEY `email_3` (`email`),
+  ADD UNIQUE KEY `email_4` (`email`),
+  ADD UNIQUE KEY `email_5` (`email`);
+
+--
 -- Indexes for table `users`
 --
 ALTER TABLE `users`
@@ -554,7 +582,7 @@ ALTER TABLE `customers`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
