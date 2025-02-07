@@ -1,20 +1,23 @@
-const { Sequelize, DataTypes } = require('sequelize');
-const sequelize = require('../config/db'); // Assuming you have a configured sequelize instance
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-// Tenant Model
+// Ensure Sequelize instance is properly defined
+if (!sequelize) {
+  throw new Error('Sequelize instance is undefined. Check your db.js export.');
+}
+
+// Define Tenant model
 const Tenant = sequelize.define('Tenant', {
   id: {
     type: DataTypes.UUID,
     primaryKey: true,
-    defaultValue: Sequelize.UUIDV4, // Automatically generate a UUID
+    defaultValue: DataTypes.UUIDV4,
   },
   name: {
     type: DataTypes.STRING,
     allowNull: false,
     validate: {
-      notEmpty: {
-        msg: 'Tenant name cannot be empty',
-      },
+      notEmpty: { msg: 'Tenant name cannot be empty' },
     },
   },
   email: {
@@ -22,20 +25,18 @@ const Tenant = sequelize.define('Tenant', {
     allowNull: false,
     unique: true,
     validate: {
-      isEmail: {
-        msg: 'Please enter a valid email address',
-      },
-      notEmpty: {
-        msg: 'Email cannot be empty',
-      },
+      isEmail: { msg: 'Please enter a valid email address' },
+      notEmpty: { msg: 'Email cannot be empty' },
     },
   },
   phone: {
     type: DataTypes.STRING,
     allowNull: true,
     validate: {
-      is: /^[0-9]{10}$/, // Assuming phone number is in a valid format (10 digits)
-      msg: 'Phone number must be 10 digits',
+      is: {
+        args: /^[0-9+\-() ]+$/,
+        msg: 'Phone number can only contain digits, spaces, "+", "-", and parentheses',
+      },
     },
   },
   address: {
@@ -43,38 +44,36 @@ const Tenant = sequelize.define('Tenant', {
     allowNull: true,
   },
   status: {
-    type: DataTypes.ENUM,
-    values: ['active', 'inactive'],
+    type: DataTypes.ENUM('active', 'inactive'),
     defaultValue: 'inactive',
   },
   subscription_type: {
-    type: DataTypes.STRING,
+    type: DataTypes.ENUM('free_trial', 'basic', 'premium', 'enterprise'),
     allowNull: false,
-    defaultValue: 'free_trial', // Default to free trial subscription
+    defaultValue: 'free_trial',
   },
   subscription_start_date: {
     type: DataTypes.DATE,
     allowNull: false,
-    defaultValue: Sequelize.NOW, // Default to current time
+    defaultValue: DataTypes.NOW,
   },
   subscription_end_date: {
     type: DataTypes.DATE,
     allowNull: false,
+    validate: {
+      isAfter: {
+        args: String(new Date()), // Ensures end date is in the future
+        msg: 'Subscription end date must be in the future.',
+      },
+    },
   },
-  createdAt: {
-    type: DataTypes.DATE,
-    allowNull: false,
-    defaultValue: Sequelize.NOW,
-  },
-  updatedAt: {
-    type: DataTypes.DATE,
-    allowNull: false,
-    defaultValue: Sequelize.NOW,
-  },
+}, {
+  timestamps: false,
 });
 
-// Relationship: A tenant can have multiple users (for example, admins, members)
-Tenant.hasMany(User, { foreignKey: 'tenant_id', as: 'users' });
-User.belongsTo(Tenant, { foreignKey: 'tenant_id' });
+// Import User after defining Tenant
+const User = require('./user');
+
+
 
 module.exports = Tenant;
