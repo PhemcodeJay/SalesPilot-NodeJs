@@ -6,23 +6,19 @@ const bodyParser = require('body-parser');
 const passport = require('passport');
 const flash = require('connect-flash');
 const cookieParser = require('cookie-parser');
-const cron = require('node-cron');
 const { Sequelize } = require('sequelize');
 const { getTenantDatabase } = require('./config/db');
-const { generateToken, verifyToken } = require('./config/auth');
+const { verifyToken } = require('./config/auth');
 const paypalClient = require('./config/paypalconfig');
 const tenancy = require('./middleware/tenancyMiddleware');
 const asyncHandler = require('./middleware/asyncHandler');
 const rateLimiter = require('./middleware/rateLimiter');
 const { checkAndDeactivateSubscriptions } = require('./controllers/subscriptioncontroller');
 
-// Ensure bcryptUtils is correctly imported
-const bcryptUtils = require('./utils/bcryptUtils');
 
 // Initialize Express App
 const app = express();
 const PORT = process.env.PORT || 5000;
-const GLOBAL_DB_NAME = process.env.GLOBAL_DB_NAME || 'global_database';
 
 // Passport Configuration
 require('./config/passport')(passport);
@@ -126,26 +122,15 @@ app.use((req, res) => {
 });
 
 // Cron Jobs
-cron.schedule('* * * * *', async () => {
-  console.log('Running initial subscription check...');
+(async function () {
   try {
+    console.log('Running initial subscription check on server startup...');
     await checkAndDeactivateSubscriptions();
     console.log('Initial subscription check completed.');
   } catch (error) {
     console.error('Error during initial subscription check:', error.message);
   }
-});
-
-// Scheduled Cron Job (Runs at midnight daily)
-cron.schedule('0 0 * * *', async () => {
-  console.log('Running daily subscription check...');
-  try {
-    await checkAndDeactivateSubscriptions();
-    console.log('Expired subscriptions deactivated successfully.');
-  } catch (error) {
-    console.error('Error during daily subscription check:', error.message);
-  }
-});
+})();
 
 // Start the Server
 app.listen(PORT, async () => {

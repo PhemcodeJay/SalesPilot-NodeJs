@@ -90,11 +90,11 @@ const cancelSubscription = async (subscriptionId) => {
     }
 };
 
-// Create Free Trial subscription using MySQL Pool (raw query)
+// Create Trial subscription using MySQL Pool (raw query)
 const createFreeTrial = async (userId) => {
     try {
         if (!userId) {
-            throw new Error('User ID is required to create a free trial subscription.');
+            throw new Error('User ID is required to create a Trial subscription.');
         }
 
         const startDate = new Date();
@@ -108,7 +108,7 @@ const createFreeTrial = async (userId) => {
 
         const [result] = await pool.execute(query, [
             userId,
-            'Free Trial',
+            'Trial',
             startDate.toISOString(),
             endDate.toISOString(),
             'Active',
@@ -118,14 +118,14 @@ const createFreeTrial = async (userId) => {
         return {
             id: result.insertId,
             userId,
-            subscription_plan: 'Free Trial',
+            subscription_plan: 'Trial',
             start_date: startDate.toISOString(),
             end_date: endDate.toISOString(),
             status: 'Active',
             is_free_trial_used: true
         };
     } catch (error) {
-        console.error(`Error creating free trial subscription for user ${userId}: ${error.message}`);
+        console.error(`Error creating Trial subscription for user ${userId}: ${error.message}`);
         throw error;
     }
 };

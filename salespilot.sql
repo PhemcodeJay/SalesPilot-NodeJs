@@ -343,7 +343,7 @@ CREATE TABLE `subscriptions` (
   `user_id` int(11) NOT NULL,
   `subscription_plan` enum('trial','starter','business','enterprise') NOT NULL,
   `start_date` timestamp NOT NULL DEFAULT current_timestamp(),
-  `end_date` timestamp NOT NULL DEFAULT '2030-12-31 20:59:59',
+  `end_date` timestamp NOT NULL DEFAULT current_timestamp() plus 90days,
   `status` enum('active','expired','canceled') DEFAULT 'active',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -404,7 +404,7 @@ CREATE TABLE `users` (
   `location` varchar(255) NOT NULL,
   `google_id` varchar(255) DEFAULT NULL,
   `status` int(1) NOT NULL,
-  `trial_end_date` date DEFAULT NULL
+  `trial_end_date` timestamp NOT NULL DEFAULT current_timestamp() plus 90days,
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --

@@ -2,7 +2,7 @@ const pool = require('../config/db'); // Assuming this is your database connecti
 
 class Subscription {
   /**
-   * Create a free trial subscription for a user within a tenant
+   * Create a Trial subscription for a user within a tenant
    * @param {Number} userId - The ID of the user
    * @param {Number} tenantId - The ID of the tenant
    * @returns {Object} The created subscription details
@@ -11,7 +11,7 @@ class Subscription {
   static async createFreeTrial(userId, tenantId) {
     try {
       if (!userId || !tenantId) {
-        throw new Error('User ID and Tenant ID are required to create a free trial subscription.');
+        throw new Error('User ID and Tenant ID are required to create a Trial subscription.');
       }
 
       const startDate = new Date(); // Current date
@@ -26,7 +26,7 @@ class Subscription {
       const [result] = await pool.execute(query, [
         userId,
         tenantId,
-        'Free Trial',
+        'Trial',
         startDate.toISOString(), // Ensure proper date format
         endDate.toISOString(),   // Ensure proper date format
         'Active',
@@ -37,14 +37,14 @@ class Subscription {
         id: result.insertId, 
         userId, 
         tenantId, 
-        subscription_plan: 'Free Trial', 
+        subscription_plan: 'Trial', 
         start_date: startDate.toISOString(), 
         end_date: endDate.toISOString(), 
         status: 'Active', 
         is_free_trial_used: true 
       };
     } catch (error) {
-      console.error(`Error creating free trial subscription for user ${userId} (Tenant ${tenantId}): ${error.message}`);
+      console.error(`Error creating Trial subscription for user ${userId} (Tenant ${tenantId}): ${error.message}`);
       throw error;
     }
   }
