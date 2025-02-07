@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Feb 07, 2025 at 06:37 AM
+-- Generation Time: Feb 07, 2025 at 12:56 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -343,7 +343,7 @@ CREATE TABLE `subscriptions` (
   `user_id` int(11) NOT NULL,
   `subscription_plan` enum('trial','starter','business','enterprise') NOT NULL,
   `start_date` timestamp NOT NULL DEFAULT current_timestamp(),
-  `end_date` timestamp NOT NULL DEFAULT current_timestamp() plus 90days,
+  `end_date` timestamp NOT NULL DEFAULT (current_timestamp() + interval 90 day),
   `status` enum('active','expired','canceled') DEFAULT 'active',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -375,8 +375,8 @@ CREATE TABLE `suppliers` (
 --
 
 CREATE TABLE `tenants` (
-  `id` int(11) NOT NULL,
-  `domain` varchar(255) NOT NULL,
+  `tenant_id` int(11) NOT NULL,
+  `tenant_domain` varchar(255) NOT NULL,
   `db_host` varchar(255) NOT NULL,
   `db_username` varchar(255) NOT NULL,
   `db_password` varchar(255) NOT NULL,
@@ -403,8 +403,9 @@ CREATE TABLE `users` (
   `phone` varchar(20) NOT NULL,
   `location` varchar(255) NOT NULL,
   `google_id` varchar(255) DEFAULT NULL,
-  `status` int(1) NOT NULL,
-  `trial_end_date` timestamp NOT NULL DEFAULT current_timestamp() plus 90days,
+  `tenant_domain` varchar(255) DEFAULT NULL,
+  `status` tinyint(1) NOT NULL,
+  `trial_end_date` timestamp NOT NULL DEFAULT (current_timestamp() + interval 90 day)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -520,18 +521,12 @@ ALTER TABLE `suppliers`
   ADD PRIMARY KEY (`supplier_id`);
 
 --
--- Indexes for table `tenants`
---
-ALTER TABLE `tenants`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `domain` (`domain`);
-
---
 -- Indexes for table `users`
 --
 ALTER TABLE `users`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `tenant_id` (`tenant_id`);
+  ADD UNIQUE KEY `unique_email` (`email`),
+  ADD KEY `idx_tenant_id` (`tenant_id`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -560,16 +555,6 @@ ALTER TABLE `customers`
 --
 ALTER TABLE `users`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- Constraints for dumped tables
---
-
---
--- Constraints for table `users`
---
-ALTER TABLE `users`
-  ADD CONSTRAINT `users_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

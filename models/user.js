@@ -33,7 +33,7 @@ static async create(userData, tenantDomain = 'localhost') {
     } else {
       // Tenant does not exist, create a new tenant
       const insertTenantQuery = `
-        INSERT INTO tenants (domain)
+        INSERT INTO tenants (tenant_domain)
         VALUES (?)
       `;
       const insertTenantResult = await executeQuery(insertTenantQuery, [tenantDomain]);

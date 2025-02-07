@@ -15,7 +15,6 @@ const asyncHandler = require('./middleware/asyncHandler');
 const rateLimiter = require('./middleware/rateLimiter');
 const { checkAndDeactivateSubscriptions } = require('./controllers/subscriptioncontroller');
 
-
 // Initialize Express App
 const app = express();
 const PORT = process.env.PORT || 5000;
