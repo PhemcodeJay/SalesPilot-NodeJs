@@ -2,7 +2,7 @@ const bcryptUtils = require('../utils/bcryptUtils');
 const { executeQuery } = require('../config/db');
 const crypto = require('crypto');
 const { Sequelize, Model, DataTypes } = require('sequelize');
-const sequelize = require('../config/db'); // Ensure Sequelize instance is correctly imported
+const sequelizeInstance = require('../config/db'); // Ensure Sequelize instance is correctly imported
 
 // Define User model using Sequelize
 class User extends Model {}
@@ -23,8 +23,8 @@ User.init(
     is_active: { type: DataTypes.BOOLEAN, defaultValue: false },
   },
   {
-    sequelize,
-    modelName: 'user',
+    sequelize: sequelizeInstance,
+    modelName: 'User',
     tableName: 'users',
     timestamps: false,
   }
@@ -61,14 +61,15 @@ class UserModel {
         throw new Error('Invalid role selected.');
       }
 
-      const existingUser = await executeQuery(`SELECT * FROM users WHERE email = ?`, [email]);
+      const existingUser = await executeQuery(`SELECT id FROM users WHERE email = ?`, [email]);
       if (existingUser.length > 0) {
         throw new Error('User already exists.');
       }
 
       // Find or create tenant
-      let tenant = await executeQuery(`SELECT * FROM tenants WHERE name = ?`, [tenant_name]);
-      let tenantId = tenant.length ? tenant[0].id : await this.createTenant(tenant_name, email, phone, location, subscription_plan);
+      let tenant = await executeQuery(`SELECT id FROM tenants WHERE name = ?`, [tenant_name]);
+      let tenantId =
+        tenant.length > 0 ? tenant[0].id : await this.createTenant(tenant_name, email, phone, location, subscription_plan);
 
       const hashedPassword = await bcryptUtils.hashPassword(password);
       const activation_token = crypto.randomBytes(32).toString('hex');
@@ -120,7 +121,7 @@ class UserModel {
   /**
    * Login user
    */
-  static async login(email, password, tenantDomain = 'localhost') {
+  static async login(email, password) {
     try {
       const user = await executeQuery(`SELECT * FROM users WHERE email = ?`, [email]);
       if (!user.length) throw new Error('User not found.');
@@ -138,45 +139,78 @@ class UserModel {
   }
 
   /**
-   * Request email reset
+   * Request password reset
    */
-  static async requestEmailReset(userId, newEmail, tenantDomain = 'localhost') {
+  static async requestPasswordReset(email) {
     try {
-      const emailResetToken = crypto.randomBytes(32).toString('hex');
+      const user = await executeQuery(`SELECT id FROM users WHERE email = ?`, [email]);
+      if (!user.length) throw new Error('User not found.');
+
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const expiry = new Date();
+      expiry.setHours(expiry.getHours() + 1); // Token expires in 1 hour
 
       await executeQuery(
-        `UPDATE users SET email_reset_token = ?, new_email = ? WHERE id = ?`, 
-        [emailResetToken, newEmail, userId]
+        `UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?`,
+        [resetToken, expiry, email]
       );
 
-      return { success: true, message: 'Email reset request sent.', emailResetToken };
+      return { success: true, message: 'Password reset request sent.', resetToken };
     } catch (error) {
-      console.error('Email Reset Request Error:', error);
-      throw new Error('Email reset request failed.');
+      console.error('Request Password Reset Error:', error);
+      throw new Error('Password reset request failed.');
     }
   }
 
   /**
-   * Confirm email reset
+   * Reset password
    */
-  static async confirmEmailReset(emailResetToken, tenantDomain = 'localhost') {
+  static async resetPassword(resetToken, newPassword, confirmPassword) {
     try {
+      if (newPassword !== confirmPassword) throw new Error('Passwords do not match.');
+
       const user = await executeQuery(
-        `SELECT id, new_email FROM users WHERE email_reset_token = ?`, 
-        [emailResetToken]
+        `SELECT id FROM users WHERE reset_token = ? AND reset_token_expiry > NOW()`,
+        [resetToken]
       );
 
-      if (!user.length) throw new Error('Invalid email reset token.');
+      if (!user.length) throw new Error('Invalid or expired reset token.');
+
+      const hashedPassword = await bcryptUtils.hashPassword(newPassword);
 
       await executeQuery(
-        `UPDATE users SET email = ?, email_reset_token = NULL, new_email = NULL WHERE id = ?`, 
-        [user[0].new_email, user[0].id]
+        `UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?`,
+        [hashedPassword, user[0].id]
       );
 
-      return { success: true, message: 'Email updated successfully.' };
+      return { success: true, message: 'Password reset successfully.' };
     } catch (error) {
-      console.error('Email Reset Confirmation Error:', error);
-      throw new Error('Email reset confirmation failed.');
+      console.error('Reset Password Error:', error);
+      throw new Error('Password reset failed.');
+    }
+  }
+
+  /**
+   * Find a user by a field
+   */
+  static async findOne(query) {
+    try {
+      if (!query || !query.where) throw new Error('Invalid query object.');
+
+      const field = Object.keys(query.where)[0];
+      const value = query.where[field];
+      const allowedFields = ['id', 'username', 'email', 'phone', 'activation_token', 'reset_token'];
+
+      if (!allowedFields.includes(field)) {
+        throw new Error(`Invalid query field: ${field}`);
+      }
+
+      const results = await executeQuery(`SELECT * FROM users WHERE ${field} = ?`, [value]);
+
+      return results.length > 0 ? results[0] : null;
+    } catch (error) {
+      console.error('FindOne Error:', error);
+      throw new Error('User lookup failed.');
     }
   }
 }
