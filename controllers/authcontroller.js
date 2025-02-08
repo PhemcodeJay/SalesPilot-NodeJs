@@ -7,7 +7,7 @@ const asyncHandler = require('../middleware/asyncHandler');
 const { User, ActivationCode, Subscription, Tenant, PasswordResetToken } = require('../models');
 
 class AuthController {
-  // User Signup with Free Trial
+  // **User Signup with Free Trial**
   signup = asyncHandler(async (req, res) => {
     const { username, email, password, confirm_password, phone, location, user_image } = req.body;
 
@@ -28,20 +28,22 @@ class AuthController {
       return res.status(400).json({ success: false, message: 'Email already registered.' });
     }
 
-    const hashedPassword = await bcryptUtils.hashPassword(password);
+    // **Create Tenant**
+    const subscriptionEndDate = new Date();
+    subscriptionEndDate.setDate(subscriptionEndDate.getDate() + 90);
 
-    // Create Tenant (Unique per user)
     const tenant = await Tenant.create({
       name: `${username}'s Business`,
-      owner_email: email
+      email,
+      subscription_end_date: subscriptionEndDate
     });
 
-    // Create User
+    // **Create User**
+    const hashedPassword = await bcryptUtils.hashPassword(password);
     const user = await User.create({
       username,
       email,
       password: hashedPassword,
-      confirm_password: hashedPassword, // Store confirm password as well
       phone,
       location,
       user_image: user_image || 'default-image.jpg',
@@ -50,17 +52,17 @@ class AuthController {
       tenant_id: tenant.id
     });
 
-    // Create Free Trial Subscription
+    // **Create Free Trial Subscription**
     const subscription = await Subscription.create({
       user_id: user.id,
       tenant_id: tenant.id,
-      type: 'free_trial',
+      type: 'trial',
       start_date: new Date(),
-      end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      end_date: subscriptionEndDate,
       status: 'active'
     });
 
-    // Generate and Save Activation Code
+    // **Generate Activation Code**
     const activationCode = crypto.randomBytes(20).toString('hex');
     await ActivationCode.create({
       user_id: user.id,
@@ -68,7 +70,7 @@ class AuthController {
       expires_at: new Date(Date.now() + 3600000) // 1 hour
     });
 
-    // Send Activation Email
+    // **Send Activation Email**
     await sendActivationEmail(email, activationCode);
 
     res.status(201).json({
@@ -78,7 +80,7 @@ class AuthController {
     });
   });
 
-  // Activate Account
+  // **Activate Account**
   activateAccount = asyncHandler(async (req, res) => {
     const { activation_code } = req.body;
 
@@ -101,7 +103,7 @@ class AuthController {
     res.status(200).json({ success: true, message: 'Account activated successfully.' });
   });
 
-  // Login User
+  // **Login User**
   login = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
@@ -126,7 +128,7 @@ class AuthController {
     res.status(200).json({ success: true, token, user });
   });
 
-  // Request Password Reset
+  // **Request Password Reset**
   requestPasswordReset = asyncHandler(async (req, res) => {
     const { email } = req.body;
 
@@ -147,7 +149,7 @@ class AuthController {
     res.status(200).json({ success: true, message: 'Password reset link sent to your email.' });
   });
 
-  // Reset Password
+  // **Reset Password**
   resetPassword = asyncHandler(async (req, res) => {
     const { token, new_password, confirm_new_password } = req.body;
 
@@ -165,18 +167,13 @@ class AuthController {
     }
 
     const hashedPassword = await bcryptUtils.hashPassword(new_password);
-
-    await User.update(
-      { password: hashedPassword, confirm_password: hashedPassword },
-      { where: { id: resetRecord.user_id } }
-    );
-
+    await User.update({ password: hashedPassword }, { where: { id: resetRecord.user_id } });
     await PasswordResetToken.destroy({ where: { token } });
 
     res.status(200).json({ success: true, message: 'Password reset successful.' });
   });
 
-  // Refresh Token
+  // **Refresh Token**
   refreshToken = asyncHandler(async (req, res) => {
     const { token } = req.body;
 

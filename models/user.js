@@ -1,16 +1,54 @@
 const bcryptUtils = require('../utils/bcryptUtils');
 const { executeQuery } = require('../config/db');
 const crypto = require('crypto');
+const { Sequelize, Model, DataTypes } = require('sequelize');
+const sequelize = require('../config/db'); // Ensure Sequelize instance is correctly imported
+
+// Define User model using Sequelize
+class User extends Model {}
+
+User.init(
+  {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    tenant_id: { type: DataTypes.INTEGER, allowNull: false },
+    username: { type: DataTypes.STRING, allowNull: false },
+    email: { type: DataTypes.STRING, allowNull: false, unique: true },
+    phone: { type: DataTypes.STRING, allowNull: true },
+    password: { type: DataTypes.STRING, allowNull: false },
+    location: { type: DataTypes.STRING, allowNull: true },
+    role: { type: DataTypes.ENUM('sales', 'admin', 'manager'), defaultValue: 'sales' },
+    activation_token: { type: DataTypes.STRING, allowNull: true },
+    reset_token: { type: DataTypes.STRING, allowNull: true },
+    reset_token_expiry: { type: DataTypes.DATE, allowNull: true },
+    is_active: { type: DataTypes.BOOLEAN, defaultValue: false },
+  },
+  {
+    sequelize,
+    modelName: 'user',
+    tableName: 'users',
+    timestamps: false,
+  }
+);
 
 class UserModel {
   /**
-   * Sign up a new user
+   * Register a new user with a tenant and subscription
    */
   static async signup(userData, tenantDomain = 'localhost') {
     try {
-      const { username, email, phone, password, confirm_password, location, role = 'sales', subscription_plan = 'trial' } = userData;
+      const {
+        username,
+        email,
+        phone,
+        password,
+        confirm_password,
+        location,
+        role = 'sales',
+        subscription_plan = 'trial',
+        tenant_name,
+      } = userData;
 
-      if (!username || !email || !password || !confirm_password || !location) {
+      if (!username || !email || !password || !confirm_password || !location || !tenant_name) {
         throw new Error('Missing required fields.');
       }
 
@@ -23,34 +61,31 @@ class UserModel {
         throw new Error('Invalid role selected.');
       }
 
-      const existingUser = await this.findOne({ where: { email } }, tenantDomain);
-      if (existingUser) {
+      const existingUser = await executeQuery(`SELECT * FROM users WHERE email = ?`, [email]);
+      if (existingUser.length > 0) {
         throw new Error('User already exists.');
       }
+
+      // Find or create tenant
+      let tenant = await executeQuery(`SELECT * FROM tenants WHERE name = ?`, [tenant_name]);
+      let tenantId = tenant.length ? tenant[0].id : await this.createTenant(tenant_name, email, phone, location, subscription_plan);
 
       const hashedPassword = await bcryptUtils.hashPassword(password);
       const activation_token = crypto.randomBytes(32).toString('hex');
 
       // Insert user
-      const userResult = await executeQuery(`
-        INSERT INTO users (username, email, phone, password, location, role, tenant_domain, activation_token, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-        [username, email, phone, hashedPassword, location, role, tenantDomain, activation_token, 0]
+      const userResult = await executeQuery(
+        `INSERT INTO users (username, email, phone, password, location, role, tenant_id, activation_token, is_active) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [username, email, phone, hashedPassword, location, role, tenantId, activation_token, 0]
       );
 
       if (!userResult.insertId) {
         throw new Error('Failed to create user.');
       }
 
-      const userId = userResult.insertId;
-      const subscriptionDuration = 30; // Configurable duration
-
-      // Subscription
-      await executeQuery(`
-        INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, is_free_trial_used, tenant_domain)
-        VALUES (?, ?, NOW(), DATE_ADD(NOW(), INTERVAL ? DAY), ?, ?)`, 
-        [userId, subscription_plan, subscriptionDuration, false, tenantDomain]
-      );
+      // Create a subscription
+      await this.createSubscription(userResult.insertId, tenantId, subscription_plan);
 
       return { success: true, message: 'User registered. Activation email sent.', activation_token };
     } catch (error) {
@@ -60,81 +95,45 @@ class UserModel {
   }
 
   /**
+   * Create a new tenant
+   */
+  static async createTenant(name, email, phone, location, subscriptionPlan) {
+    const tenantInsert = await executeQuery(
+      `INSERT INTO tenants (name, email, phone, address, status, subscription_type, subscription_start_date, subscription_end_date)
+       VALUES (?, ?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 90 DAY))`,
+      [name, email, phone, location, 'inactive', subscriptionPlan]
+    );
+    return tenantInsert.insertId;
+  }
+
+  /**
+   * Create a subscription
+   */
+  static async createSubscription(userId, tenantId, subscriptionPlan, duration = 30) {
+    return executeQuery(
+      `INSERT INTO subscriptions (user_id, tenant_id, subscription_plan, start_date, end_date, is_free_trial_used)
+       VALUES (?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL ? DAY), ?)`,
+      [userId, tenantId, subscriptionPlan, duration, false]
+    );
+  }
+
+  /**
    * Login user
    */
   static async login(email, password, tenantDomain = 'localhost') {
     try {
-      const user = await this.findOne({ where: { email } }, tenantDomain);
-      if (!user) throw new Error('User not found.');
+      const user = await executeQuery(`SELECT * FROM users WHERE email = ?`, [email]);
+      if (!user.length) throw new Error('User not found.');
 
-      const isMatch = await bcryptUtils.comparePassword(password, user.password);
+      const isMatch = await bcryptUtils.comparePassword(password, user[0].password);
       if (!isMatch) throw new Error('Invalid credentials.');
 
-      if (!user.is_active) throw new Error('Account not activated. Check email.');
+      if (!user[0].is_active) throw new Error('Account not activated. Check email.');
 
-      return { success: true, user };
+      return { success: true, user: user[0] };
     } catch (error) {
       console.error('Login Error:', error);
       throw new Error('Login failed. Check credentials.');
-    }
-  }
-
-  /**
-   * Activate account
-   */
-  static async activateAccount(activation_token, tenantDomain = 'localhost') {
-    try {
-      const user = await executeQuery(`SELECT id FROM users WHERE activation_token = ? AND tenant_domain = ?`, [activation_token, tenantDomain]);
-
-      if (!user.length) throw new Error('Invalid or expired activation token.');
-
-      await executeQuery(`UPDATE users SET is_active = 1, activation_token = NULL WHERE id = ?`, [user[0].id]);
-
-      return { success: true, message: 'Account activated successfully.' };
-    } catch (error) {
-      console.error('Account Activation Error:', error);
-      throw new Error('Account activation failed.');
-    }
-  }
-
-  /**
-   * Generate password reset token
-   */
-  static async requestPasswordReset(email, tenantDomain = 'localhost') {
-    try {
-      const user = await this.findOne({ where: { email } }, tenantDomain);
-      if (!user) throw new Error('Email not found.');
-
-      const reset_token = crypto.randomBytes(32).toString('hex');
-      await executeQuery(`
-        UPDATE users SET reset_token = ?, reset_token_expiry = DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE email = ?`, 
-        [reset_token, email]
-      );
-
-      return { success: true, message: 'Password reset link sent.', reset_token };
-    } catch (error) {
-      console.error('Password Reset Request Error:', error);
-      throw new Error('Password reset request failed.');
-    }
-  }
-
-  /**
-   * Reset password
-   */
-  static async resetPassword(reset_token, newPassword) {
-    try {
-      const user = await executeQuery(`SELECT id FROM users WHERE reset_token = ? AND reset_token_expiry > NOW()`, [reset_token]);
-      if (!user.length) throw new Error('Invalid or expired reset token.');
-
-      const hashedPassword = await bcryptUtils.hashPassword(newPassword);
-      await executeQuery(`UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?`, 
-        [hashedPassword, user[0].id]
-      );
-
-      return { success: true, message: 'Password reset successful.' };
-    } catch (error) {
-      console.error('Password Reset Error:', error);
-      throw new Error('Password reset failed.');
     }
   }
 
@@ -145,9 +144,9 @@ class UserModel {
     try {
       const emailResetToken = crypto.randomBytes(32).toString('hex');
 
-      await executeQuery(`
-        UPDATE users SET email_reset_token = ?, new_email = ? WHERE id = ? AND tenant_domain = ?`, 
-        [emailResetToken, newEmail, userId, tenantDomain]
+      await executeQuery(
+        `UPDATE users SET email_reset_token = ?, new_email = ? WHERE id = ?`, 
+        [emailResetToken, newEmail, userId]
       );
 
       return { success: true, message: 'Email reset request sent.', emailResetToken };
@@ -162,11 +161,15 @@ class UserModel {
    */
   static async confirmEmailReset(emailResetToken, tenantDomain = 'localhost') {
     try {
-      const user = await executeQuery(`SELECT id, new_email FROM users WHERE email_reset_token = ? AND tenant_domain = ?`, [emailResetToken, tenantDomain]);
+      const user = await executeQuery(
+        `SELECT id, new_email FROM users WHERE email_reset_token = ?`, 
+        [emailResetToken]
+      );
 
       if (!user.length) throw new Error('Invalid email reset token.');
 
-      await executeQuery(`UPDATE users SET email = ?, email_reset_token = NULL, new_email = NULL WHERE id = ?`, 
+      await executeQuery(
+        `UPDATE users SET email = ?, email_reset_token = NULL, new_email = NULL WHERE id = ?`, 
         [user[0].new_email, user[0].id]
       );
 
@@ -174,30 +177,6 @@ class UserModel {
     } catch (error) {
       console.error('Email Reset Confirmation Error:', error);
       throw new Error('Email reset confirmation failed.');
-    }
-  }
-
-  /**
-   * Find a user by a field
-   */
-  static async findOne(query, tenantDomain = 'localhost') {
-    try {
-      if (!query || !query.where) throw new Error('Invalid query object.');
-
-      const field = Object.keys(query.where)[0];
-      const value = query.where[field];
-      const allowedFields = ['id', 'username', 'email', 'phone', 'activation_token', 'reset_token'];
-
-      if (!allowedFields.includes(field)) {
-        throw new Error(`Invalid query field: ${field}`);
-      }
-
-      const results = await executeQuery(`SELECT * FROM users WHERE ${field} = ? AND tenant_domain = ?`, [value, tenantDomain]);
-
-      return results.length > 0 ? results[0] : null;
-    } catch (error) {
-      console.error('FindOne Error:', error);
-      throw new Error('User lookup failed.');
     }
   }
 }
