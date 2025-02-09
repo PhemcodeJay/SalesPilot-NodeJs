@@ -4,15 +4,19 @@ const { sequelize } = require('../config/db');
 class Subscription extends Model {
   /**
    * Create a Free Trial Subscription
-   * @param {UUID} userId - The ID of the user
-   * @param {UUID} tenantId - The ID of the tenant
-   * @returns {Object} The created subscription
-   * @throws {Error} If the creation fails
    */
   static async createFreeTrial(userId, tenantId) {
     try {
       if (!userId || !tenantId) {
         throw new Error('User ID and Tenant ID are required to create a Trial subscription.');
+      }
+
+      const activeSubscription = await Subscription.findOne({
+        where: { user_id: userId, tenant_id: tenantId, status: 'Active' },
+      });
+
+      if (activeSubscription) {
+        throw new Error('User already has an active subscription.');
       }
 
       const existingTrial = await Subscription.findOne({
@@ -44,18 +48,11 @@ class Subscription extends Model {
 
   /**
    * Get the active subscription of a user within a tenant
-   * @param {UUID} userId - The ID of the user
-   * @param {UUID} tenantId - The ID of the tenant
-   * @returns {Object|null} The active subscription or null
    */
   static async getActiveSubscription(userId, tenantId) {
     try {
       return await Subscription.findOne({
-        where: {
-          user_id: userId,
-          tenant_id: tenantId,
-          status: 'Active',
-        },
+        where: { user_id: userId, tenant_id: tenantId, status: 'Active' },
       });
     } catch (error) {
       console.error(`Error fetching active subscription for user ${userId} (Tenant ${tenantId}): ${error.message}`);
@@ -65,10 +62,6 @@ class Subscription extends Model {
 
   /**
    * Update subscription details
-   * @param {UUID} userId - The ID of the user
-   * @param {UUID} tenantId - The ID of the tenant
-   * @param {Object} data - Fields to update (e.g., status, end_date)
-   * @returns {Object|null} The updated subscription object or null if not found
    */
   static async updateSubscription(userId, tenantId, data) {
     try {
@@ -81,7 +74,7 @@ class Subscription extends Model {
       }
 
       await subscription.update(data);
-      return subscription; // ✅ Return updated object instead of boolean
+      return subscription;
     } catch (error) {
       console.error(`Error updating subscription: ${error.message}`);
       throw error;
@@ -90,41 +83,52 @@ class Subscription extends Model {
 
   /**
    * Upgrade a subscription plan
-   * @param {UUID} userId - The ID of the user
-   * @param {UUID} tenantId - The ID of the tenant
-   * @param {String} newPlan - The new subscription plan
-   * @returns {Boolean} True if upgrade was successful
    */
-  static async upgradeSubscription(userId, tenantId, newPlan) {
+  static async upgradeSubscription(userId, tenantId, newPlan, durationMonths) {
     try {
-      const [updated] = await Subscription.update(
-        { subscription_plan: newPlan, status: 'Active', is_free_trial_used: false },
-        { where: { user_id: userId, tenant_id: tenantId, status: 'Active' } }
-      );
+      const subscription = await Subscription.findOne({
+        where: { user_id: userId, tenant_id: tenantId, status: 'Active' },
+      });
 
-      return updated > 0;
+      if (!subscription) {
+        throw new Error('No active subscription to upgrade.');
+      }
+
+      const newEndDate = new Date(subscription.end_date);
+      newEndDate.setMonth(newEndDate.getMonth() + durationMonths); // Extend duration
+
+      await subscription.update({
+        subscription_plan: newPlan,
+        status: 'Active',
+        end_date: newEndDate,
+        is_free_trial_used: false,
+      });
+
+      return subscription;
     } catch (error) {
-      console.error(`Error upgrading subscription for user ${userId} (Tenant ${tenantId}): ${error.message}`);
+      console.error(`Error upgrading subscription: ${error.message}`);
       throw error;
     }
   }
 
   /**
    * Cancel an active subscription
-   * @param {UUID} userId - The ID of the user
-   * @param {UUID} tenantId - The ID of the tenant
-   * @returns {Boolean} True if cancellation was successful
    */
   static async cancelSubscription(userId, tenantId) {
     try {
-      const [updated] = await Subscription.update(
-        { status: 'Cancelled' },
-        { where: { user_id: userId, tenant_id: tenantId, status: 'Active' } }
-      );
+      const subscription = await Subscription.findOne({
+        where: { user_id: userId, tenant_id: tenantId, status: 'Active' },
+      });
 
-      return updated > 0;
+      if (!subscription) {
+        throw new Error('No active subscription to cancel.');
+      }
+
+      await subscription.update({ status: 'Cancelled', end_date: new Date() }); // Set status and expiration
+
+      return true;
     } catch (error) {
-      console.error(`Error cancelling subscription for user ${userId} (Tenant ${tenantId}): ${error.message}`);
+      console.error(`Error cancelling subscription: ${error.message}`);
       throw error;
     }
   }

@@ -1,22 +1,17 @@
 const { sequelize } = require('../config/db');
 
-// Import Models (Ensure Correct Case)
-const Tenant = require('./tenant');  
-const User = require('./user');      
-const Product = require('./product');
-const Category = require('./category');
-const Sale = require('./sales');
-const SalesAnalytics = require('./analytics');
-const Inventory = require('./inventory');
-const Report = require('./report');
-const Customer = require('./customer');
-const Expense = require('./expense');
-const Invoice = require('./invoice');
-const Subscription = require('./subscriptions'); // Ensure correct filename
-const Payment = require('./payment');
-const Supplier = require('./supplier');
-const ActivationCode = require('./activation-code');
-const PasswordResetToken = require('./passwordreset');
+const { Sequelize, DataTypes } = require('sequelize');
+const Tenant = new (require('./Tenant'))(sequelize, DataTypes);
+const User = new (require('./User'))(sequelize, DataTypes);
+const Subscription = new (require('./subscriptions'))(sequelize, DataTypes);
+const Product = new (require('./product'))(sequelize, DataTypes);
+const Category = new (require('./category'))(sequelize, DataTypes);
+const Sale = new (require('./sales'))(sequelize, DataTypes);
+const Customer = new (require('./customer'))(sequelize, DataTypes);
+const Supplier = new (require('./supplier'))(sequelize, DataTypes);
+const Invoice = new (require('./invoice'))(sequelize, DataTypes);
+const Payment = new (require('./payment'))(sequelize, DataTypes);
+const PasswordResetToken = new (require('./passwordreset'))(sequelize, DataTypes);
 
 // 🚀 Define Relationships (Associations)
 // ✅ Tenant & User
@@ -31,9 +26,9 @@ Subscription.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 Tenant.hasMany(Subscription, { foreignKey: 'tenant_id', as: 'subscriptions', onDelete: 'CASCADE' });
 Subscription.belongsTo(Tenant, { foreignKey: 'tenant_id', as: 'tenant' });
 
-// ✅ User & Sales
-User.hasMany(Sale, { foreignKey: 'user_id', as: 'sales', onDelete: 'CASCADE' });
-Sale.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+//✅ User & Product
+User.hasMany(Product, { foreignKey: 'user_id', as: 'products', onDelete: 'CASCADE' });
+Product.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
 
 // ✅ Product & Category
 Category.hasMany(Product, { foreignKey: 'category_id', as: 'products' });
@@ -55,9 +50,9 @@ Product.belongsTo(Supplier, { foreignKey: 'supplier_id', as: 'supplier' });
 Customer.hasMany(Invoice, { foreignKey: 'customer_id', as: 'invoices' });
 Invoice.belongsTo(Customer, { foreignKey: 'customer_id', as: 'customer' });
 
-// ✅ Invoice & Payment
-Invoice.hasMany(Payment, { foreignKey: 'invoice_id', as: 'payments' });
-Payment.belongsTo(Invoice, { foreignKey: 'invoice_id', as: 'invoice' });
+// ✅ Payment & Subscription
+Payment.hasMany(Subscription, { foreignKey: 'payment_id', as: 'subscriptions' });
+Subscription.belongsTo(Payment, { foreignKey: 'payment_id', as: 'payment' });
 
 // ✅ User & Password Reset Tokens
 User.hasMany(PasswordResetToken, { foreignKey: 'user_id', as: 'resetTokens' });

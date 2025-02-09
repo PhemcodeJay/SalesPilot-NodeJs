@@ -2,7 +2,7 @@ const { Model, DataTypes, Op } = require('sequelize');
 const crypto = require('crypto');
 const bcryptUtils = require('../utils/bcryptUtils');
 const { sequelize } = require('../config/db'); // Database connection
-const Tenant = require('./tenant');
+const Tenant = new (require('./Tenant'))(sequelize, DataTypes);
 const Subscription = require('./subscriptions');
 
 class User extends Model {
