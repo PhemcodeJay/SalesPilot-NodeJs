@@ -1,168 +1,63 @@
-const mysql = require('mysql2');
+const { Model } = require('sequelize');
+const { sequelize, DataTypes } = require('../config/db'); // Import from db.js
 
-// Create database connection pool
-const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'dbs13455438',
-  charset: 'utf8mb4',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-});
+class Sale extends Model {}
 
-// Promisify the pool for async/await usage
-const db = pool.promise();
-
-/**
- * Product Model
- */
-class Product {
-  static async getAll() {
-    const [rows] = await db.query('SELECT * FROM products');
-    return rows;
+Sale.init(
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    product_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    staff_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    customer_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    sales_qty: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    sale_status: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    payment_status: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    product_type: {
+      type: DataTypes.ENUM('goods', 'services', 'digital'),
+      allowNull: false,
+    },
+    sale_note: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    sales_price: {
+      type: DataTypes.FLOAT,
+      allowNull: false,
+    },
+  },
+  {
+    sequelize, // ✅ Use the imported Sequelize instance
+    modelName: 'Sale',
+    tableName: 'sales',
+    freezeTableName: true, // ✅ Prevent Sequelize from pluralizing table names
+    timestamps: false, // ✅ Disable timestamps
   }
+);
 
-  static async getById(id) {
-    const [rows] = await db.query('SELECT * FROM products WHERE id = ?', [id]);
-    if (rows.length === 0) throw new Error('Product not found');
-    return rows[0];
-  }
-
-  static async create(product) {
-    const {
-      name, description, price, cost, category_id, stock_qty, supply_qty, image_path, product_type, staff_name, category,
-    } = product;
-
-    const [result] = await db.query(
-      `INSERT INTO products 
-      (name, description, price, cost, category_id, stock_qty, supply_qty, image_path, product_type, staff_name, category)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, description, price, cost, category_id, stock_qty, supply_qty, image_path, product_type, staff_name, category]
-    );
-
-    return { id: result.insertId };
-  }
-
-  static async update(id, product) {
-    const {
-      name, description, price, cost, category_id, stock_qty, supply_qty, image_path, product_type, staff_name, category,
-    } = product;
-
-    const [result] = await db.query(
-      `UPDATE products 
-      SET name = ?, description = ?, price = ?, cost = ?, category_id = ?, stock_qty = ?, supply_qty = ?, 
-      image_path = ?, product_type = ?, staff_name = ?, category = ? WHERE id = ?`,
-      [name, description, price, cost, category_id, stock_qty, supply_qty, image_path, product_type, staff_name, category, id]
-    );
-
-    return result;
-  }
-
-  static async delete(id) {
-    const [result] = await db.query('DELETE FROM products WHERE id = ?', [id]);
-    return result;
-  }
-}
-
-/**
- * Sales Model
- */
-class Sales {
-  static async getAll() {
-    const [rows] = await db.query('SELECT * FROM sales');
-    return rows;
-  }
-
-  static async getById(salesId) {
-    const [rows] = await db.query('SELECT * FROM sales WHERE id = ?', [salesId]);
-    if (rows.length === 0) throw new Error('Sale not found');
-    return rows[0];
-  }
-
-  static async create(sale) {
-    const {
-      product_id, staff_id, customer_id, sales_qty, sale_status, payment_status, name, product_type, sale_note, sales_price,
-    } = sale;
-
-    const [result] = await db.query(
-      `INSERT INTO sales 
-      (product_id, staff_id, customer_id, sales_qty, sale_status, payment_status, name, product_type, sale_note, sales_price)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [product_id, staff_id, customer_id, sales_qty, sale_status, payment_status, name, product_type, sale_note, sales_price]
-    );
-
-    return { id: result.insertId };
-  }
-
-  static async update(salesId, sale) {
-    const {
-      product_id, staff_id, customer_id, sales_qty, sale_status, payment_status, name, product_type, sale_note, sales_price,
-    } = sale;
-
-    const [result] = await db.query(
-      `UPDATE sales 
-      SET product_id = ?, staff_id = ?, customer_id = ?, sales_qty = ?, sale_status = ?, payment_status = ?, 
-      name = ?, product_type = ?, sale_note = ?, sales_price = ? WHERE id = ?`,
-      [product_id, staff_id, customer_id, sales_qty, sale_status, payment_status, name, product_type, sale_note, sales_price, salesId]
-    );
-
-    return result;
-  }
-
-  static async delete(salesId) {
-    const [result] = await db.query('DELETE FROM sales WHERE id = ?', [salesId]);
-    return result;
-  }
-}
-
-/**
- * Inventory Model
- */
-class Inventory {
-  static async getAll() {
-    const [rows] = await db.query('SELECT * FROM inventory');
-    return rows;
-  }
-
-  static async getById(inventoryId) {
-    const [rows] = await db.query('SELECT * FROM inventory WHERE id = ?', [inventoryId]);
-    if (rows.length === 0) throw new Error('Inventory not found');
-    return rows[0];
-  }
-
-  static async create(inventory) {
-    const { product_id, sales_qty, stock_qty, supply_qty, product_name } = inventory;
-
-    const [result] = await db.query(
-      `INSERT INTO inventory 
-      (product_id, sales_qty, stock_qty, supply_qty, product_name) 
-      VALUES (?, ?, ?, ?, ?)`,
-      [product_id, sales_qty, stock_qty, supply_qty, product_name]
-    );
-
-    return { inventory_id: result.insertId };
-  }
-
-  static async update(inventoryId, inventory) {
-    const { product_id, sales_qty, stock_qty, supply_qty, product_name } = inventory;
-
-    const [result] = await db.query(
-      `UPDATE inventory 
-      SET product_id = ?, sales_qty = ?, stock_qty = ?, supply_qty = ?, product_name = ? 
-      WHERE id = ?`,
-      [product_id, sales_qty, stock_qty, supply_qty, product_name, inventoryId]
-    );
-
-    return result;
-  }
-
-  static async delete(inventoryId) {
-    const [result] = await db.query('DELETE FROM inventory WHERE id = ?', [inventoryId]);
-    return result;
-  }
-}
-
-// Export all models
-module.exports = { Product, Sales, Inventory };
+module.exports = Sale;

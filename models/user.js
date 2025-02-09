@@ -2,7 +2,7 @@ const { Model, DataTypes, Op } = require('sequelize');
 const crypto = require('crypto');
 const bcryptUtils = require('../utils/bcryptUtils');
 const { sequelize } = require('../config/db'); // Database connection
-const Tenant = new (require('./Tenant'))(sequelize, DataTypes);
+const Tenant = require('./Tenant');
 const Subscription = require('./subscriptions');
 
 class User extends Model {
@@ -38,14 +38,13 @@ class User extends Model {
       }
 
       // Check if user already exists
-      const existingUser = await User.findOne({ 
-        where: { [Op.or]: [{ email }, { username }] } 
+      const existingUser = await User.findOne({
+        where: { [Op.or]: [{ email }, { username }] }
       });
+
       if (existingUser) {
         throw new Error('User already exists.');
       }
-
-      
 
       // Find or create tenant
       let tenant = await Tenant.findOne({ where: { name: tenant_name } });
@@ -63,20 +62,7 @@ class User extends Model {
       }
 
       const hashedPassword = await bcryptUtils.hashPassword(password);
-      const confirmHashedPassword = await bcryptUtils.hashPassword(confirm_password);
-      if (hashedPassword !== confirmHashedPassword) {
-        throw new Error('Passwords do not match.');
-      }
       const activation_token = crypto.randomBytes(32).toString('hex');
-      const planDuration = subscription_plan === 'trial' ? 90 : 30;
-      tenant.subscription_end_date = new Date(Date.now() + planDuration * 24 * 60 * 60 * 1000);
-      const hashedResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-      await user.update({ reset_token: hashedResetToken, reset_token_expiry: expiry });
-      const hashedInputToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-      const user = await User.findOne({ 
-        where: { reset_token: hashedInputToken, reset_token_expiry: { [Op.gt]: new Date() } }
-      });
-
 
       // Create user
       const newUser = await User.create({
@@ -178,18 +164,20 @@ class User extends Model {
   /**
    * Find a user by a field
    */
-  static async findUser(query) {
+  static async findOne(query) {
     try {
-      if (!query || !query.where) throw new Error('Invalid query object.');
+      if (!query || typeof query !== 'object' || !query.where) {
+        throw new Error('Invalid query object.');
+      }
+
       return await User.findOne(query);
     } catch (error) {
-      console.error('FindUser Error:', error);
+      console.error('FindUser Error:', error.message);
       throw new Error('User lookup failed.');
     }
   }
 }
 
-// Initialize User Model
 User.init(
   {
     id: {
@@ -251,6 +239,5 @@ User.init(
     timestamps: true,
   }
 );
-
 
 module.exports = User;

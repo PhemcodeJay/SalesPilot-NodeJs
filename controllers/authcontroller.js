@@ -4,7 +4,8 @@ const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
 const asyncHandler = require('../middleware/asyncHandler');
-const { User, ActivationCode, Subscription, Tenant, PasswordResetToken } = require('../models');
+const db = require('../models'); 
+const { User, ActivationCode, Subscription, Tenant, PasswordResetToken } = db;
 
 class AuthController {
   // **User Signup with Free Trial**
@@ -23,9 +24,11 @@ class AuthController {
       return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long and include letters and numbers.' });
     }
 
-    const existingUser = await User.findOne({ where: { email } });
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingUser = await User.findOne({ where: { email: normalizedEmail } });
+
     if (existingUser) {
-      return res.status(400).json({ success: false, message: 'Email already registered.' });
+      return res.status(400).json({ success: false, message: 'Email is already in use. Please use a different email or log in.' });
     }
 
     // **Create Tenant**
@@ -34,7 +37,7 @@ class AuthController {
 
     const tenant = await Tenant.create({
       name: `${username}'s Business`,
-      email,
+      email: normalizedEmail,
       subscription_end_date: subscriptionEndDate
     });
 
@@ -42,7 +45,7 @@ class AuthController {
     const hashedPassword = await bcryptUtils.hashPassword(password);
     const user = await User.create({
       username,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       phone,
       location,
@@ -62,16 +65,16 @@ class AuthController {
       status: 'active'
     });
 
-    // **Generate Activation Code**
+    // **Generate & Store Activation Code**
     const activationCode = crypto.randomBytes(20).toString('hex');
     await ActivationCode.create({
       user_id: user.id,
       activation_code: activationCode,
-      expires_at: new Date(Date.now() + 3600000) // 1 hour
+      expires_at: new Date(Date.now() + 3600000) // 1 hour expiration
     });
 
     // **Send Activation Email**
-    await sendActivationEmail(email, activationCode);
+    await sendActivationEmail(normalizedEmail, activationCode);
 
     res.status(201).json({
       success: true,
@@ -111,7 +114,7 @@ class AuthController {
       return res.status(400).json({ success: false, message: 'Email and password are required.' });
     }
 
-    const user = await User.findOne({ where: { email: email.toLowerCase() } });
+    const user = await User.findOne({ where: { email: email.trim().toLowerCase() } });
 
     if (!user || !(await bcryptUtils.comparePassword(password, user.password))) {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
@@ -132,7 +135,7 @@ class AuthController {
   requestPasswordReset = asyncHandler(async (req, res) => {
     const { email } = req.body;
 
-    const user = await User.findOne({ where: { email } });
+    const user = await User.findOne({ where: { email: email.trim().toLowerCase() } });
     if (!user) {
       return res.status(404).json({ success: false, message: 'Email not found.' });
     }
@@ -141,10 +144,10 @@ class AuthController {
     await PasswordResetToken.create({
       user_id: user.id,
       token: resetToken,
-      expires_at: new Date(Date.now() + 3600000) // 1 hour
+      expires_at: new Date(Date.now() + 3600000) // 1 hour expiration
     });
 
-    await sendPasswordResetEmail(email, resetToken);
+    await sendPasswordResetEmail(user.email, resetToken);
 
     res.status(200).json({ success: true, message: 'Password reset link sent to your email.' });
   });
@@ -171,26 +174,6 @@ class AuthController {
     await PasswordResetToken.destroy({ where: { token } });
 
     res.status(200).json({ success: true, message: 'Password reset successful.' });
-  });
-
-  // **Refresh Token**
-  refreshToken = asyncHandler(async (req, res) => {
-    const { token } = req.body;
-
-    if (!token) {
-      return res.status(400).json({ success: false, message: 'Token is required.' });
-    }
-
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const newToken = jwt.sign({ id: decoded.id, email: decoded.email }, process.env.JWT_SECRET, {
-        expiresIn: '7d'
-      });
-
-      res.status(200).json({ success: true, token: newToken });
-    } catch (error) {
-      res.status(401).json({ success: false, message: 'Invalid token.' });
-    }
   });
 }
 

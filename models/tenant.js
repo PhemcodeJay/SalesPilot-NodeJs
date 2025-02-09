@@ -1,7 +1,13 @@
 const { Model, DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db'); // Using the main Sequelize connection
 
-class Tenant extends Model {}
+class Tenant extends Model {
+  static associate(models) {
+    // ✅ Define associations inside this method
+    Tenant.hasMany(models.User, { foreignKey: 'tenant_id', as: 'users', onDelete: 'CASCADE' });
+    Tenant.hasMany(models.Subscription, { foreignKey: 'tenant_id', as: 'subscriptions', onDelete: 'CASCADE' });
+  }
+}
 
 Tenant.init(
   {

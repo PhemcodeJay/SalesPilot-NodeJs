@@ -15,11 +15,18 @@ const asyncHandler = require('./middleware/asyncHandler');
 const rateLimiter = require('./middleware/rateLimiter');
 const { checkAndDeactivateSubscriptions } = require('./controllers/subscriptioncontroller');
 const { sequelize, User, Tenant, Subscription } = require('./models');
+const db = require('./models');
+
+db.sequelize.sync({ alter: true }) // Sync models with database
+  .then(() => console.log('Database synced'))
+  .catch((err) => console.error('Database sync error:', err));
+
 
 
 // Initialize Express App
 const app = express();
 const PORT = process.env.PORT || 5000;
+
 
 // Passport Configuration
 require('./config/passport')(passport);
@@ -127,20 +134,20 @@ app.use((req, res) => {
   try {
     console.log('Running initial subscription check on server startup...');
     await checkAndDeactivateSubscriptions();
-    console.log('Initial subscription check completed.');
+    console.log('✅ Initial subscription check completed.');
   } catch (error) {
-    console.error('Error during initial subscription check:', error.message);
+    console.error('❌ Error during initial subscription check:', error.message);
   }
 })();
 
 // Start the Server
 app.listen(PORT, async () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`✅ Server is running on port ${PORT}`);
 
   // Example of dynamically selecting tenant database
   const tenantDbName = 'tenant_db_example'; // You should dynamically get the tenant DB name
   const { sequelize } = getTenantDatabase(tenantDbName);
-  console.log(`Tenant database connected: ${tenantDbName}`);
+  console.log(`✅ Tenant database connected: ${tenantDbName}`);
 });
 
 module.exports = app;
