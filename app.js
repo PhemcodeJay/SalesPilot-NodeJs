@@ -14,6 +14,8 @@ const tenancy = require('./middleware/tenancyMiddleware');
 const asyncHandler = require('./middleware/asyncHandler');
 const rateLimiter = require('./middleware/rateLimiter');
 const { checkAndDeactivateSubscriptions } = require('./controllers/subscriptioncontroller');
+const { sequelize, User, Tenant, Subscription } = require('./models');
+
 
 // Initialize Express App
 const app = express();

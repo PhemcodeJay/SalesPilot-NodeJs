@@ -1,40 +1,15 @@
-const bcryptUtils = require('../utils/bcryptUtils');
-const { executeQuery } = require('../config/db');
+const { Model, DataTypes, Op } = require('sequelize');
 const crypto = require('crypto');
-const { Sequelize, Model, DataTypes } = require('sequelize');
-const sequelizeInstance = require('../config/db'); // Ensure Sequelize instance is correctly imported
+const bcryptUtils = require('../utils/bcryptUtils');
+const { sequelize } = require('../config/db'); // Database connection
+const Tenant = require('./tenant');
+const Subscription = require('./subscriptions');
 
-// Define User model using Sequelize
-class User extends Model {}
-
-User.init(
-  {
-    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    tenant_id: { type: DataTypes.INTEGER, allowNull: false },
-    username: { type: DataTypes.STRING, allowNull: false },
-    email: { type: DataTypes.STRING, allowNull: false, unique: true },
-    phone: { type: DataTypes.STRING, allowNull: true },
-    password: { type: DataTypes.STRING, allowNull: false },
-    location: { type: DataTypes.STRING, allowNull: true },
-    role: { type: DataTypes.ENUM('sales', 'admin', 'manager'), defaultValue: 'sales' },
-    activation_token: { type: DataTypes.STRING, allowNull: true },
-    reset_token: { type: DataTypes.STRING, allowNull: true },
-    reset_token_expiry: { type: DataTypes.DATE, allowNull: true },
-    is_active: { type: DataTypes.BOOLEAN, defaultValue: false },
-  },
-  {
-    sequelize: sequelizeInstance,
-    modelName: 'User',
-    tableName: 'users',
-    timestamps: false,
-  }
-);
-
-class UserModel {
+class User extends Model {
   /**
    * Register a new user with a tenant and subscription
    */
-  static async signup(userData, tenantDomain = 'localhost') {
+  static async signup(userData) {
     try {
       const {
         username,
@@ -48,6 +23,7 @@ class UserModel {
         tenant_name,
       } = userData;
 
+      // Validate required fields
       if (!username || !email || !password || !confirm_password || !location || !tenant_name) {
         throw new Error('Missing required fields.');
       }
@@ -61,32 +37,69 @@ class UserModel {
         throw new Error('Invalid role selected.');
       }
 
-      const existingUser = await executeQuery(`SELECT id FROM users WHERE email = ?`, [email]);
-      if (existingUser.length > 0) {
+      // Check if user already exists
+      const existingUser = await User.findOne({ 
+        where: { [Op.or]: [{ email }, { username }] } 
+      });
+      if (existingUser) {
         throw new Error('User already exists.');
       }
 
+      
+
       // Find or create tenant
-      let tenant = await executeQuery(`SELECT id FROM tenants WHERE name = ?`, [tenant_name]);
-      let tenantId =
-        tenant.length > 0 ? tenant[0].id : await this.createTenant(tenant_name, email, phone, location, subscription_plan);
-
-      const hashedPassword = await bcryptUtils.hashPassword(password);
-      const activation_token = crypto.randomBytes(32).toString('hex');
-
-      // Insert user
-      const userResult = await executeQuery(
-        `INSERT INTO users (username, email, phone, password, location, role, tenant_id, activation_token, is_active) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [username, email, phone, hashedPassword, location, role, tenantId, activation_token, 0]
-      );
-
-      if (!userResult.insertId) {
-        throw new Error('Failed to create user.');
+      let tenant = await Tenant.findOne({ where: { name: tenant_name } });
+      if (!tenant) {
+        tenant = await Tenant.create({
+          name: tenant_name,
+          email,
+          phone,
+          address: location,
+          status: 'inactive',
+          subscription_type: subscription_plan,
+          subscription_start_date: new Date(),
+          subscription_end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
+        });
       }
 
+      const hashedPassword = await bcryptUtils.hashPassword(password);
+      const confirmHashedPassword = await bcryptUtils.hashPassword(confirm_password);
+      if (hashedPassword !== confirmHashedPassword) {
+        throw new Error('Passwords do not match.');
+      }
+      const activation_token = crypto.randomBytes(32).toString('hex');
+      const planDuration = subscription_plan === 'trial' ? 90 : 30;
+      tenant.subscription_end_date = new Date(Date.now() + planDuration * 24 * 60 * 60 * 1000);
+      const hashedResetToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+      await user.update({ reset_token: hashedResetToken, reset_token_expiry: expiry });
+      const hashedInputToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+      const user = await User.findOne({ 
+        where: { reset_token: hashedInputToken, reset_token_expiry: { [Op.gt]: new Date() } }
+      });
+
+
+      // Create user
+      const newUser = await User.create({
+        username,
+        email,
+        phone,
+        password: hashedPassword,
+        location,
+        role,
+        tenant_id: tenant.id,
+        activation_token,
+        is_active: false,
+      });
+
       // Create a subscription
-      await this.createSubscription(userResult.insertId, tenantId, subscription_plan);
+      await Subscription.create({
+        user_id: newUser.id,
+        tenant_id: tenant.id,
+        subscription_plan,
+        start_date: new Date(),
+        end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        is_free_trial_used: false,
+      });
 
       return { success: true, message: 'User registered. Activation email sent.', activation_token };
     } catch (error) {
@@ -96,42 +109,19 @@ class UserModel {
   }
 
   /**
-   * Create a new tenant
-   */
-  static async createTenant(name, email, phone, location, subscriptionPlan) {
-    const tenantInsert = await executeQuery(
-      `INSERT INTO tenants (name, email, phone, address, status, subscription_type, subscription_start_date, subscription_end_date)
-       VALUES (?, ?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 90 DAY))`,
-      [name, email, phone, location, 'inactive', subscriptionPlan]
-    );
-    return tenantInsert.insertId;
-  }
-
-  /**
-   * Create a subscription
-   */
-  static async createSubscription(userId, tenantId, subscriptionPlan, duration = 30) {
-    return executeQuery(
-      `INSERT INTO subscriptions (user_id, tenant_id, subscription_plan, start_date, end_date, is_free_trial_used)
-       VALUES (?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL ? DAY), ?)`,
-      [userId, tenantId, subscriptionPlan, duration, false]
-    );
-  }
-
-  /**
    * Login user
    */
   static async login(email, password) {
     try {
-      const user = await executeQuery(`SELECT * FROM users WHERE email = ?`, [email]);
-      if (!user.length) throw new Error('User not found.');
+      const user = await User.findOne({ where: { email } });
+      if (!user) throw new Error('User not found.');
 
-      const isMatch = await bcryptUtils.comparePassword(password, user[0].password);
+      const isMatch = await bcryptUtils.comparePassword(password, user.password);
       if (!isMatch) throw new Error('Invalid credentials.');
 
-      if (!user[0].is_active) throw new Error('Account not activated. Check email.');
+      if (!user.is_active) throw new Error('Account not activated. Check your email.');
 
-      return { success: true, user: user[0] };
+      return { success: true, user };
     } catch (error) {
       console.error('Login Error:', error);
       throw new Error('Login failed. Check credentials.');
@@ -143,17 +133,13 @@ class UserModel {
    */
   static async requestPasswordReset(email) {
     try {
-      const user = await executeQuery(`SELECT id FROM users WHERE email = ?`, [email]);
-      if (!user.length) throw new Error('User not found.');
+      const user = await User.findOne({ where: { email } });
+      if (!user) throw new Error('User not found.');
 
       const resetToken = crypto.randomBytes(32).toString('hex');
-      const expiry = new Date();
-      expiry.setHours(expiry.getHours() + 1); // Token expires in 1 hour
+      const expiry = new Date(Date.now() + 60 * 60 * 1000); // Token expires in 1 hour
 
-      await executeQuery(
-        `UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE email = ?`,
-        [resetToken, expiry, email]
-      );
+      await user.update({ reset_token: resetToken, reset_token_expiry: expiry });
 
       return { success: true, message: 'Password reset request sent.', resetToken };
     } catch (error) {
@@ -169,19 +155,18 @@ class UserModel {
     try {
       if (newPassword !== confirmPassword) throw new Error('Passwords do not match.');
 
-      const user = await executeQuery(
-        `SELECT id FROM users WHERE reset_token = ? AND reset_token_expiry > NOW()`,
-        [resetToken]
-      );
+      const user = await User.findOne({
+        where: {
+          reset_token: resetToken,
+          reset_token_expiry: { [Op.gt]: new Date() }, // Token must be valid
+        },
+      });
 
-      if (!user.length) throw new Error('Invalid or expired reset token.');
+      if (!user) throw new Error('Invalid or expired reset token.');
 
       const hashedPassword = await bcryptUtils.hashPassword(newPassword);
 
-      await executeQuery(
-        `UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?`,
-        [hashedPassword, user[0].id]
-      );
+      await user.update({ password: hashedPassword, reset_token: null, reset_token_expiry: null });
 
       return { success: true, message: 'Password reset successfully.' };
     } catch (error) {
@@ -193,26 +178,79 @@ class UserModel {
   /**
    * Find a user by a field
    */
-  static async findOne(query) {
+  static async findUser(query) {
     try {
       if (!query || !query.where) throw new Error('Invalid query object.');
-
-      const field = Object.keys(query.where)[0];
-      const value = query.where[field];
-      const allowedFields = ['id', 'username', 'email', 'phone', 'activation_token', 'reset_token'];
-
-      if (!allowedFields.includes(field)) {
-        throw new Error(`Invalid query field: ${field}`);
-      }
-
-      const results = await executeQuery(`SELECT * FROM users WHERE ${field} = ?`, [value]);
-
-      return results.length > 0 ? results[0] : null;
+      return await User.findOne(query);
     } catch (error) {
-      console.error('FindOne Error:', error);
+      console.error('FindUser Error:', error);
       throw new Error('User lookup failed.');
     }
   }
 }
 
-module.exports = UserModel;
+// Initialize User Model
+User.init(
+  {
+    id: {
+      type: DataTypes.UUID,
+      primaryKey: true,
+      defaultValue: DataTypes.UUIDV4,
+    },
+    tenant_id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+    },
+    username: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
+      validate: { isEmail: { msg: 'Invalid email format' } },
+    },
+    phone: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    password: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    location: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    role: {
+      type: DataTypes.ENUM('sales', 'admin', 'manager'),
+      allowNull: false,
+      defaultValue: 'sales',
+    },
+    activation_token: {
+      type: DataTypes.STRING,
+    },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    reset_token: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    reset_token_expiry: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+  },
+  {
+    sequelize,
+    modelName: 'User',
+    tableName: 'users',
+    timestamps: true,
+  }
+);
+
+
+module.exports = User;

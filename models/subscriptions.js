@@ -1,11 +1,12 @@
-const pool = require('../config/db'); // Assuming this is your database connection module
+const { Model, DataTypes, Op } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-class Subscription {
+class Subscription extends Model {
   /**
-   * Create a Trial subscription for a user within a tenant
-   * @param {Number} userId - The ID of the user
-   * @param {Number} tenantId - The ID of the tenant
-   * @returns {Object} The created subscription details
+   * Create a Free Trial Subscription
+   * @param {UUID} userId - The ID of the user
+   * @param {UUID} tenantId - The ID of the tenant
+   * @returns {Object} The created subscription
    * @throws {Error} If the creation fails
    */
   static async createFreeTrial(userId, tenantId) {
@@ -14,35 +15,27 @@ class Subscription {
         throw new Error('User ID and Tenant ID are required to create a Trial subscription.');
       }
 
-      const startDate = new Date(); // Current date
+      const existingTrial = await Subscription.findOne({
+        where: { user_id: userId, tenant_id: tenantId, subscription_plan: 'Trial' },
+      });
+
+      if (existingTrial) {
+        throw new Error('User has already used a free trial.');
+      }
+
+      const startDate = new Date();
       const endDate = new Date();
-      endDate.setMonth(startDate.getMonth() + 3); // Add 3 months to the start date
+      endDate.setMonth(startDate.getMonth() + 3); // 3-month free trial
 
-      const query = `
-        INSERT INTO subscriptions (user_id, tenant_id, subscription_plan, start_date, end_date, status, is_free_trial_used)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `;
-
-      const [result] = await pool.execute(query, [
-        userId,
-        tenantId,
-        'Trial',
-        startDate.toISOString(), // Ensure proper date format
-        endDate.toISOString(),   // Ensure proper date format
-        'Active',
-        true,
-      ]);
-
-      return { 
-        id: result.insertId, 
-        userId, 
-        tenantId, 
-        subscription_plan: 'Trial', 
-        start_date: startDate.toISOString(), 
-        end_date: endDate.toISOString(), 
-        status: 'Active', 
-        is_free_trial_used: true 
-      };
+      return await Subscription.create({
+        user_id: userId,
+        tenant_id: tenantId,
+        subscription_plan: 'Trial',
+        start_date: startDate,
+        end_date: endDate,
+        status: 'Active',
+        is_free_trial_used: true,
+      });
     } catch (error) {
       console.error(`Error creating Trial subscription for user ${userId} (Tenant ${tenantId}): ${error.message}`);
       throw error;
@@ -50,22 +43,20 @@ class Subscription {
   }
 
   /**
-   * Fetch the active subscription of a user within a tenant
-   * @param {Number} userId - The ID of the user
-   * @param {Number} tenantId - The ID of the tenant
-   * @returns {Object|null} The active subscription or null if none exists
-   * @throws {Error} If the query fails
+   * Get the active subscription of a user within a tenant
+   * @param {UUID} userId - The ID of the user
+   * @param {UUID} tenantId - The ID of the tenant
+   * @returns {Object|null} The active subscription or null
    */
   static async getActiveSubscription(userId, tenantId) {
     try {
-      if (!userId || !tenantId) {
-        throw new Error('User ID and Tenant ID are required to fetch an active subscription.');
-      }
-
-      const query = 'SELECT * FROM subscriptions WHERE user_id = ? AND tenant_id = ? AND status = "Active"';
-      const [rows] = await pool.execute(query, [userId, tenantId]);
-
-      return rows.length > 0 ? rows[0] : null; // Return the subscription if found, else null
+      return await Subscription.findOne({
+        where: {
+          user_id: userId,
+          tenant_id: tenantId,
+          status: 'Active',
+        },
+      });
     } catch (error) {
       console.error(`Error fetching active subscription for user ${userId} (Tenant ${tenantId}): ${error.message}`);
       throw error;
@@ -73,56 +64,45 @@ class Subscription {
   }
 
   /**
-   * Update the subscription details of a user within a tenant
-   * @param {Number} userId - The ID of the user
-   * @param {Number} tenantId - The ID of the tenant
+   * Update subscription details
+   * @param {UUID} userId - The ID of the user
+   * @param {UUID} tenantId - The ID of the tenant
    * @param {Object} data - Fields to update (e.g., status, end_date)
-   * @returns {Boolean} True if update was successful
-   * @throws {Error} If the update fails
+   * @returns {Object|null} The updated subscription object or null if not found
    */
   static async updateSubscription(userId, tenantId, data) {
     try {
-      if (!userId || !tenantId || !data || typeof data !== 'object') {
-        throw new Error('User ID, Tenant ID, and data are required for updating a subscription.');
+      const subscription = await Subscription.findOne({
+        where: { user_id: userId, tenant_id: tenantId },
+      });
+
+      if (!subscription) {
+        throw new Error('Subscription not found');
       }
 
-      const { status, end_date } = data;
-      const query = `
-        UPDATE subscriptions
-        SET status = ?, end_date = ?
-        WHERE user_id = ? AND tenant_id = ?
-      `;
-
-      const [result] = await pool.execute(query, [status, end_date, userId, tenantId]);
-      return result.affectedRows > 0; // Return true if the update was successful
+      await subscription.update(data);
+      return subscription; // ✅ Return updated object instead of boolean
     } catch (error) {
-      console.error(`Error updating subscription for user ${userId} (Tenant ${tenantId}): ${error.message}`);
+      console.error(`Error updating subscription: ${error.message}`);
       throw error;
     }
   }
 
   /**
-   * Upgrade a subscription plan for a user within a tenant
-   * @param {Number} userId - The ID of the user
-   * @param {Number} tenantId - The ID of the tenant
+   * Upgrade a subscription plan
+   * @param {UUID} userId - The ID of the user
+   * @param {UUID} tenantId - The ID of the tenant
    * @param {String} newPlan - The new subscription plan
    * @returns {Boolean} True if upgrade was successful
-   * @throws {Error} If the upgrade fails
    */
   static async upgradeSubscription(userId, tenantId, newPlan) {
     try {
-      if (!userId || !tenantId || !newPlan) {
-        throw new Error('User ID, Tenant ID, and new subscription plan are required to upgrade.');
-      }
+      const [updated] = await Subscription.update(
+        { subscription_plan: newPlan, status: 'Active', is_free_trial_used: false },
+        { where: { user_id: userId, tenant_id: tenantId, status: 'Active' } }
+      );
 
-      const query = `
-        UPDATE subscriptions
-        SET subscription_plan = ?, status = 'Active', is_free_trial_used = false
-        WHERE user_id = ? AND tenant_id = ? AND status = 'Active'
-      `;
-
-      const [result] = await pool.execute(query, [newPlan, userId, tenantId]);
-      return result.affectedRows > 0; // Return true if the upgrade was successful
+      return updated > 0;
     } catch (error) {
       console.error(`Error upgrading subscription for user ${userId} (Tenant ${tenantId}): ${error.message}`);
       throw error;
@@ -130,54 +110,74 @@ class Subscription {
   }
 
   /**
-   * Cancel an active subscription for a user within a tenant
-   * @param {Number} userId - The ID of the user
-   * @param {Number} tenantId - The ID of the tenant
+   * Cancel an active subscription
+   * @param {UUID} userId - The ID of the user
+   * @param {UUID} tenantId - The ID of the tenant
    * @returns {Boolean} True if cancellation was successful
-   * @throws {Error} If the cancellation fails
    */
   static async cancelSubscription(userId, tenantId) {
     try {
-      if (!userId || !tenantId) {
-        throw new Error('User ID and Tenant ID are required to cancel a subscription.');
-      }
+      const [updated] = await Subscription.update(
+        { status: 'Cancelled' },
+        { where: { user_id: userId, tenant_id: tenantId, status: 'Active' } }
+      );
 
-      const query = `
-        UPDATE subscriptions
-        SET status = 'Cancelled'
-        WHERE user_id = ? AND tenant_id = ? AND status = 'Active'
-      `;
-
-      const [result] = await pool.execute(query, [userId, tenantId]);
-      return result.affectedRows > 0; // Return true if the cancellation was successful
+      return updated > 0;
     } catch (error) {
       console.error(`Error cancelling subscription for user ${userId} (Tenant ${tenantId}): ${error.message}`);
       throw error;
     }
   }
-
-  /**
-   * Get the subscription status of a user within a tenant
-   * @param {Number} userId - The ID of the user
-   * @param {Number} tenantId - The ID of the tenant
-   * @returns {Object|null} The active subscription or null if none exists
-   * @throws {Error} If the query fails
-   */
-  static async getSubscriptionStatus(userId, tenantId) {
-    try {
-      if (!userId || !tenantId) {
-        throw new Error('User ID and Tenant ID are required to fetch subscription status.');
-      }
-
-      const query = 'SELECT * FROM subscriptions WHERE user_id = ? AND tenant_id = ? AND status = "Active"';
-      const [rows] = await pool.execute(query, [userId, tenantId]);
-
-      return rows.length > 0 ? rows[0] : null; // Return the subscription if found, else null
-    } catch (error) {
-      console.error(`Error fetching subscription status for user ${userId} (Tenant ${tenantId}): ${error.message}`);
-      throw error;
-    }
-  }
 }
+
+// Initialize Sequelize Model
+Subscription.init(
+  {
+    id: {
+      type: DataTypes.UUID,
+      primaryKey: true,
+      defaultValue: DataTypes.UUIDV4,
+    },
+    user_id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'users', key: 'id' },
+      onDelete: 'CASCADE',
+    },
+    tenant_id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: { model: 'tenants', key: 'id' },
+      onDelete: 'CASCADE',
+    },
+    subscription_plan: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    start_date: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
+    end_date: {
+      type: DataTypes.DATE,
+      allowNull: false,
+    },
+    status: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: 'Active',
+    },
+    is_free_trial_used: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: 'Subscription',
+    tableName: 'subscriptions',
+    timestamps: true,
+  }
+);
 
 module.exports = Subscription;
