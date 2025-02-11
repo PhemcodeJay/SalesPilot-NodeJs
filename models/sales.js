@@ -5,7 +5,7 @@ class Sale extends Model {}
 
 Sale.init(
   {
-    id: {
+    sales_id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
