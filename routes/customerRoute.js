@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const router = express.Router();
 const customerController = require('../controllers/customercontroller');
-const { checkLogin } = require('../middleware/auth'); // Import middleware
+const { validateLogin } = require('../middleware/auth'); // Import middleware
 const pool = require('../models/db'); // Import the database connection
 const session = require('express-session');
 const multer = require('multer');
@@ -13,7 +13,7 @@ const PDFDocument = require('pdfkit');
 router.use(express.static(path.join(__dirname, '../views/customers')));
 
 // Route to serve the page for adding a customer
-router.get('/add-customer', checkLogin, (req, res) => {
+router.get('/add-customer', validateLogin, (req, res) => {
     try {
         const filePath = path.join(__dirname, '..', 'views/customers', 'page-add-customer.html');
         res.sendFile(filePath);
@@ -24,7 +24,7 @@ router.get('/add-customer', checkLogin, (req, res) => {
 });
 
 // Route to serve the page listing all customers
-router.get('/list-customer', checkLogin, async (req, res) => {
+router.get('/list-customer', validateLogin, async (req, res) => {
     try {
         const customers = await customerController.fetchAllCustomers();
         res.render('page-list-customer', { customers });
@@ -35,7 +35,7 @@ router.get('/list-customer', checkLogin, async (req, res) => {
 });
 
 // Route to handle customer actions (CRUD operations)
-router.post('/customer/actions', checkLogin, async (req, res) => {
+router.post('/customer/actions', validateLogin, async (req, res) => {
     try {
         await customerController.handleCustomerActions(req, res);
     } catch (err) {
@@ -45,7 +45,7 @@ router.post('/customer/actions', checkLogin, async (req, res) => {
 });
 
 // Route to export customer details to PDF
-router.get('/customer/pdf/:customer_id', checkLogin, async (req, res) => {
+router.get('/customer/pdf/:customer_id', validateLogin, async (req, res) => {
     const { customer_id } = req.params;
 
     try {
@@ -74,7 +74,7 @@ router.get('/customer/pdf/:customer_id', checkLogin, async (req, res) => {
 });
 
 // Route to generate and download the customers report PDF
-router.get('/customers/report/pdf', checkLogin, async (req, res) => {
+router.get('/customers/report/pdf', validateLogin, async (req, res) => {
     try {
         await customerController.generateCustomerReportPdf(req, res); // Method name fixed
     } catch (err) {

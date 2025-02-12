@@ -10,7 +10,7 @@ const {
   renderPayPage,
   renderSubscriptionPage,
 } = require('../controllers/subscriptioncontroller');
-const { checkLogin } = require('../middleware/auth');
+const { validateLogin } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -59,7 +59,7 @@ router.post('/cancel', verifyToken, async (req, res) => {
 // ========================
 
 // Deactivate expired subscriptions
-router.get('/subscriptions/deactivate-expired', checkLogin, async (req, res) => {
+router.get('/subscriptions/deactivate-expired', validateLogin, async (req, res) => {
   try {
     await checkAndDeactivateSubscriptions();
     res.status(200).json({ message: 'Checked and deactivated expired subscriptions' });
@@ -70,16 +70,16 @@ router.get('/subscriptions/deactivate-expired', checkLogin, async (req, res) => 
 });
 
 // Process payment and check subscription
-router.post('/payments/process', checkLogin, checkSubscriptionAndProcessPayment);
+router.post('/payments/process', validateLogin, checkSubscriptionAndProcessPayment);
 
 // Get payments for a specific user
-router.get('/payments/user/:user_id', checkLogin, getPaymentsByUser);
+router.get('/payments/user/:user_id', validateLogin, getPaymentsByUser);
 
 // Get a specific payment by ID
-router.get('/payments/:payment_id', checkLogin, getPaymentById);
+router.get('/payments/:payment_id', validateLogin, getPaymentById);
 
 // Update payment status
-router.put('/payments/:payment_id/status', checkLogin, updatePaymentStatus);
+router.put('/payments/:payment_id/status', validateLogin, updatePaymentStatus);
 
 // ========================
 // Export Router

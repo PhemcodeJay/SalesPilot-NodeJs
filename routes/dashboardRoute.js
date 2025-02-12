@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const dashboardController = require('../controllers/dashboardcontroller');
-
+const { validateLogin } = require('../middleware/auth'); // Import middleware
 // Define the route
 router.get('/api/dashboard', async (req, res) => {
   try {

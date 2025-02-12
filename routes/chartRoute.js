@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const path = require('path'); // For serving static files
 const chartController = require('../controllers/chartcontroller'); // Correct import path
-
+const { validateLogin } = require('../middleware/auth'); // Import middleware
 // Routes for chart reports
 router.post('/chart', chartController.createReport);  // Create a report
 router.get('/chart/:chart_id', chartController.getReportById); // Get specific report by ID

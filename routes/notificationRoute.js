@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-
+const { validateLogin } = require('../middleware/auth'); // Import middleware
 // Import the controller functions
 const { fetchInventoryNotifications, fetchReportsNotifications } = require('../controllers/notificationcontroller');
 

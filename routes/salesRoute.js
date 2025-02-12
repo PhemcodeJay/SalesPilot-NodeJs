@@ -4,7 +4,7 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 const session = require('express-session');
-
+const { validateLogin } = require('../middleware/auth'); // Import middleware
 // Router initialization
 const router = express.Router();
 

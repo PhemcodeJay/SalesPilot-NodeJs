@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const { sessionMiddleware, generateReport, handleProductUpload } = require('../controllers/productcontroller'); // Import controller functions
-const { checkLogin } = require('../middleware/auth'); // Import middleware
+const { validateLogin } = require('../middleware/auth'); // Import middleware
 
 
 
@@ -12,7 +12,7 @@ router.get('/analytics', (req, res) => {
 });
 
 // Route for generating a report
-router.post('/generate-report', checkLogin, async (req, res) => {
+router.post('/generate-report', validateLogin, async (req, res) => {
     try {
         await generateReport(req, res); // Call the controller function for generating the report
     } catch (error) {

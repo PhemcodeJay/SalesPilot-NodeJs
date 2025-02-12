@@ -9,10 +9,10 @@ const {
     deleteInvoice,
     generateInvoicePDF,
 } = require('../controllers/invoicecontroller');
-const { checkLogin } = require('../middleware/auth');
+const { validateLogin } = require('../middleware/auth');
 
 // Serve the invoice list page
-router.get('/pages-invoice', checkLogin, (req, res) => {
+router.get('/pages-invoice', validateLogin, (req, res) => {
     const filePath = path.resolve(__dirname, '../views/invoices/pages-invoice.html'); // Correct path
     res.sendFile(filePath, (err) => {
         if (err) {
@@ -24,7 +24,7 @@ router.get('/pages-invoice', checkLogin, (req, res) => {
 
 
 // Serve the invoice form page for creating or editing an invoice
-router.get('/invoice-form', checkLogin, (req, res) => {
+router.get('/invoice-form', validateLogin, (req, res) => {
     const filePath = path.resolve(__dirname, '../views/invoices/invoice-form.html'); // Correct path
     res.sendFile(filePath, (err) => {
         if (err) {
@@ -36,10 +36,10 @@ router.get('/invoice-form', checkLogin, (req, res) => {
 
 
 // Generate a PDF report of all invoices
-router.get('/generate-pdf', checkLogin, generateInvoicesPdf);
+router.get('/generate-pdf', validateLogin, generateInvoicesPdf);
 
 // Create a new invoice
-router.post('/create', checkLogin, (req, res) => {
+router.post('/create', validateLogin, (req, res) => {
     const { invoiceData, itemsData } = req.body;
     createInvoice(invoiceData, itemsData, (err, invoiceId) => {
         if (err) {
@@ -50,7 +50,7 @@ router.post('/create', checkLogin, (req, res) => {
 });
 
 // Get a specific invoice by ID
-router.get('/:invoiceId', checkLogin, (req, res) => {
+router.get('/:invoiceId', validateLogin, (req, res) => {
     const invoiceId = req.params.invoiceId;
     getInvoice(invoiceId, (err, data) => {
         if (err) {
@@ -61,7 +61,7 @@ router.get('/:invoiceId', checkLogin, (req, res) => {
 });
 
 // Update an invoice
-router.put('/:invoiceId', checkLogin, (req, res) => {
+router.put('/:invoiceId', validateLogin, (req, res) => {
     const invoiceId = req.params.invoiceId;
     const invoiceData = req.body;
     updateInvoice(invoiceId, invoiceData, (err) => {
@@ -73,7 +73,7 @@ router.put('/:invoiceId', checkLogin, (req, res) => {
 });
 
 // Delete an invoice
-router.delete('/:invoiceId', checkLogin, (req, res) => {
+router.delete('/:invoiceId', validateLogin, (req, res) => {
     const invoiceId = req.params.invoiceId;
     deleteInvoice(invoiceId, (err) => {
         if (err) {
@@ -84,7 +84,7 @@ router.delete('/:invoiceId', checkLogin, (req, res) => {
 });
 
 // Generate a PDF for a single invoice
-router.get('/:invoiceId/generate-pdf', checkLogin, (req, res) => {
+router.get('/:invoiceId/generate-pdf', validateLogin, (req, res) => {
     const invoiceId = req.params.invoiceId;
     generateInvoicePDF(invoiceId, (err, filePath) => {
         if (err) {

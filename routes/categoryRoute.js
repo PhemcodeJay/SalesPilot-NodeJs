@@ -3,7 +3,7 @@ const router = express.Router();
 const { pool } = require('../models/db'); // Using the pre-configured connection pool
 const session = require('express-session');
 const productController = require('../controllers/productcontroller'); // Corrected controller file for products
-const { checkLogin } = require('../middleware/auth'); // Import middleware
+const { validateLogin } = require('../middleware/auth'); // Import middleware
 
 
 // Session setup
@@ -17,7 +17,7 @@ router.use(
 );
 
 // GET route for categories and products (view-only)
-router.get('/categories', checkLogin, async (req, res) => {
+router.get('/categories', validateLogin, async (req, res) => {
   try {
     const username = req.session.username;
 

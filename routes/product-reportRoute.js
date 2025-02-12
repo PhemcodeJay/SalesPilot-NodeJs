@@ -4,7 +4,7 @@ const path = require('path');
 const session = require('express-session');
 const verifyToken = require('../middleware/auth');
 const reportController = require('../controllers/product-reportcontroller');
-
+const { validateLogin } = require('../middleware/auth'); // Import middleware
 // Middleware for session handling
 router.use(session({
   secret: 'your-secret-key', // Replace with your actual secret key

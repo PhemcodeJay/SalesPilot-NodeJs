@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const { listProducts, addOrUpdateProduct, deleteProduct } = require('../controllers/productcontroller');
-
+const { validateLogin } = require('../middleware/auth'); // Import middleware
 const router = express.Router();
 
 // Configure multer for file uploads

@@ -6,7 +6,7 @@ const pool = require('../models/db'); // Assuming MySQL database connection
 const session = require('express-session');
 const verifyToken = require('../middleware/auth'); // Middleware for verifying token (if required)
 const chartReportController = require('../controllers/chart-reportcontroller'); // The controller for chart-related actions
-
+const { validateLogin } = require('../middleware/auth'); // Import middleware
 // Middleware for handling sessions
 const sessionMiddleware = session({
   secret: 'your-secret-key', // Replace with your secret key
