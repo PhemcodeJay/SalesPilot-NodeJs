@@ -31,14 +31,26 @@
                       <h2 class="mb-2">Welcome,</h2>
                       <p>Please create your account.</p>
                       
-                      <!-- Error message section -->
+                      <!-- Success Message -->
+                      <% if (typeof successMessage !== 'undefined') { %>
+                        <div class="alert alert-success">
+                          <%= successMessage %>
+                        </div>
+                      <% } %>
+
+                      <!-- Error Message -->
                       <% if (typeof errorMessage !== 'undefined') { %>
                         <div class="alert alert-danger">
                           <%= errorMessage %>
                         </div>
                       <% } %>
                       
-                      <form action="/auth/signup" method="POST" id="signup-form">
+                      <form action="/signup" method="POST" id="signup-form">
+                        <!-- CSRF Token (If Using CSRF Protection) -->
+                        <% if (typeof csrfToken !== 'undefined') { %>
+                          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                        <% } %>
+
                         <div class="input-group input-group-outline mb-3">
                             <input type="text" id="username" name="username" class="form-control" placeholder="Enter your username" required minlength="3">
                         </div>
@@ -76,10 +88,9 @@
                           });
                         });
                       </script>
-                      
                                           
                       <div class="text-center">
-                        <button type="button" class="btn btn-primary w-100 my-4 mb-2" onclick="window.location.href='/auth/login'">Go to Login</button>
+                        <button type="button" class="btn btn-primary w-100 my-4 mb-2" onclick="window.location.href='/login'">Go to Login</button>
                       </div>
                     </div>
                   </div>
