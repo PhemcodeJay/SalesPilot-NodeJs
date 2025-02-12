@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
 const asyncHandler = require('../middleware/asyncHandler');
 const db = require('../models'); 
+
 const { User, ActivationCode, Subscription, Tenant, PasswordResetToken } = db;
 
 class AuthController {
@@ -114,7 +115,8 @@ class AuthController {
       return res.status(400).json({ success: false, message: 'Email and password are required.' });
     }
 
-    const user = await User.findOne({ where: { email: email.trim().toLowerCase() } });
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ where: { email: normalizedEmail } });
 
     if (!user || !(await bcryptUtils.comparePassword(password, user.password))) {
       return res.status(401).json({ success: false, message: 'Invalid email or password.' });
@@ -124,7 +126,7 @@ class AuthController {
       return res.status(403).json({ success: false, message: 'Please activate your account first.' });
     }
 
-    const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ id: user.id, email: user.email, tenant_id: user.tenant_id }, process.env.JWT_SECRET, {
       expiresIn: '7d'
     });
 
@@ -135,7 +137,13 @@ class AuthController {
   requestPasswordReset = asyncHandler(async (req, res) => {
     const { email } = req.body;
 
-    const user = await User.findOne({ where: { email: email.trim().toLowerCase() } });
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required.' });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await User.findOne({ where: { email: normalizedEmail } });
+
     if (!user) {
       return res.status(404).json({ success: false, message: 'Email not found.' });
     }
@@ -164,7 +172,12 @@ class AuthController {
       return res.status(400).json({ success: false, message: 'Passwords do not match.' });
     }
 
+    if (new_password.length < 8 || !/\d/.test(new_password) || !/[a-zA-Z]/.test(new_password)) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long and include letters and numbers.' });
+    }
+
     const resetRecord = await PasswordResetToken.findOne({ where: { token } });
+
     if (!resetRecord) {
       return res.status(400).json({ success: false, message: 'Invalid or expired token.' });
     }

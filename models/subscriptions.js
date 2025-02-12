@@ -3,12 +3,20 @@ const { sequelize } = require('../config/db');
 
 class Subscription extends Model {
   /**
+   * Define model associations
+   */
+  static associate(models) {
+    Subscription.belongsTo(models.User, { foreignKey: 'user_id', as: 'user', onDelete: 'CASCADE' });
+    Subscription.belongsTo(models.Tenant, { foreignKey: 'tenant_id', as: 'tenant', onDelete: 'CASCADE' });
+  }
+
+  /**
    * Create a Free Trial Subscription
    */
   static async createFreeTrial(userId, tenantId) {
     try {
       if (!userId || !tenantId) {
-        throw new Error('User ID and Tenant ID are required to create a Trial subscription.');
+        throw new Error('User ID and Tenant ID are required.');
       }
 
       const activeSubscription = await Subscription.findOne({
@@ -41,7 +49,7 @@ class Subscription extends Model {
         is_free_trial_used: true,
       });
     } catch (error) {
-      console.error(`Error creating Trial subscription for user ${userId} (Tenant ${tenantId}): ${error.message}`);
+      console.error(`Error creating Trial subscription: ${error.message}`);
       throw error;
     }
   }
@@ -55,7 +63,7 @@ class Subscription extends Model {
         where: { user_id: userId, tenant_id: tenantId, status: 'Active' },
       });
     } catch (error) {
-      console.error(`Error fetching active subscription for user ${userId} (Tenant ${tenantId}): ${error.message}`);
+      console.error(`Error fetching active subscription: ${error.message}`);
       throw error;
     }
   }
@@ -95,11 +103,10 @@ class Subscription extends Model {
       }
 
       const newEndDate = new Date(subscription.end_date);
-      newEndDate.setMonth(newEndDate.getMonth() + durationMonths); // Extend duration
+      newEndDate.setMonth(newEndDate.getMonth() + durationMonths);
 
       await subscription.update({
         subscription_plan: newPlan,
-        status: 'Active',
         end_date: newEndDate,
         is_free_trial_used: false,
       });
@@ -107,6 +114,40 @@ class Subscription extends Model {
       return subscription;
     } catch (error) {
       console.error(`Error upgrading subscription: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Renew an expired subscription
+   */
+  static async renewSubscription(userId, tenantId, durationMonths) {
+    try {
+      const subscription = await Subscription.findOne({
+        where: {
+          user_id: userId,
+          tenant_id: tenantId,
+          status: { [Op.or]: ['Expired', 'Cancelled'] },
+        },
+      });
+
+      if (!subscription) {
+        throw new Error('No expired or cancelled subscription found.');
+      }
+
+      const newStartDate = new Date();
+      const newEndDate = new Date();
+      newEndDate.setMonth(newStartDate.getMonth() + durationMonths);
+
+      await subscription.update({
+        start_date: newStartDate,
+        end_date: newEndDate,
+        status: 'Active',
+      });
+
+      return subscription;
+    } catch (error) {
+      console.error(`Error renewing subscription: ${error.message}`);
       throw error;
     }
   }
@@ -124,7 +165,7 @@ class Subscription extends Model {
         throw new Error('No active subscription to cancel.');
       }
 
-      await subscription.update({ status: 'Cancelled', end_date: new Date() }); // Set status and expiration
+      await subscription.update({ status: 'Cancelled', end_date: new Date() });
 
       return true;
     } catch (error) {
@@ -134,7 +175,7 @@ class Subscription extends Model {
   }
 }
 
-// Initialize Sequelize Model
+// ✅ Initialize Subscription Model
 Subscription.init(
   {
     id: {
@@ -167,7 +208,7 @@ Subscription.init(
       allowNull: false,
     },
     status: {
-      type: DataTypes.STRING,
+      type: DataTypes.ENUM('Active', 'Cancelled', 'Expired'),
       allowNull: false,
       defaultValue: 'Active',
     },

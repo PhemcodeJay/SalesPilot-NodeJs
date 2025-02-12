@@ -6,32 +6,34 @@ const bodyParser = require('body-parser');
 const passport = require('passport');
 const flash = require('connect-flash');
 const cookieParser = require('cookie-parser');
-const { Sequelize } = require('sequelize');
-const { getTenantDatabase } = require('./config/db');
 const { verifyToken } = require('./config/auth');
 const paypalClient = require('./config/paypalconfig');
 const tenancy = require('./middleware/tenancyMiddleware');
 const asyncHandler = require('./middleware/asyncHandler');
 const rateLimiter = require('./middleware/rateLimiter');
 const { checkAndDeactivateSubscriptions } = require('./controllers/subscriptioncontroller');
-const { sequelize, User, Tenant, Subscription } = require('./models');
-const db = require('./models');
+const { getAllTenants, getTenantDatabase } = require('./config/db');
+const tenantService = require('./services/tenantservices');
+const { OrdersCreateRequest } = require('@paypal/checkout-server-sdk'); // Fix PayPal import
 
-db.sequelize.sync({ alter: true }) // Sync models with database
-  .then(() => console.log('Database synced'))
-  .catch((err) => console.error('Database sync error:', err));
-
-
-
-// Initialize Express App
+// ✅ Initialize Express App
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// ✅ Initialize Subscriptions
+(async function initSubscriptions() {
+  try {
+    const tenants = await tenantService.getAllTenants();
+    console.log('Fetched tenants:', tenants);
+  } catch (error) {
+    console.error('Error during initial subscription check:', error);
+  }
+})();
 
-// Passport Configuration
+// ✅ Passport Configuration
 require('./config/passport')(passport);
 
-// Routes Import
+// ✅ Routes Import
 const routes = {
   auth: require('./routes/authRoute'),
   dashboard: require('./routes/dashboardRoute'),
@@ -56,7 +58,7 @@ const routes = {
   pdf: require('./routes/pdfRoute'),
 };
 
-// Middleware Setup
+// ✅ Middleware Setup
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -76,25 +78,25 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
 
-// View Engine Setup
+// ✅ View Engine Setup
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// Serve Static Files
+// ✅ Serve Static Files
 app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
 app.use('/home_assets', express.static(path.join(__dirname, 'public', 'home_assets')));
 
-// Attach Imported Routes Dynamically
+// ✅ Attach Imported Routes Dynamically
 Object.entries(routes).forEach(([name, route]) => {
   app.use(`/${name}`, route);
 });
 
-// Home Route
+// ✅ Home Route
 app.get('/', (req, res) => {
   res.render('home/index', { title: 'Home' });
 });
 
-// PayPal Payment Example
+// ✅ PayPal Payment Example
 app.post(
   '/create-payment',
   verifyToken,
@@ -103,20 +105,25 @@ app.post(
       intent: 'CAPTURE',
       purchase_units: [{ amount: { value: req.body.amount } }],
       application_context: {
-        return_url: 'http://localhost:5000/payment-success',
-        cancel_url: 'http://localhost:5000/payment-cancel',
+        return_url: `${process.env.BASE_URL}/payment-success`,
+        cancel_url: `${process.env.BASE_URL}/payment-cancel`,
       },
     };
 
-    const request = new paypalClient.orders.OrdersCreateRequest();
+    const request = new OrdersCreateRequest();
     request.requestBody(order);
 
-    const orderResponse = await paypalClient.execute(request);
-    res.json({ orderId: orderResponse.result.id });
+    try {
+      const orderResponse = await paypalClient.execute(request);
+      res.json({ orderId: orderResponse.result.id });
+    } catch (error) {
+      console.error('PayPal Error:', error);
+      res.status(500).json({ error: 'Payment processing failed' });
+    }
   })
 );
 
-// Example API Route
+// ✅ Example API Route
 app.get(
   '/api/example',
   asyncHandler(async (req, res) => {
@@ -124,15 +131,52 @@ app.get(
   })
 );
 
-// Global Error Handler for Non-existent Routes
+// ✅ Global Error Handler for Non-existent Routes
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Cron Jobs
+/**
+ * ✅ Sync databases for all tenants
+ */
+async function syncDatabases() {
+  try {
+    const tenants = await tenantService.getAllTenants();
+    if (!tenants.length) {
+      console.log('⚠️ No tenants found. Skipping database sync.');
+      return;
+    }
+
+    console.log(`🔄 Starting database sync for ${tenants.length} tenants...`);
+
+    const syncResults = await Promise.allSettled(
+      tenants.map(async (tenant) => {
+        try {
+          const { sequelize } = await getTenantDatabase(tenant.dbName);
+          await sequelize.sync({ alter: true });
+          console.log(`✅ Database synced for tenant: ${tenant.dbName}`);
+        } catch (error) {
+          console.error(`❌ Error syncing database for tenant ${tenant.dbName}:`, error.message);
+          throw error;
+        }
+      })
+    );
+
+    const failedSyncs = syncResults.filter(result => result.status === 'rejected');
+    if (failedSyncs.length) {
+      console.warn(`⚠️ ${failedSyncs.length} tenant databases failed to sync.`);
+    } else {
+      console.log('✅ All tenant databases synced successfully.');
+    }
+  } catch (error) {
+    console.error('❌ Critical error syncing databases:', error.message);
+  }
+}
+
+// ✅ Cron Jobs
 (async function () {
   try {
-    console.log('Running initial subscription check on server startup...');
+    console.log('🔄 Running initial subscription check on server startup...');
     await checkAndDeactivateSubscriptions();
     console.log('✅ Initial subscription check completed.');
   } catch (error) {
@@ -140,14 +184,12 @@ app.use((req, res) => {
   }
 })();
 
-// Start the Server
-app.listen(PORT, async () => {
-  console.log(`✅ Server is running on port ${PORT}`);
-
-  // Example of dynamically selecting tenant database
-  const tenantDbName = 'tenant_db_example'; // You should dynamically get the tenant DB name
-  const { sequelize } = getTenantDatabase(tenantDbName);
-  console.log(`✅ Tenant database connected: ${tenantDbName}`);
-});
+// ✅ Start the Server
+(async function startServer() {
+  await syncDatabases(); // Run database sync before starting the server
+  app.listen(PORT, () => {
+    console.log(`✅ Server is running on port ${PORT}`);
+  });
+})();
 
 module.exports = app;

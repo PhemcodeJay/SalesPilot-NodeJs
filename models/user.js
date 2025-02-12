@@ -10,6 +10,7 @@ class User extends Model {
    * Register a new user with a tenant and subscription
    */
   static async signup(userData) {
+    const transaction = await sequelize.transaction();
     try {
       const {
         username,
@@ -28,18 +29,25 @@ class User extends Model {
         throw new Error('Missing required fields.');
       }
 
+      // Check password match
       if (password !== confirm_password) {
         throw new Error('Passwords do not match.');
       }
 
+      // Validate role
       const validRoles = ['sales', 'admin', 'manager'];
       if (!validRoles.includes(role)) {
         throw new Error('Invalid role selected.');
       }
 
-      // Check if user already exists
+      // Check if user already exists (case-insensitive)
       const existingUser = await User.findOne({
-        where: { [Op.or]: [{ email }, { username }] }
+        where: {
+          [Op.or]: [
+            sequelize.where(sequelize.fn('LOWER', sequelize.col('email')), email.toLowerCase()),
+            sequelize.where(sequelize.fn('LOWER', sequelize.col('username')), username.toLowerCase()),
+          ],
+        },
       });
 
       if (existingUser) {
@@ -47,48 +55,66 @@ class User extends Model {
       }
 
       // Find or create tenant
-      let tenant = await Tenant.findOne({ where: { name: tenant_name } });
+      let tenant = await Tenant.findOne({
+        where: { name: tenant_name },
+        transaction,
+      });
+
       if (!tenant) {
-        tenant = await Tenant.create({
-          name: tenant_name,
-          email,
-          phone,
-          address: location,
-          status: 'inactive',
-          subscription_type: subscription_plan,
-          subscription_start_date: new Date(),
-          subscription_end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
-        });
+        tenant = await Tenant.create(
+          {
+            name: tenant_name,
+            email,
+            phone,
+            address: location,
+            status: 'inactive',
+            subscription_type: subscription_plan,
+            subscription_start_date: new Date(),
+            subscription_end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days
+          },
+          { transaction }
+        );
       }
 
       const hashedPassword = await bcryptUtils.hashPassword(password);
       const activation_token = crypto.randomBytes(32).toString('hex');
+      const activation_token_expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24-hour expiry
 
       // Create user
-      const newUser = await User.create({
-        username,
-        email,
-        phone,
-        password: hashedPassword,
-        location,
-        role,
-        tenant_id: tenant.id,
-        activation_token,
-        is_active: false,
-      });
+      const newUser = await User.create(
+        {
+          username,
+          email,
+          phone,
+          password: hashedPassword,
+          location,
+          role,
+          tenant_id: tenant.id,
+          activation_token,
+          activation_token_expiry,
+          is_active: false,
+        },
+        { transaction }
+      );
 
-      // Create a subscription
-      await Subscription.create({
-        user_id: newUser.id,
-        tenant_id: tenant.id,
-        subscription_plan,
-        start_date: new Date(),
-        end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-        is_free_trial_used: false,
-      });
+      // Create subscription
+      await Subscription.create(
+        {
+          user_id: newUser.id,
+          tenant_id: tenant.id,
+          subscription_plan,
+          start_date: new Date(),
+          end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days
+          is_free_trial_used: false,
+        },
+        { transaction }
+      );
+
+      await transaction.commit();
 
       return { success: true, message: 'User registered. Activation email sent.', activation_token };
     } catch (error) {
+      await transaction.rollback();
       console.error('Signup Error:', error);
       throw new Error('Signup failed. Please try again.');
     }
@@ -164,7 +190,7 @@ class User extends Model {
   /**
    * Find a user by a field
    */
-  static async findOne(query) {
+  static async findOneUser(query) {
     try {
       if (!query || typeof query !== 'object' || !query.where) {
         throw new Error('Invalid query object.');
@@ -178,6 +204,7 @@ class User extends Model {
   }
 }
 
+// Define User model structure
 User.init(
   {
     id: {
@@ -192,6 +219,7 @@ User.init(
     username: {
       type: DataTypes.STRING,
       allowNull: false,
+      unique: true,
     },
     email: {
       type: DataTypes.STRING,
@@ -218,6 +246,9 @@ User.init(
     },
     activation_token: {
       type: DataTypes.STRING,
+    },
+    activation_token_expiry: {
+      type: DataTypes.DATE,
     },
     is_active: {
       type: DataTypes.BOOLEAN,
