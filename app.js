@@ -25,30 +25,40 @@ const PORT = process.env.PORT || 5000;
 // ✅ Passport Configuration
 require('./config/passport')(passport);
 
-// ✅ Middleware Setup
+// ✅ Middleware Setup (Corrected Order)
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
+app.use(cookieParser()); // Must be before session
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(cors()); // ✅ Enable CORS
 
-// ✅ Session Middleware
+// ✅ Enable CORS (Before CSRF)
+app.use(
+  cors({
+    credentials: true,
+    origin: process.env.CLIENT_URL, // Ensure this is set in .env
+  })
+);
+
+// ✅ Session Middleware (Before Passport)
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: true,
-    cookie: { secure: process.env.NODE_ENV === 'production' },
+    cookie: { secure: process.env.NODE_ENV === 'production', httpOnly: true, sameSite: 'strict' },
   })
 );
+
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
+
+// ✅ Tenancy and Rate Limiting Middleware
 app.use(tenancy);
 app.use(rateLimiter);
 
-// ✅ CSRF Middleware (After `cookieParser` and `session`)
+// ✅ CSRF Middleware (After CORS, Session, and Passport)
 const csrfProtection = csrf({ cookie: true });
 app.use(csrfProtection);
 
@@ -116,14 +126,6 @@ app.post(
     }
   })
 );
-
-// ✅ Error Handling for CSRF
-app.use((err, req, res, next) => {
-  if (err.code === 'EBADCSRFTOKEN') {
-    return res.status(403).json({ error: 'CSRF token validation failed' });
-  }
-  next(err);
-});
 
 // ✅ 404 Handler
 app.use((req, res) => {

@@ -1,191 +1,205 @@
-const bcryptUtils = require('../utils/bcryptUtils');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
-const asyncHandler = require('../middleware/asyncHandler');
-const initializeTenantModels = require('../models'); // Dynamic tenant model loader
+const { validationResult } = require('express-validator');
+const User = require('../models/User'); // Adjust based on your user model location
+const sendEmail = require('../utils/emailUtils'); // Utility for sending emails
+const csrf = require('csurf');
+
+const csrfProtection = csrf({ cookie: true }); // CSRF middleware
 
 // **User Signup**
-const signup = asyncHandler(async (req, res) => {
-  const { tenantDbName, username, email, password, confirm_password, phone, location, user_image } = req.body;
-
-  if (!tenantDbName || !username || !email || !password || !confirm_password) {
-    return res.status(400).json({ success: false, message: 'All fields are required.' });
-  }
-
-  if (password !== confirm_password) {
-    return res.status(400).json({ success: false, message: 'Passwords do not match.' });
-  }
-
-  if (password.length < 8 || !/\d/.test(password) || !/[a-zA-Z]/.test(password)) {
-    return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long and include letters and numbers.' });
-  }
-
+const signup = async (req, res) => {
   try {
-    const models = await initializeTenantModels(tenantDbName);
-    const { User, Tenant, Subscription, ActivationCode, sequelize } = models;
-    const normalizedEmail = email.trim().toLowerCase();
+    const { name, email, password } = req.body;
 
-    const existingUser = await User.findOne({ where: { email: normalizedEmail } });
-    if (existingUser) {
-      return res.status(400).json({ success: false, message: 'Email already exists. Please log in.' });
+    // Validate request
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
     }
 
-    const transaction = await sequelize.transaction();
-    try {
-      const subscriptionEndDate = new Date();
-      subscriptionEndDate.setDate(subscriptionEndDate.getDate() + 90);
+    // Check if user already exists
+    let user = await User.findOne({ email });
+    if (user) return res.status(400).json({ message: 'User already exists' });
 
-      const tenant = await Tenant.create({ name: `${username}'s Business`, email: normalizedEmail, subscription_end_date: subscriptionEndDate }, { transaction });
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-      const hashedPassword = await bcryptUtils.hashPassword(password);
-      const user = await User.create({
-        username,
-        email: normalizedEmail,
-        password: hashedPassword,
-        phone,
-        location,
-        user_image: user_image || 'default-image.jpg',
-        role: 'sales',
-        status: 'inactive',
-        tenant_id: tenant.id
-      }, { transaction });
+    // Create activation token
+    const activationToken = crypto.randomBytes(20).toString('hex');
 
-      await Subscription.create({ user_id: user.id, tenant_id: tenant.id, type: 'trial', start_date: new Date(), end_date: subscriptionEndDate, status: 'active' }, { transaction });
+    // Save user
+    user = new User({
+      name,
+      email,
+      password: hashedPassword,
+      activationToken,
+    });
+    await user.save();
 
-      const activationCode = crypto.randomBytes(20).toString('hex');
-      await ActivationCode.create({ user_id: user.id, activation_code: activationCode, expires_at: new Date(Date.now() + 3600000) }, { transaction });
+    // Send activation email
+    const activationUrl = `${process.env.CLIENT_URL}/activate/${activationToken}`;
+    await sendEmail(email, 'Account Activation', `Click here to activate: ${activationUrl}`);
 
-      await transaction.commit();
-      await sendActivationEmail(normalizedEmail, activationCode);
-
-      return res.status(201).json({ success: true, message: 'Signup successful. Check your email to activate your account.' });
-    } catch (error) {
-      await transaction.rollback();
-      console.error("Signup Error:", error);
-      return res.status(500).json({ success: false, message: 'Signup failed. Try again later.' });
-    }
+    res.status(201).json({ message: 'User registered, check email for activation link' });
   } catch (error) {
-    console.error("Database Error:", error);
-    return res.status(500).json({ success: false, message: 'Error processing request. Try again later.' });
+    res.status(500).json({ message: 'Server Error', error: error.message });
   }
-});
-
-// **User Login**
-const login = asyncHandler(async (req, res) => {
-  const { tenantDbName, email, password } = req.body;
-
-  if (!tenantDbName || !email || !password) {
-    return res.status(400).json({ success: false, message: 'Email and password are required.' });
-  }
-
-  try {
-    const models = await initializeTenantModels(tenantDbName);
-    const { User } = models;
-    const normalizedEmail = email.trim().toLowerCase();
-    const user = await User.findOne({ where: { email: normalizedEmail } });
-
-    if (!user || !(await bcryptUtils.comparePassword(password, user.password))) {
-      return res.status(401).json({ success: false, message: 'Invalid email or password.' });
-    }
-
-    if (user.status !== 'active') {
-      return res.status(403).json({ success: false, message: 'Account is not activated. Check your email.' });
-    }
-
-    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
-
-    return res.status(200).json({ success: true, message: 'Login successful.', token });
-  } catch (error) {
-    console.error("Login Error:", error);
-    return res.status(500).json({ success: false, message: 'Error logging in. Try again later.' });
-  }
-});
+};
 
 // **Activate Account**
-const activateAccount = asyncHandler(async (req, res) => {
-  const { tenantDbName, activation_code } = req.body;
-
-  if (!tenantDbName || !activation_code) {
-    return res.status(400).json({ success: false, message: 'Tenant database and activation code are required.' });
-  }
-
+const activateAccount = async (req, res) => {
   try {
-    const models = await initializeTenantModels(tenantDbName);
-    const { User, ActivationCode } = models;
-    const activationRecord = await ActivationCode.findOne({ where: { activation_code } });
+    const { token } = req.params;
+    let user = await User.findOne({ activationToken: token });
 
-    if (!activationRecord) {
-      return res.status(400).json({ success: false, message: 'Invalid activation code.' });
-    }
+    if (!user) return res.status(400).json({ message: 'Invalid activation token' });
 
-    if (new Date(activationRecord.expires_at) < new Date()) {
-      return res.status(400).json({ success: false, message: 'Activation code expired.' });
-    }
+    user.activationToken = null; // Clear token
+    user.isActive = true;
+    await user.save();
 
-    await User.update({ status: 'active' }, { where: { id: activationRecord.user_id } });
-    await ActivationCode.destroy({ where: { activation_code } });
-
-    return res.status(200).json({ success: true, message: 'Account activated successfully.' });
+    res.status(200).json({ message: 'Account activated successfully' });
   } catch (error) {
-    console.error("Activation Error:", error);
-    return res.status(500).json({ success: false, message: 'Error activating account.' });
+    res.status(500).json({ message: 'Server Error', error: error.message });
   }
-});
+};
+
+// **User Login**
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validate user
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+
+    // Check if user is active
+    if (!user.isActive) return res.status(400).json({ message: 'Account not activated' });
+
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+
+    // Generate JWT token
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+    res.json({ token, message: 'Login successful' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
+// **Get CSRF Token**
+const getCsrfToken = (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
+};
 
 // **Request Password Reset**
-const requestPasswordReset = asyncHandler(async (req, res) => {
-  const { tenantDbName, email } = req.body;
-
-  if (!tenantDbName || !email) {
-    return res.status(400).json({ success: false, message: 'Tenant and email are required.' });
-  }
-
+const requestPasswordReset = async (req, res) => {
   try {
-    const models = await initializeTenantModels(tenantDbName);
-    const { User, PasswordReset } = models;
-    const user = await User.findOne({ where: { email } });
+    const { email } = req.body;
+    const user = await User.findOne({ email });
 
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'Email not found.' });
-    }
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
+    // Generate reset token
     const resetToken = crypto.randomBytes(20).toString('hex');
-    await PasswordReset.create({ user_id: user.id, reset_token: resetToken, expires_at: new Date(Date.now() + 3600000) });
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    await user.save();
 
-    await sendPasswordResetEmail(email, resetToken);
-    return res.status(200).json({ success: true, message: 'Password reset link sent to email.' });
+    // Send reset email
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+    await sendEmail(email, 'Password Reset Request', `Click here to reset password: ${resetUrl}`);
+
+    res.json({ message: 'Password reset link sent' });
   } catch (error) {
-    console.error("Password Reset Error:", error);
-    return res.status(500).json({ success: false, message: 'Error processing request.' });
+    res.status(500).json({ message: 'Server Error', error: error.message });
   }
-});
+};
 
-// **Confirm Password Reset**
-const confirmPasswordReset = asyncHandler(async (req, res) => {
-  const { tenantDbName, reset_token, new_password } = req.body;
-
-  if (!tenantDbName || !reset_token || !new_password) {
-    return res.status(400).json({ success: false, message: 'Missing required fields.' });
-  }
-
+// **Reset Password**
+const resetPassword = async (req, res) => {
   try {
-    const models = await initializeTenantModels(tenantDbName);
-    const { User, PasswordReset } = models;
-    const resetRecord = await PasswordReset.findOne({ where: { reset_token } });
+    const { token } = req.params;
+    const { newPassword } = req.body;
 
-    if (!resetRecord || new Date(resetRecord.expires_at) < new Date()) {
-      return res.status(400).json({ success: false, message: 'Invalid or expired reset token.' });
-    }
+    let user = await User.findOne({ resetPasswordToken: token, resetPasswordExpires: { $gt: Date.now() } });
 
-    await User.update({ password: await bcryptUtils.hashPassword(new_password) }, { where: { id: resetRecord.user_id } });
-    await PasswordReset.destroy({ where: { reset_token } });
+    if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
 
-    return res.status(200).json({ success: true, message: 'Password reset successful.' });
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetPasswordToken = null;
+    user.resetPasswordExpires = null;
+    await user.save();
+
+    res.json({ message: 'Password reset successful' });
   } catch (error) {
-    console.error("Confirm Reset Error:", error);
-    return res.status(500).json({ success: false, message: 'Error resetting password.' });
+    res.status(500).json({ message: 'Server Error', error: error.message });
   }
-});
+};
 
-module.exports = { signup, login, activateAccount, requestPasswordReset, confirmPasswordReset };
+// **Update Profile**
+const updateProfile = async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const userId = req.user.id;
+
+    let user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.name = name || user.name;
+    user.email = email || user.email;
+    await user.save();
+
+    res.json({ message: 'Profile updated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
+// **Delete Account**
+const deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    await User.findByIdAndDelete(userId);
+    res.json({ message: 'Account deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
+// **Get User Details**
+const getUserDetails = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
+// **Logout User**
+const logout = (req, res) => {
+  res.clearCookie('token');
+  res.json({ message: 'Logged out successfully' });
+};
+
+// **Export Controllers**
+module.exports = {
+  signup,
+  login,
+  activateAccount,
+  getCsrfToken,
+  csrfProtection,
+  requestPasswordReset,
+  resetPassword,
+  updateProfile,
+  deleteAccount,
+  getUserDetails,
+  logout,
+};

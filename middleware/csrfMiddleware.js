@@ -1,24 +1,27 @@
-const csrf = require("csurf");
-const cookieParser = require("cookie-parser");
+const express = require("express");
+const session = require("express-session");
+const csrfMiddleware = require("./csrftmiddleware"); // Import CSRF middleware
 
-// Set up CSRF protection middleware
-const csrfProtection = csrf({ cookie: true });
+const app = express();
 
-module.exports = (app) => {
-  app.use(cookieParser()); // Use cookie parser for CSRF token storage
-  app.use(csrfProtection);
+// Middleware Setup
+app.use(session({
+  secret: "your_secret_key",
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: process.env.NODE_ENV === "production" }
+}));
 
-  // Middleware to send CSRF token in a cookie
-  app.use((req, res, next) => {
-    res.cookie("XSRF-TOKEN", req.csrfToken(), { httpOnly: false, secure: true });
-    next();
-  });
+// Apply CSRF Middleware
+csrfMiddleware(app);
 
-  // CSRF error handler
-  app.use((err, req, res, next) => {
-    if (err.code === "EBADCSRFTOKEN") {
-      return res.status(403).send("CSRF token validation failed");
-    }
-    next(err);
-  });
-};
+
+// Error handling
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).send("Something went wrong!");
+});
+
+app.listen(5000, () => {
+  console.log("Server running on port 5000");
+});
