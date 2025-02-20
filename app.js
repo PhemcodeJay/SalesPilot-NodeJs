@@ -7,7 +7,7 @@ const passport = require('passport');
 const flash = require('connect-flash');
 const cookieParser = require('cookie-parser');
 const csrf = require('csurf');
-const cors = require('cors'); // ✅ Import CORS
+const cors = require('cors');
 
 const { verifyToken } = require('./config/auth');
 const paypalClient = require('./config/paypalconfig');
@@ -48,9 +48,13 @@ app.use(flash());
 app.use(tenancy);
 app.use(rateLimiter);
 
-// ✅ CSRF Middleware
-app.use(csrf());
+// ✅ CSRF Middleware (After `cookieParser` and `session`)
+const csrfProtection = csrf({ cookie: true });
+app.use(csrfProtection);
+
+// ✅ Middleware to send CSRF token to frontend
 app.use((req, res, next) => {
+  res.cookie('XSRF-TOKEN', req.csrfToken(), { httpOnly: false, secure: process.env.NODE_ENV === 'production' });
   res.locals.csrfToken = req.csrfToken();
   next();
 });
@@ -74,14 +78,17 @@ const routes = {
   subscription: require('./routes/subscriptionRoute'),
 };
 
-// ✅ Attach Imported Routes
+const formRoutes = require('./routes/formRoutes');
+
+// ✅ Use Routes
+app.use('/', formRoutes);
 Object.entries(routes).forEach(([name, route]) => {
   app.use(`/${name}`, route);
 });
 
 // ✅ Home Route
 app.get('/', (req, res) => {
-  res.render('home/index', { title: 'Home' });
+  res.render('home/index', { title: 'Home', csrfToken: req.csrfToken() });
 });
 
 // ✅ PayPal Payment Route
@@ -109,6 +116,14 @@ app.post(
     }
   })
 );
+
+// ✅ Error Handling for CSRF
+app.use((err, req, res, next) => {
+  if (err.code === 'EBADCSRFTOKEN') {
+    return res.status(403).json({ error: 'CSRF token validation failed' });
+  }
+  next(err);
+});
 
 // ✅ 404 Handler
 app.use((req, res) => {
