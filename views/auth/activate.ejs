@@ -4,21 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <title>Activate Account</title>
-  
+
   <!-- Favicon -->
-  <link rel="shortcut icon" href="http://localhost:5000/assets/images/favicon.ico" />
-  <link rel="stylesheet" href="http://localhost:5000/assets/css/backend-plugin.min.css">
-  <link rel="stylesheet" href="http://localhost:5000/assets/css/backend.css?v=1.0.0">
-  <link rel="stylesheet" href="http://localhost:5000/assets/vendor/@fortawesome/fontawesome-free/css/all.min.css">
-  <link rel="stylesheet" href="http://localhost:5000/assets/vendor/line-awesome/dist/line-awesome/css/line-awesome.min.css">
-  <link rel="stylesheet" href="http://localhost:5000/assets/vendor/remixicon/fonts/remixicon.css">  
+  <link rel="shortcut icon" href="/assets/images/favicon.ico" />
+  <link rel="stylesheet" href="/assets/css/backend-plugin.min.css">
+  <link rel="stylesheet" href="/assets/css/backend.css?v=1.0.0">
+  <link rel="stylesheet" href="/assets/vendor/@fortawesome/fontawesome-free/css/all.min.css">
+  <link rel="stylesheet" href="/assets/vendor/line-awesome/dist/line-awesome/css/line-awesome.min.css">
+  <link rel="stylesheet" href="/assets/vendor/remixicon/fonts/remixicon.css">  
 </head>
 <body>
-  <!-- loader Start -->
+  <!-- Loader Start -->
   <div id="loading">
     <div id="loading-center"></div>
   </div>
-  <!-- loader END -->
+  <!-- Loader End -->
 
   <div class="wrapper">
     <section class="login-content">
@@ -30,28 +30,36 @@
                 <div class="d-flex align-items-center auth-content">
                   <div class="col-lg-7 align-self-center">
                     <div class="p-3">
-                      <h2 class="mb-2">Activate Account</h2>
-                      <p>Please enter the activation code to activate your account.</p>
-                      <form id="/activate" autocomplete="off">
-                        
+                      <h2 class="mb-2 text-center font-weight-bold">Activate Account</h2>
+                      <p class="text-center">Enter your activation code below to activate your account.</p>
 
-                        <div class="input-group input-group-outline mb-3">
-                          <input type="text" id="activation-code" class="form-control" placeholder="Enter your activation code" required>
-                          
+                      <!-- Display error message if exists -->
+                      <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
+                        <div class="alert alert-danger text-center">
+                          <%= errorMessage %>
+                        </div>
+                      <% } %>
+
+                      <form id="activation-form" action="/auth/activate" method="POST">
+                        <!-- CSRF Token -->
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+                        <div class="form-group">
+                          <label for="activation-code" class="font-weight-bold">Activation Code</label>
+                          <input type="text" id="activation-code" name="activationCode" class="form-control" placeholder="Enter your activation code" required>
+                          <small id="activation-code-error" class="text-danger"></small>
                         </div>
 
-                        <div class="text-center">
-                          <button type="submit" class="btn btn-lg bg-gradient-primary w-100 mt-4 mb-0">Activate</button>
-                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Activate</button>
                       </form>
-                      
-                      <div class="text-center">
-                        <button type="button" id="resendButton" class="btn bg-gradient-primary w-100 my-4 mb-2" onclick="window.location.href='/resend-activation'">Resend Code</button>
+
+                      <div class="text-center mt-3">
+                        <button type="button" id="resendButton" class="btn btn-outline-primary w-100">Resend Code</button>
                       </div>
                     </div>
                   </div>
                   <div class="col-lg-5 content-right">
-                    <img src="http://localhost:5000/assets/images/login/01.png" class="img-fluid image-right" alt=""/>
+                    <img src="/assets/images/login/01.png" class="img-fluid image-right" alt="Activate Account Image"/>
                   </div>
                 </div>
               </div>
@@ -63,52 +71,63 @@
   </div>
 
   <!-- Backend Bundle JavaScript -->
-  <script src="http://localhost:5000/assets/js/backend-bundle.min.js"></script>
-
-  <!-- Table Treeview JavaScript -->
-  <script src="http://localhost:5000/assets/js/table-treeview.js"></script>
-
-  <!-- app JavaScript -->
-  <script src="http://localhost:5000/assets/js/app.js"></script>
+  <script src="/assets/js/backend-bundle.min.js"></script>
+  <script src="/assets/js/table-treeview.js"></script>
+  <script src="/assets/js/app.js"></script>
 
   <script>
-    document.getElementById('activation-form').addEventListener('submit', async function (e) {
-      e.preventDefault();
+    document.addEventListener('DOMContentLoaded', function () {
+      const activationForm = document.getElementById('activation-form');
+      const activationCodeInput = document.getElementById('activation-code');
+      const errorElement = document.getElementById('activation-code-error');
+      const resendButton = document.getElementById('resendButton');
 
-      const activationCode = document.getElementById('activation-code').value;
+      // Client-side validation
+      activationForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        errorElement.textContent = '';
 
-      // Reset error messages
-      document.getElementById('activation-code-error').textContent = '';
-      document.getElementById('error-message').style.display = 'none';
+        const activationCode = activationCodeInput.value.trim();
+        const csrfToken = document.querySelector('input[name="_csrf"]').value;
 
-      // Form validation
-      if (!activationCode) {
-        document.getElementById('activation-code-error').textContent = 'Activation code is required.';
-        return;
-      }
-
-      try {
-        const response = await fetch('/auth/activate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ activationCode }),
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          // Redirect to login page or dashboard after successful activation
-          window.location.href = '/login';  // Replace with the actual login URL
-        } else {
-          document.getElementById('error-message').textContent = data.error || 'Invalid activation code. Please try again.';
-          document.getElementById('error-message').style.display = 'block';
+        if (activationCode === '') {
+          errorElement.textContent = 'Activation code is required.';
+          return;
         }
-      } catch (error) {
-        document.getElementById('error-message').textContent = 'An error occurred. Please try again.';
-        document.getElementById('error-message').style.display = 'block';
-      }
+
+        try {
+          const response = await fetch('/auth/activate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activationCode, _csrf: csrfToken }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            window.location.href = '/login'; // Redirect on success
+          } else {
+            errorElement.textContent = data.error || 'Invalid activation code. Please try again.';
+          }
+        } catch (error) {
+          errorElement.textContent = 'An error occurred. Please try again.';
+        }
+      });
+
+      // Resend activation code functionality
+      resendButton.addEventListener('click', function () {
+        fetch('/resend-activation', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              alert('A new activation code has been sent to your email.');
+            } else {
+              alert('Failed to resend activation code. Please try again.');
+            }
+          })
+          .catch(() => alert('An error occurred. Please try again.'));
+      });
     });
   </script>
-  
 </body>
 </html>

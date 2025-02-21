@@ -69,6 +69,12 @@ app.use((req, res, next) => {
   next();
 });
 
+// Middleware to pass CSRF token to all views
+app.use((req, res, next) => {
+  res.locals.csrf_token = req.csrfToken();
+  next();
+});
+
 // ✅ View Engine Setup
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -87,6 +93,9 @@ const routes = {
   inventory: require('./routes/inventoryRoute'),
   subscription: require('./routes/subscriptionRoute'),
 };
+
+// ✅ Use Routes
+app.use('/auth', routes.auth);
 
 const formRoutes = require('./routes/formRoutes');
 

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Feb 12, 2025 at 02:39 AM
+-- Generation Time: Feb 21, 2025 at 01:07 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -398,6 +398,7 @@ CREATE TABLE `users` (
   `username` varchar(255) NOT NULL,
   `email` varchar(255) NOT NULL,
   `password` varchar(255) NOT NULL,
+  `confirm_password` varchar(255) NOT NULL,
   `is_active` tinyint(1) DEFAULT 0,
   `role` enum('sales','admin','manager') NOT NULL DEFAULT 'sales',
   `phone` varchar(255) NOT NULL,

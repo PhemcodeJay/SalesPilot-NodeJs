@@ -13,9 +13,10 @@ router.get('/csrf-token', csrfProtection, authController.getCsrfToken);
 // ** View Routes ** //
 
 // Render the signup page
-router.get('/signup', csrfProtection, (req, res) => {
-  res.render('auth/signup', { error: null, csrfToken: req.csrfToken() });
+router.get('/sign-up', (req, res) => {
+  res.render('auth/signup', { csrf_token: req.csrfToken() });
 });
+
 
 // Render the login page
 router.get("/login", csrfProtection, (req, res) => {
