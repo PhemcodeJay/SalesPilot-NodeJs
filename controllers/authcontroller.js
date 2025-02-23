@@ -3,8 +3,8 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { validationResult } = require('express-validator');
 const User = require('../models/User'); // User Model
-const Auth = require('../models/Auth'); // Auth Model
-const Subscription = require('../models/Subscription'); // Subscription Model
+const Auth = require('../models/authModel'); // Auth Model
+const Subscription = require('../models/subscriptions'); // Subscription Model
 const sendEmail = require('../utils/emailUtils'); // Email Utility
 const csrf = require('csurf');
 

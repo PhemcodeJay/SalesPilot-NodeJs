@@ -35,7 +35,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(
   cors({
     credentials: true,
-    origin: process.env.CLIENT_URL, // Ensure this is set in .env
+    origin: process.env.CLIENT_URL || "http://localhost:5000", // Ensure this matches frontend origin
   })
 );
 
@@ -44,8 +44,13 @@ app.use(
   session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
-    saveUninitialized: true,
-    cookie: { secure: process.env.NODE_ENV === 'production', httpOnly: true, sameSite: 'strict' },
+    saveUninitialized: false, // ✅ Prevents empty sessions
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000, // ✅ Session expires after 1 day
+    },
   })
 );
 
@@ -63,20 +68,18 @@ app.use(csrfProtection);
 
 // ✅ Middleware to send CSRF token to frontend
 app.use((req, res, next) => {
-  res.cookie('XSRF-TOKEN', req.csrfToken(), { httpOnly: false, secure: process.env.NODE_ENV === 'production' });
-  res.locals.csrfToken = req.csrfToken();
-  next();
-});
-
-// Middleware to pass CSRF token to all views
-app.use((req, res, next) => {
-  res.locals.csrf_token = req.csrfToken();
+  const csrfToken = req.csrfToken();
+  res.cookie('XSRF-TOKEN', csrfToken, { httpOnly: false, secure: process.env.NODE_ENV === 'production' });
+  res.locals.csrfToken = csrfToken;
   next();
 });
 
 // ✅ View Engine Setup
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+
+// ✅ Serve Public Folder
+app.use(express.static(path.join(__dirname, 'public')));
 
 // ✅ Serve Static Files
 app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
@@ -95,12 +98,9 @@ const routes = {
 };
 
 // ✅ Use Routes
-app.use('/auth', routes.auth);
-
 const formRoutes = require('./routes/formRoutes');
-
-// ✅ Use Routes
 app.use('/', formRoutes);
+
 Object.entries(routes).forEach(([name, route]) => {
   app.use(`/${name}`, route);
 });
@@ -118,7 +118,14 @@ app.post(
     try {
       const order = {
         intent: 'CAPTURE',
-        purchase_units: [{ amount: { value: req.body.amount } }],
+        purchase_units: [
+          {
+            amount: {
+              currency_code: 'USD', // Ensure you define the correct currency
+              value: req.body.amount,
+            },
+          },
+        ],
         application_context: {
           return_url: `${process.env.BASE_URL}/payment-success`,
           cancel_url: `${process.env.BASE_URL}/payment-cancel`,
@@ -128,6 +135,11 @@ app.post(
       const request = new OrdersCreateRequest();
       request.requestBody(order);
       const orderResponse = await paypalClient.execute(request);
+      
+      if (!orderResponse?.result?.id) {
+        throw new Error('PayPal response did not include an order ID');
+      }
+
       res.json({ orderId: orderResponse.result.id });
     } catch (error) {
       console.error('❌ PayPal Error:', error);
@@ -138,7 +150,7 @@ app.post(
 
 // ✅ 404 Handler
 app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
+  res.status(404).json({ message: 'Route not found', csrfToken: req.csrfToken() });
 });
 
 // ✅ Sync Databases for Tenants
