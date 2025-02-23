@@ -4,8 +4,6 @@ const { v4: uuidv4 } = require('uuid'); // Import UUID for fallback Tenant ID
 module.exports = async (req, res, next) => {
   const publicRoutes = ['/login', '/signup', '/index']; // Define public routes
 
-  console.log(`Incoming request: ${req.path}`);
-  console.log('Request Headers:', req.headers);
 
   // If it's a public route, bypass tenant logic
   if (publicRoutes.includes(req.path)) {

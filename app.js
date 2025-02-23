@@ -8,7 +8,6 @@ const flash = require('connect-flash');
 const cookieParser = require('cookie-parser');
 const csrf = require('csurf');
 const cors = require('cors');
-
 const { verifyToken } = require('./config/auth');
 const paypalClient = require('./config/paypalconfig');
 const tenancy = require('./middleware/tenancyMiddleware');
@@ -81,6 +80,7 @@ app.set('views', path.join(__dirname, 'views'));
 
 // ✅ Serve Static Files
 app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
+app.use('/home_assets', express.static(path.join(__dirname, 'public', 'home_assets')));
 
 // ✅ Routes Import
 const routes = {

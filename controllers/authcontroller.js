@@ -5,7 +5,6 @@ const { validationResult } = require('express-validator');
 const User = require('../models/User'); // Adjust based on your user model location
 const sendEmail = require('../utils/emailUtils'); // Utility for sending emails
 const csrf = require('csurf');
-
 const csrfProtection = csrf({ cookie: true }); // CSRF middleware
 
 // **User Signup**

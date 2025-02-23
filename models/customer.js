@@ -5,7 +5,7 @@ const pool = mysql.createPool({
   host: 'localhost',
   user: 'root', // Replace with actual DB username
   password: '', // Replace with actual DB password
-  database: 'dbs13455438',
+  database: 'salespilot',
   charset: 'utf8mb4',
   waitForConnections: true,
   connectionLimit: 10,

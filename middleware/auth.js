@@ -31,7 +31,7 @@ function getTenantModel(tenantId, modelName) {
         email: { type: DataTypes.STRING, allowNull: false, unique: true },
         password: { type: DataTypes.STRING, allowNull: false },
         role: { 
-          type: DataTypes.ENUM('admin', 'sales', 'inventory'), 
+          type: DataTypes.ENUM('admin', 'sales', 'manager'), 
           allowNull: false 
         },
         tenantId: { type: DataTypes.INTEGER, allowNull: false },
