@@ -2,42 +2,49 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { validationResult } = require('express-validator');
-const User = require('../models/User'); // Adjust based on your user model location
-const sendEmail = require('../utils/emailUtils'); // Utility for sending emails
+const User = require('../models/User'); // User Model
+const Auth = require('../models/Auth'); // Auth Model
+const Subscription = require('../models/Subscription'); // Subscription Model
+const sendEmail = require('../utils/emailUtils'); // Email Utility
 const csrf = require('csurf');
-const csrfProtection = csrf({ cookie: true }); // CSRF middleware
 
-// **User Signup**
+const csrfProtection = csrf({ cookie: true });
+
+/** ======= SIGNUP WITH ACCOUNT ACTIVATION ======= **/
 const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
-
-    // Validate request
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    // Check if user already exists
-    let user = await User.findOne({ email });
-    if (user) return res.status(400).json({ message: 'User already exists' });
+    let existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create activation token
     const activationToken = crypto.randomBytes(20).toString('hex');
 
-    // Save user
-    user = new User({
+    const defaultSubscription = await Subscription.findOne({ plan: 'Free Trial' });
+    if (!defaultSubscription) {
+      return res.status(500).json({ message: 'Default subscription plan not found' });
+    }
+
+    const user = new User({
       name,
       email,
       password: hashedPassword,
-      activationToken,
+      subscriptionId: defaultSubscription._id, 
     });
     await user.save();
 
-    // Send activation email
+    const auth = new Auth({
+      userId: user._id,
+      activationToken,
+      isActive: false, 
+    });
+    await auth.save();
+
     const activationUrl = `${process.env.CLIENT_URL}/activate/${activationToken}`;
     await sendEmail(email, 'Account Activation', `Click here to activate: ${activationUrl}`);
 
@@ -47,17 +54,17 @@ const signup = async (req, res) => {
   }
 };
 
-// **Activate Account**
+/** ======= ACCOUNT ACTIVATION ======= **/
 const activateAccount = async (req, res) => {
   try {
     const { token } = req.params;
-    let user = await User.findOne({ activationToken: token });
+    let auth = await Auth.findOne({ activationToken: token });
 
-    if (!user) return res.status(400).json({ message: 'Invalid activation token' });
+    if (!auth) return res.status(400).json({ message: 'Invalid activation token' });
 
-    user.activationToken = null; // Clear token
-    user.isActive = true;
-    await user.save();
+    auth.isActive = true;
+    auth.activationToken = null;
+    await auth.save();
 
     res.status(200).json({ message: 'Account activated successfully' });
   } catch (error) {
@@ -65,24 +72,27 @@ const activateAccount = async (req, res) => {
   }
 };
 
-// **User Login**
+/** ======= LOGIN WITH ACTIVATION CHECK ======= **/
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
 
-    // Validate user
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: 'Invalid credentials' });
 
-    // Check if user is active
-    if (!user.isActive) return res.status(400).json({ message: 'Account not activated' });
+    const auth = await Auth.findOne({ userId: user._id });
+    if (!auth || !auth.isActive) {
+      return res.status(403).json({ message: 'Account is not activated. Check your email.' });
+    }
 
-    // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
-    // Generate JWT token
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
     res.json({ token, message: 'Login successful' });
   } catch (error) {
@@ -90,48 +100,43 @@ const login = async (req, res) => {
   }
 };
 
-// **Get CSRF Token**
+/** ======= CSRF PROTECTION ======= **/
 const getCsrfToken = (req, res) => {
   res.json({ csrfToken: req.csrfToken() });
 };
 
-// **Request Password Reset**
+/** ======= REQUEST PASSWORD RESET ======= **/
 const requestPasswordReset = async (req, res) => {
   try {
     const { email } = req.body;
-    const user = await User.findOne({ email });
+    let user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: 'User not found' });
 
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    // Generate reset token
     const resetToken = crypto.randomBytes(20).toString('hex');
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    user.resetToken = resetToken;
+    user.resetTokenExpires = Date.now() + 3600000; // 1 hour expiry
     await user.save();
 
-    // Send reset email
     const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
     await sendEmail(email, 'Password Reset Request', `Click here to reset password: ${resetUrl}`);
 
-    res.json({ message: 'Password reset link sent' });
+    res.json({ message: 'Password reset email sent' });
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
 
-// **Reset Password**
+/** ======= RESET PASSWORD ======= **/
 const resetPassword = async (req, res) => {
   try {
-    const { token } = req.params;
-    const { newPassword } = req.body;
-
-    let user = await User.findOne({ resetPasswordToken: token, resetPasswordExpires: { $gt: Date.now() } });
+    const { token, newPassword } = req.body;
+    let user = await User.findOne({ resetToken: token, resetTokenExpires: { $gt: Date.now() } });
 
     if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
 
     user.password = await bcrypt.hash(newPassword, 10);
-    user.resetPasswordToken = null;
-    user.resetPasswordExpires = null;
+    user.resetToken = null;
+    user.resetTokenExpires = null;
     await user.save();
 
     res.json({ message: 'Password reset successful' });
@@ -140,59 +145,62 @@ const resetPassword = async (req, res) => {
   }
 };
 
-// **Update Profile**
+/** ======= UPDATE PROFILE ======= **/
 const updateProfile = async (req, res) => {
   try {
+    const { userId } = req.user;
     const { name, email } = req.body;
-    const userId = req.user.id;
 
     let user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     user.name = name || user.name;
     user.email = email || user.email;
-    await user.save();
 
-    res.json({ message: 'Profile updated successfully' });
+    await user.save();
+    res.json({ message: 'Profile updated successfully', user });
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
 
-// **Delete Account**
+/** ======= DELETE ACCOUNT ======= **/
 const deleteAccount = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const { userId } = req.user;
     await User.findByIdAndDelete(userId);
+    await Auth.findOneAndDelete({ userId });
+
     res.json({ message: 'Account deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
 
-// **Get User Details**
+/** ======= GET USER DETAILS ======= **/
 const getUserDetails = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('-password');
+    const { userId } = req.user;
+    const user = await User.findById(userId).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    res.json(user);
+    res.json({ user });
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
 
-// **Logout User**
+/** ======= LOGOUT ======= **/
 const logout = (req, res) => {
   res.clearCookie('token');
   res.json({ message: 'Logged out successfully' });
 };
 
-// **Export Controllers**
+/** ======= EXPORT CONTROLLERS ======= **/
 module.exports = {
   signup,
-  login,
   activateAccount,
+  login,
   getCsrfToken,
   csrfProtection,
   requestPasswordReset,
