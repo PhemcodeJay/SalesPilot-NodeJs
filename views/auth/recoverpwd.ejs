@@ -36,10 +36,7 @@
                                             <h2 class="mb-2" style="font-weight: bold; text-decoration: underline;">Recover Password</h2>
                                             <p style="font-weight: bold; text-decoration: underline;">Enter your email address, and we'll send you an email with instructions to reset your password.</p>
 
-                                            <!-- Display error messages dynamically -->
-                                            <% if (error) { %>
-                                                <div class="alert alert-danger"><%= error %></div>
-                                            <% } %>
+                                           
 
                                             <form id="recover-password-form" method="POST" action="/recoverpwd" class="needs-validation" novalidate>
                                                 <div class="mb-3">

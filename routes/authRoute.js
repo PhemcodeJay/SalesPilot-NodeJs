@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const csrf = require("csurf");
-const authController = require("../controllers/authController"); // Ensure correct case
+const authController = require("../controllers/authcontroller"); // Ensure correct case
 const { validateSignup, validateLogin, validateResetPassword } = require("../middleware/auth");
 
 // CSRF Protection Middleware
@@ -39,11 +39,7 @@ router.get("/passwordreset", csrfProtection, (req, res) => {
 
 // Render the confirm password reset page
 router.get("/recoverpwd", csrfProtection, (req, res) => {
-  const resetCode = req.query.code;
-  if (!resetCode) {
-    return res.status(400).json({ error: "Reset code is required" });
-  }
-  res.render("auth/recoverpwd", { resetCode, csrfToken: req.csrfToken() });
+  res.render("auth/recoverpwd", { csrfToken: req.csrfToken() });
 });
 
 // ** API Routes ** //
