@@ -17,7 +17,6 @@ router.get('/sign-up', (req, res) => {
   res.render('auth/signup', { csrfToken: req.csrfToken() });
 });
 
-
 // Render the login page
 router.get("/login", csrfProtection, (req, res) => {
   res.render("auth/login", { csrfToken: req.csrfToken() });
