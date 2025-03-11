@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="/assets/vendor/@fortawesome/fontawesome-free/css/all.min.css">
     <link rel="stylesheet" href="/assets/vendor/line-awesome/dist/line-awesome/css/line-awesome.min.css">
     <link rel="stylesheet" href="/assets/vendor/remixicon/fonts/remixicon.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 
 <body>
@@ -36,9 +37,14 @@
                                             <h2 class="mb-2" style="font-weight: bold; text-decoration: underline;">Recover Password</h2>
                                             <p style="font-weight: bold; text-decoration: underline;">Enter your email address, and we'll send you an email with instructions to reset your password.</p>
 
-                                           
+                                            <!-- Success Message -->
+                                            <div id="successMessage" class="alert alert-success" style="display: none;"></div>
 
-                                            <form id="recover-password-form" method="POST" action="/recoverpwd" class="needs-validation" novalidate>
+                                            <!-- Error Message -->
+                                            <div id="errorMessage" class="alert alert-danger" style="display: none;"></div>
+
+                                            <!-- Form -->
+                                            <form id="recover-password-form" class="needs-validation" novalidate>
                                                 <div class="mb-3">
                                                     <label for="email" class="form-label">Email Address:</label>
                                                     <div class="input-group">
@@ -72,6 +78,46 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
+        $(document).ready(function () {
+            $("#recover-password-form").submit(function (event) {
+                event.preventDefault(); // Prevent full page reload
+
+                $("#successMessage").hide(); // Hide previous success message
+                $("#errorMessage").hide();   // Hide previous error message
+
+                // Collect the form data
+                const email = $("#email").val();
+
+                // Check for empty email
+                if (!email) {
+                    $("#errorMessage").text("Please enter a valid email address.").show();
+                    return;
+                }
+
+                // Send the form data using AJAX
+                $.ajax({
+                    type: "POST",
+                    url: "/recoverpwd", // Endpoint for password recovery
+                    data: JSON.stringify({ email: email }),
+                    contentType: "application/json",
+                    success: function (response) {
+                        if (response.success) {
+                            $("#successMessage").text(response.message).show();
+                            $("#recover-password-form")[0].reset(); // Reset form
+                        } else {
+                            $("#errorMessage").text(response.message).show();
+                        }
+                    },
+                    error: function (xhr) {
+                        $("#errorMessage").text(xhr.responseJSON.message || "An error occurred. Please try again.").show();
+                    }
+                });
+            });
+        });
+    </script>
+
+    <script>
+        // Form Validation
         (function () {
             'use strict';
             var form = document.getElementById('recover-password-form');

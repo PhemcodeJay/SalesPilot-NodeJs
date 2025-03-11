@@ -1,28 +1,24 @@
 const express = require("express");
 const router = express.Router();
-const csrf = require("csurf");
-
-const authController = require("../controllers/authcontroller");
+const authController = require("../controllers/authcontroller"); // Ensure correct case
 const { validateSignup, validateLogin, validateResetPassword } = require("../middleware/auth");
-const { authMiddleware } = require("../middleware/auth");
-const tenancyMiddleware = require("../middleware/tenancyMiddleware");
+const { authMiddleware } = require("../middleware/auth"); // Assuming you have this middleware
+const tenancyMiddleware = require("../middleware/tenancyMiddleware"); // Assuming you have this middleware
 
-// ** CSRF Protection Middleware (Only for state-changing routes) **
-const csrfProtection = csrf({ cookie: true });
+// ** View Routes ** //
 
-// ** CSRF Token Route ** //
-router.get("/csrf-token", csrfProtection, authController.getCsrfToken);
-
-// ** Public Routes (No Authentication Required) ** //
-router.get("/sign-up", csrfProtection, (req, res) => {
-  res.render("auth/signup", { csrfToken: req.csrfToken() });
+// Render the signup page
+router.get('/sign-up', (req, res) => {
+  res.render('auth/signup');
 });
 
-router.get("/login", csrfProtection, (req, res) => {
-  res.render("auth/login", { csrfToken: req.csrfToken() });
+// Render the login page
+router.get("/login", (req, res) => {
+  res.render("auth/login");
 });
 
-router.get("/activate", csrfProtection, (req, res) => {
+// Render the account activation page
+router.get("/activate", (req, res) => {
   const activationCode = req.query.code;
   if (!activationCode) {
     return res.status(400).json({ error: "Activation code is required" });
@@ -30,46 +26,50 @@ router.get("/activate", csrfProtection, (req, res) => {
   res.render("auth/activate", { activationCode });
 });
 
-router.get("/passwordreset", csrfProtection, (req, res) => {
-  res.render("auth/passwordreset", { csrfToken: req.csrfToken() });
+// Render the password reset request page
+router.get("/passwordreset", (req, res) => {
+  res.render("auth/passwordreset");
 });
 
-router.get("/recoverpwd", csrfProtection, (req, res) => {
-  res.render("auth/recoverpwd", { csrfToken: req.csrfToken() });
+// Render the confirm password reset page
+router.get("/recoverpwd", (req, res) => {
+  res.render("auth/recoverpwd");
 });
 
-// ** Authentication & Account Management Routes ** //
-router.post("/signup", csrfProtection, validateSignup, authController.signup);
-router.post("/login", csrfProtection, validateLogin, authController.login);
-router.post("/activate", csrfProtection, authController.activateAccount);
+// ** API Routes ** //
 
-router.post("/passwordreset", csrfProtection, authController.requestPasswordReset);
-router.post("/recoverpwd", csrfProtection, validateResetPassword, authController.resetPassword);
+// Authentication Routes
+router.post("/signup", validateSignup, authController.signup);
+router.post("/login", validateLogin, authController.login);
+router.post("/activate", authController.activateAccount);
 
-// ** Profile Update & Account Deletion (Requires Authentication & Tenant Validation) ** //
-router.put("/profile", csrfProtection, authMiddleware, tenancyMiddleware, authController.updateProfile);
-router.delete("/delete", csrfProtection, authMiddleware, tenancyMiddleware, authController.deleteAccount);
+// ** Password Reset Routes ** //
+router.post("/passwordreset", authController.requestPasswordReset); // Sends password reset email
+router.post("/recoverpwd", validateResetPassword, authController.resetPassword); // Resets password
 
-// ** Logout Route (No CSRF needed for logout) ** //
+// ** Account Management Routes ** //
+router.put("/profile", authMiddleware, tenancyMiddleware, authController.updateProfile); // Update user profile
+router.delete("/delete", authMiddleware, tenancyMiddleware, authController.deleteAccount); // Delete user account
+
+// ** Logout Route ** //
 router.post("/logout", authController.logout);
 
-// ** Handle Email Verification via URL Token ** //
+// ** Handle email verification via URL token ** //
 router.get("/activate/:token", authController.activateAccount);
 
-// ** Tenant-Specific Route (Requires Authentication & Tenant Connection) ** //
+// ** Tenant-Specific Route (Add authentication and tenancy middleware) ** //
 router.get("/tenant-data", authMiddleware, tenancyMiddleware, async (req, res) => {
   try {
-    if (!req.sequelize) {
-      console.error("[ERROR] Tenant database connection is missing.");
-      return res.status(500).json({ error: "Tenant database connection is missing." });
+    if (!req.tenantSequelize) {
+      return res.status(400).json({ error: "Tenant data not available" });
     }
 
-    const [rows] = await req.sequelize.query("SELECT * FROM some_table");
+    const [rows] = await req.tenantSequelize.query("SELECT * FROM some_table");
     res.json(rows);
   } catch (err) {
-    console.error("[ERROR] Database query error:", err.message);
-    res.status(500).json({ error: "Error fetching tenant data." });
+    console.error("Database query error:", err.message);
+    res.status(500).json({ error: "Error fetching tenant data" });
   }
 });
 
-module.exports = router;
+module.exports = router; // ✅ Export at the end

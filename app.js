@@ -6,9 +6,7 @@ const bodyParser = require('body-parser');
 const passport = require('passport');
 const flash = require('connect-flash');
 const cookieParser = require('cookie-parser');
-const csrf = require('csurf');
 const cors = require('cors');
-const authMiddleware = require("./middleware/auth").authMiddleware;
 const { verifyToken } = require('./config/auth');
 const paypalClient = require('./config/paypalconfig');
 const tenancyMiddleware = require('./middleware/tenancyMiddleware'); 
@@ -17,8 +15,6 @@ const { checkAndDeactivateSubscriptions } = require('./controllers/subscriptionc
 const { getTenantDatabase } = require('./config/db');
 const tenantService = require('./services/tenantservices');
 const { OrdersCreateRequest } = require('@paypal/checkout-server-sdk');
-const { rateLimiter } = require('./middleware/rateLimiter');
-const { apiLimiter, loginLimiter } = require("./middleware/rateLimiter");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -33,7 +29,6 @@ app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.use(authMiddleware);
 app.use(tenancyMiddleware);
 
 
@@ -63,18 +58,6 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
-
-// ✅ CSRF Protection
-const csrfProtection = csrf({ cookie: true });
-app.use(csrfProtection);
-
-// ✅ Middleware to Send CSRF Token
-app.use((req, res, next) => {
-  const csrfToken = req.csrfToken();
-  res.cookie('XSRF-TOKEN', csrfToken, { httpOnly: false, secure: process.env.NODE_ENV === 'production' });
-  res.locals.csrfToken = csrfToken;
-  next();
-});
 
 // ✅ Set View Engine
 app.set('view engine', 'ejs');
@@ -111,7 +94,7 @@ Object.entries(routes).forEach(([name, route]) => {
 
 // ✅ Home Route
 app.get('/', (req, res) => {
-  res.render('home/index', { title: 'Home', csrfToken: req.csrfToken() });
+  res.render('home/index', { title: 'Home' });
 });
 
 // ✅ PayPal Payment Route
@@ -154,7 +137,7 @@ app.post(
 
 // ✅ 404 Error Handling
 app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found', csrfToken: req.csrfToken() });
+  res.status(404).json({ message: 'Route not found' });
 });
 
 // ✅ Sync Tenant Databases

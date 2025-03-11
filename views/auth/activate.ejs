@@ -33,16 +33,9 @@
                       <h2 class="mb-2 text-center font-weight-bold">Activate Account</h2>
                       <p class="text-center">Enter your activation code below to activate your account.</p>
 
-                      <!-- Display error message if exists -->
-                      <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
-                        <div class="alert alert-danger text-center">
-                          <%= errorMessage %>
-                        </div>
-                      <% } %>
+                  
 
                       <form id="activation-form" action="/auth/activate" method="POST">
-                        <!-- CSRF Token -->
-                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
                         <div class="form-group">
                           <label for="activation-code" class="font-weight-bold">Activation Code</label>
