@@ -28,7 +28,7 @@ class Subscription extends Model {
       }
 
       const existingTrial = await Subscription.findOne({
-        where: { user_id: userId, tenant_id: tenantId, subscription_plan: 'Trial' },
+        where: { user_id: userId, tenant_id: tenantId, subscription_plan: 'trial' },
       });
 
       if (existingTrial) {
@@ -42,7 +42,7 @@ class Subscription extends Model {
       return await Subscription.create({
         user_id: userId,
         tenant_id: tenantId,
-        subscription_plan: 'Trial',
+        subscription_plan: 'trial',
         start_date: startDate,
         end_date: endDate,
         status: 'Active',

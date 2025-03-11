@@ -26,13 +26,21 @@ const signup = async (req, res) => {
     const activationToken = crypto.randomBytes(20).toString('hex');
 
     const defaultSubscription = await Subscription.findOne({ 
-      where: { subscription_plan: 'Trial' } 
+      where: { subscription_plan: 'trial' } 
     });
     
-    if (!defaultSubscription) {
-      return res.status(500).json({ message: 'Default subscription plan not found' });
-    }
+  if (!defaultSubscription) {
+    console.log('Default subscription plan not found. Creating a new one...');
     
+    const newSubscription = new Subscription({
+      subscription_plan: 'trial',
+      isActive: true, 
+    });
+
+  await newSubscription.save();
+  console.log('New trial subscription created:', newSubscription);
+}
+
 
     const user = new User({
       name,
