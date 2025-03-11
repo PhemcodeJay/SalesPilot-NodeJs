@@ -1,39 +1,34 @@
-const { getTenantDatabase } = require('../config/db');
-const { v4: uuidv4 } = require('uuid'); // Import UUID for fallback Tenant ID
+const { getTenantDatabase } = require("../config/db");
+const { publicRoutes } = require("../config/constants");
 
 module.exports = async (req, res, next) => {
-  const publicRoutes = ['/login', '/signup', '/index']; // Define public routes
-
-
-  // If it's a public route, bypass tenant logic
   if (publicRoutes.includes(req.path)) {
-    console.log(`Public route accessed: ${req.path}, skipping tenant check.`);
+    console.log(`[INFO] Public route accessed: ${req.path}, skipping tenant check.`);
     return next();
   }
 
-  // Extract Tenant ID from headers
-  let tenantId = req.headers['tenant-id'];
-
-  // Generate a UUID-based Tenant ID if missing
-  if (!tenantId) {
-    console.warn('Tenant ID missing, generating new Tenant ID.');
-    tenantId = `tenant_${uuidv4().slice(0, 8)}`;
+  if (!req.user || !req.user.id || !req.user.tenantId) {
+    console.error("[ERROR] User authentication missing before tenancy check.");
+    return res.status(401).json({ message: "Unauthorized. Authentication required." });
   }
 
-  try {
-    const tenantDbName = `tenant_db_${tenantId}`;
-    console.log(`Fetching tenant database: ${tenantDbName}`);
+  const tenantId = req.user.tenantId;
 
-    const { sequelize, mysqlPDO } = getTenantDatabase(tenantDbName);
+  try {
+    console.log(`[INFO] Initializing tenant database for Tenant ID: ${tenantId}`);
+    const sequelize = getTenantDatabase(tenantId);
+
+    if (!sequelize) {
+      throw new Error(`Failed to initialize tenant database for Tenant ID: ${tenantId}`);
+    }
 
     req.sequelize = sequelize;
-    req.mysqlPDO = mysqlPDO;
     req.tenantId = tenantId;
 
-    console.log(`Tenant database initialized for: ${tenantId}`);
+    console.log(`[SUCCESS] Tenant database initialized for: ${tenantId}`);
     next();
   } catch (error) {
-    console.error('Error setting up tenant database:', error.message);
-    return res.status(500).json({ message: 'Error initializing tenant database.' });
+    console.error(`[ERROR] Error setting up tenant database: ${error.message}`);
+    return res.status(500).json({ message: "Error initializing tenant database." });
   }
 };

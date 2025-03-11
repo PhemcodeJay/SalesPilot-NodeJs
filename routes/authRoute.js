@@ -3,6 +3,12 @@ const router = express.Router();
 const authController = require("../controllers/authcontroller"); // Ensure correct case
 const { validateSignup, validateLogin, validateResetPassword } = require("../middleware/auth");
 
+// CSRF Protection Middleware
+const csrfProtection = csrf({ cookie: true });
+
+// ** CSRF Token Route ** //
+router.get('/csrf-token', csrfProtection, authController.getCsrfToken);
+
 // ** View Routes ** //
 
 // Render the signup page
@@ -46,8 +52,8 @@ router.post("/passwordreset", authController.requestPasswordReset); // Sends pas
 router.post("/recoverpwd", validateResetPassword, authController.resetPassword); // Resets password
 
 // ** Account Management Routes ** //
-router.put("/profile", authController.updateProfile); // Update user profile
-router.delete("/delete", authController.deleteAccount); // Delete user account
+router.put("/profile", csrfProtection, authController.updateProfile); // Update user profile
+router.delete("/delete", csrfProtection, authController.deleteAccount); // Delete user account
 
 // ** Logout Route ** //
 router.post("/logout", authController.logout);
@@ -55,8 +61,8 @@ router.post("/logout", authController.logout);
 // ** Handle email verification via URL token ** //
 router.get("/activate/:token", authController.activateAccount);
 
-// ** Tenant-Specific Route (No CSRF needed for GET requests) ** //
-router.get("/tenant-data", async (req, res) => {
+// ** Tenant-Specific Route (Add authentication and tenancy middleware) ** //
+router.get("/tenant-data", authMiddleware, tenancyMiddleware, async (req, res) => {
   try {
     if (!req.tenantSequelize) {
       return res.status(400).json({ error: "Tenant data not available" });

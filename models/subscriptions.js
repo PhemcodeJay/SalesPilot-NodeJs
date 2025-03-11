@@ -226,4 +226,6 @@ Subscription.init(
   }
 );
 
+// ✅ Export the Subscription model
+
 module.exports = Subscription;
