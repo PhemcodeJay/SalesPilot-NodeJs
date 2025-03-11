@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { validationResult } = require('express-validator');
 const User = require('../models/User'); // Corrected path based on your project structure
 const Auth = require('../models/authModel');
-const Subscription = require('../models/subscriptionModel'); // Corrected path based on your project structure
+const Subscription = require('../models/subscriptions'); // Corrected path based on your project structure
 const sendEmail = require('../utils/emailUtils'); // Assuming you have a utility to send emails
 
 /** ======= SIGNUP & ACCOUNT ACTIVATION WITH TRIAL SUBSCRIPTION ======= **/
