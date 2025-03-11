@@ -44,14 +44,15 @@ const createSubscription = async (userId, planId, paymentDetails) => {
     if (!Subscription) {
       throw new Error('Subscription model is not available');
     }
-    return await Subscription.create({
+    const subscription = await Subscription.create({
       user_id: userId,
       plan_id: planId,
       payment_details: paymentDetails,
       status: 'active',
       start_date: new Date(),
-      end_date: null,
+      end_date: null, // Set end date based on plan duration
     });
+    return subscription;
   } catch (error) {
     console.error('Error creating subscription:', error);
     throw new Error('Subscription creation failed');
@@ -105,7 +106,7 @@ const createFreeTrial = async (userId) => {
 
     const startDate = new Date();
     const endDate = new Date();
-    endDate.setMonth(startDate.getMonth() + 3);
+    endDate.setMonth(startDate.getMonth() + 3); // 3 months free trial
 
     const query = `
       INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, status, is_free_trial_used)

@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { validationResult } = require('express-validator');
+const { v4: uuidv4 } = require('uuid');  // Import UUID package
 const User = require('../models/User'); // User Model
 const Auth = require('../models/authModel'); // Auth Model
 const Subscription = require('../models/subscriptions'); // Subscription Model
@@ -22,23 +23,49 @@ const signup = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const activationToken = crypto.randomBytes(20).toString('hex');
 
-    const defaultSubscription = await Subscription.findOne({ plan: 'Free Trial' });
+    // Create a unique tenant ID
+    const tenantId = uuidv4();  // Generate a unique tenant ID using uuid
+
+    // Check if the 'trial' subscription plan exists in the database
+    let defaultSubscription = await Subscription.findOne({ subscription_plan: 'trial' });
+
+    // If no 'trial' subscription is found, create one dynamically
     if (!defaultSubscription) {
-      return res.status(500).json({ message: 'Default subscription plan not found' });
+      console.log('Default subscription plan (trial) not found, creating a new one.');
+      defaultSubscription = await Subscription.create({
+        subscription_plan: 'trial',
+        // Add other subscription properties if needed
+        status: 'active',
+        start_date: new Date(),
+        end_date: new Date(new Date().setMonth(new Date().getMonth() + 1)), // 1 month trial
+      });
     }
 
+    // Create a tenant record for this new user
+    const tenant = new Tenant({
+      tenantId: tenantId,
+      subscriptionId: defaultSubscription._id, // Associate with the 'trial' subscription plan
+    });
+    await tenant.save();
+
+    // Create the user record and associate the user with the tenant and subscription
     const user = new User({
       name,
       email,
       password: hashedPassword,
-      subscriptionId: defaultSubscription._id, 
+      subscriptionId: defaultSubscription._id, // Assign the trial subscription ID
+      tenantId: tenantId,  // Assign the generated tenant ID to the user
     });
     await user.save();
 
+    // Create a Free Trial subscription for the user using the `createFreeTrial` method
+    await Subscription.createFreeTrial(user._id, tenantId); // Create the trial subscription
+
+    // Create an authentication record for the user with the activation token
     const auth = new Auth({
       userId: user._id,
       activationToken,
-      isActive: false, 
+      isActive: false, // Account is not yet activated
     });
     await auth.save();
 
@@ -47,6 +74,7 @@ const signup = async (req, res) => {
 
     res.status(201).json({ message: 'User registered, check email for activation link' });
   } catch (error) {
+    console.error('Error during signup:', error.message);
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };

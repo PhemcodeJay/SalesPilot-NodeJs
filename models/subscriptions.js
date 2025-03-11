@@ -11,9 +11,9 @@ class Subscription extends Model {
   }
 
   /**
-   * Create a Free Trial Subscription
+   * Create a Free trial Subscription
    */
-  static async createFreeTrial(userId, tenantId) {
+  static async createFreetrial(userId, tenantId) {
     try {
       if (!userId || !tenantId) {
         throw new Error('User ID and Tenant ID are required.');
@@ -27,11 +27,11 @@ class Subscription extends Model {
         throw new Error('User already has an active subscription.');
       }
 
-      const existingTrial = await Subscription.findOne({
-        where: { user_id: userId, tenant_id: tenantId, subscription_plan: 'Trial' },
+      const existingtrial = await Subscription.findOne({
+        where: { user_id: userId, tenant_id: tenantId, subscription_plan: 'trial' },
       });
 
-      if (existingTrial) {
+      if (existingtrial) {
         throw new Error('User has already used a free trial.');
       }
 
@@ -42,14 +42,14 @@ class Subscription extends Model {
       return await Subscription.create({
         user_id: userId,
         tenant_id: tenantId,
-        subscription_plan: 'Trial',
+        subscription_plan: 'trial',  // Default subscription plan is 'trial'
         start_date: startDate,
         end_date: endDate,
         status: 'Active',
         is_free_trial_used: true,
       });
     } catch (error) {
-      console.error(`Error creating Trial subscription: ${error.message}`);
+      console.error(`Error creating trial subscription: ${error.message}`);
       throw error;
     }
   }
@@ -196,8 +196,9 @@ Subscription.init(
       onDelete: 'CASCADE',
     },
     subscription_plan: {
-      type: DataTypes.STRING,
+      type: DataTypes.ENUM('trial', 'starter', 'business', 'enterprise'),
       allowNull: false,
+      defaultValue: 'trial',  // Default value for subscription_plan is 'trial'
     },
     start_date: {
       type: DataTypes.DATE,
