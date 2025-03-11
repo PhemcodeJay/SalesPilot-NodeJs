@@ -6,9 +6,6 @@ const User = require('../models/User'); // User Model
 const Auth = require('../models/authModel'); // Auth Model
 const Subscription = require('../models/subscriptions'); // Subscription Model
 const sendEmail = require('../utils/emailUtils'); // Email Utility
-const csrf = require('csurf');
-
-const csrfProtection = csrf({ cookie: true });
 
 /** ======= SIGNUP WITH ACCOUNT ACTIVATION ======= **/
 const signup = async (req, res) => {
@@ -98,11 +95,6 @@ const login = async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
-};
-
-/** ======= CSRF PROTECTION ======= **/
-const getCsrfToken = (req, res) => {
-  res.json({ csrfToken: req.csrfToken() });
 };
 
 /** ======= REQUEST PASSWORD RESET ======= **/
@@ -201,8 +193,6 @@ module.exports = {
   signup,
   activateAccount,
   login,
-  getCsrfToken,
-  csrfProtection,
   requestPasswordReset,
   resetPassword,
   updateProfile,

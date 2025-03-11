@@ -6,7 +6,6 @@ const bodyParser = require('body-parser');
 const passport = require('passport');
 const flash = require('connect-flash');
 const cookieParser = require('cookie-parser');
-const csrf = require('csurf');
 const cors = require('cors');
 const { verifyToken } = require('./config/auth');
 const paypalClient = require('./config/paypalconfig');
@@ -61,18 +60,6 @@ app.use(flash());
 // ✅ Tenancy and Rate Limiting Middleware
 app.use(tenancy);
 app.use(rateLimiter);
-
-// ✅ CSRF Middleware (After CORS, Session, and Passport)
-const csrfProtection = csrf({ cookie: true });
-app.use(csrfProtection);
-
-// ✅ Middleware to send CSRF token to frontend
-app.use((req, res, next) => {
-  const csrfToken = req.csrfToken();
-  res.cookie('XSRF-TOKEN', csrfToken, { httpOnly: false, secure: process.env.NODE_ENV === 'production' });
-  res.locals.csrfToken = csrfToken;
-  next();
-});
 
 // ✅ View Engine Setup
 app.set('view engine', 'ejs');

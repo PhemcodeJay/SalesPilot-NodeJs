@@ -1,25 +1,18 @@
 const express = require("express");
 const router = express.Router();
-const csrf = require("csurf");
 const authController = require("../controllers/authcontroller"); // Ensure correct case
 const { validateSignup, validateLogin, validateResetPassword } = require("../middleware/auth");
-
-// CSRF Protection Middleware
-const csrfProtection = csrf({ cookie: true });
-
-// ** CSRF Token Route ** //
-router.get('/csrf-token', csrfProtection, authController.getCsrfToken);
 
 // ** View Routes ** //
 
 // Render the signup page
 router.get('/sign-up', (req, res) => {
-  res.render('auth/signup', { csrfToken: req.csrfToken() });
+  res.render('auth/signup');
 });
 
 // Render the login page
-router.get("/login", csrfProtection, (req, res) => {
-  res.render("auth/login", { csrfToken: req.csrfToken() });
+router.get("/login", (req, res) => {
+  res.render("auth/login");
 });
 
 // Render the account activation page
@@ -32,29 +25,29 @@ router.get("/activate", (req, res) => {
 });
 
 // Render the password reset request page
-router.get("/passwordreset", csrfProtection, (req, res) => {
-  res.render("auth/passwordreset", { csrfToken: req.csrfToken() });
+router.get("/passwordreset", (req, res) => {
+  res.render("auth/passwordreset");
 });
 
 // Render the confirm password reset page
-router.get("/recoverpwd", csrfProtection, (req, res) => {
-  res.render("auth/recoverpwd", { csrfToken: req.csrfToken() });
+router.get("/recoverpwd", (req, res) => {
+  res.render("auth/recoverpwd");
 });
 
 // ** API Routes ** //
 
 // Authentication Routes
-router.post("/signup", csrfProtection, validateSignup, authController.signup);
-router.post("/login", csrfProtection, validateLogin, authController.login);
-router.post("/activate", csrfProtection, authController.activateAccount);
+router.post("/signup", validateSignup, authController.signup);
+router.post("/login", validateLogin, authController.login);
+router.post("/activate", authController.activateAccount);
 
 // ** Password Reset Routes ** //
-router.post("/passwordreset", csrfProtection, authController.requestPasswordReset); // Sends password reset email
-router.post("/recoverpwd", csrfProtection, validateResetPassword, authController.resetPassword); // Resets password
+router.post("/passwordreset", authController.requestPasswordReset); // Sends password reset email
+router.post("/recoverpwd", validateResetPassword, authController.resetPassword); // Resets password
 
 // ** Account Management Routes ** //
-router.put("/profile", csrfProtection, authController.updateProfile); // Update user profile
-router.delete("/delete", csrfProtection, authController.deleteAccount); // Delete user account
+router.put("/profile", authController.updateProfile); // Update user profile
+router.delete("/delete", authController.deleteAccount); // Delete user account
 
 // ** Logout Route ** //
 router.post("/logout", authController.logout);
