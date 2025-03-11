@@ -10,7 +10,7 @@ const csrf = require('csurf');
 
 const csrfProtection = csrf({ cookie: true });
 
-/** ======= SIGNUP WITH ACCOUNT ACTIVATION ======= **/
+/** ======= SIGNUP WITH ACCOUNT ACTIVATION & TRIAL SUBSCRIPTION ======= **/
 const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -20,43 +20,65 @@ const signup = async (req, res) => {
     }
 
     let existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: 'User already exists' });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const activationToken = crypto.randomBytes(20).toString('hex');
 
-    const defaultSubscription = await Subscription.findOne({ 
-      where: { subscription_plan: 'trial' } 
-    });
-    
-  if (!defaultSubscription) {
-    console.log('Default subscription plan not found. Creating a new one...');
-    
-    const newSubscription = new Subscription({
-      subscription_plan: 'trial',
-      isActive: true, 
-    });
+    // Ensure user ID and tenant ID exist
+    const userId = req.user?.id;
+    const tenantId = req.tenant?.id;
 
-  await newSubscription.save();
-  console.log('New trial subscription created:', newSubscription);
-}
+    if (!userId || !tenantId) {
+      return res.status(400).json({ message: 'User ID or Tenant ID is missing' });
+    }
 
+    // Check if the user already has a trial subscription
+    const defaultSubscription = await Subscription.findOne({ where: { user_id: userId, subscription_plan: 'trial' } });
 
+    if (!defaultSubscription) {
+      console.log('Trial subscription not found. Creating a new one...');
+
+      const currentDate = new Date();
+      const endDate = new Date();
+      endDate.setDate(currentDate.getDate() + 90); // 90-day free trial
+
+      const newSubscription = await Subscription.create({
+        user_id: userId,
+        tenant_id: tenantId,
+        subscription_plan: 'trial',
+        duration_days: 90,
+        start_date: currentDate,
+        end_date: endDate,
+        price: 0,
+        features: JSON.stringify(['Basic access', 'Limited support']),
+        isActive: true,
+      });
+
+      console.log('New trial subscription created:', newSubscription);
+      return res.status(201).json({ message: 'Free trial activated', subscription: newSubscription });
+    }
+
+    // Create a new user
     const user = new User({
       name,
       email,
       password: hashedPassword,
-      subscriptionId: defaultSubscription._id, 
+      subscriptionId: defaultSubscription._id,
     });
     await user.save();
 
+    // Create authentication record
     const auth = new Auth({
       userId: user._id,
       activationToken,
-      isActive: false, 
+      isActive: false,
     });
     await auth.save();
 
+    // Send activation email
     const activationUrl = `${process.env.CLIENT_URL}/activate/${activationToken}`;
     await sendEmail(email, 'Account Activation', `Click here to activate: ${activationUrl}`);
 
@@ -189,23 +211,14 @@ const deleteAccount = async (req, res) => {
   }
 };
 
-/** ======= GET USER DETAILS ======= **/
-const getUserDetails = async (req, res) => {
+/** ======= LOGOUT ======= **/
+const logout = async (req, res) => {
   try {
-    const { userId } = req.user;
-    const user = await User.findById(userId).select('-password');
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    res.json({ user });
+    res.cookie('token', '', { httpOnly: true, expires: new Date(0) });
+    res.status(200).json({ message: 'Logged out successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
-};
-
-/** ======= LOGOUT ======= **/
-const logout = (req, res) => {
-  res.clearCookie('token');
-  res.json({ message: 'Logged out successfully' });
 };
 
 /** ======= EXPORT CONTROLLERS ======= **/
@@ -219,6 +232,5 @@ module.exports = {
   resetPassword,
   updateProfile,
   deleteAccount,
-  getUserDetails,
   logout,
 };

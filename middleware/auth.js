@@ -4,6 +4,7 @@ const { body, validationResult } = require('express-validator');
 
 const tenantConnections = {}; // Store connections per tenant
 
+// Get or create a tenant database connection
 function getTenantDatabase(tenantId) {
   if (!tenantConnections[tenantId]) {
     tenantConnections[tenantId] = new Sequelize(
@@ -20,7 +21,8 @@ function getTenantDatabase(tenantId) {
   return tenantConnections[tenantId];
 }
 
-function getTenantModel(tenantId, modelName) {
+// Get or create a model for the tenant
+async function getTenantModel(tenantId, modelName) {
   const db = getTenantDatabase(tenantId);
 
   if (!db.models[modelName]) {
@@ -31,12 +33,14 @@ function getTenantModel(tenantId, modelName) {
         email: { type: DataTypes.STRING, allowNull: false, unique: true },
         password: { type: DataTypes.STRING, allowNull: false },
         role: { 
-          type: DataTypes.ENUM('admin', 'sales', 'manager'), 
+          type: DataTypes.ENUM('admin', 'sales', 'manager'), // Fixed 'manager'
           allowNull: false 
         },
         tenantId: { type: DataTypes.INTEGER, allowNull: false },
       });
     }
+
+    await db.sync(); // Ensure models are synchronized
   }
   
   return db.models[modelName];
@@ -50,7 +54,7 @@ const validateSignup = [
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters long'),
   body('role')
-    .isIn(['admin', 'sales', 'inventory'])
+    .isIn(['admin', 'sales', 'manager']) // Fixed 'manager'
     .withMessage('Invalid role'),
   (req, res, next) => {
     const errors = validationResult(req);
