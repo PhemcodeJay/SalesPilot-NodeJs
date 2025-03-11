@@ -16,6 +16,7 @@ const { getTenantDatabase } = require('./config/db');
 const tenantService = require('./services/tenantservices');
 const { OrdersCreateRequest } = require('@paypal/checkout-server-sdk');
 const { v4: uuidv4 } = require('uuid'); // Importing UUID for generating unique tenant IDs
+const rateLimiter = require('./middleware/rateLimiter');  //
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -61,7 +62,7 @@ app.use(passport.session());
 app.use(flash());
 
 // ✅ Tenancy and Rate Limiting Middleware
-app.use(tenancy);
+app.use(tenancyMiddleware);
 app.use(rateLimiter);
 
 // ✅ View Engine Setup

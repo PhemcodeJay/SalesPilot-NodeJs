@@ -8,10 +8,8 @@ const db = mysql.createPool({
   host: 'localhost',
   user: 'root',
   password: '1234',
-  password: '1234',
   database: 'salespilot',
 });
-
 
 /**
  * Check and deactivate expired subscriptions dynamically
@@ -128,7 +126,7 @@ const createFreeTrial = async (userId) => {
 /**
  * Create a subscription (assign default trial if no plan is provided)
  */
-const createSubscription = async (userId, planName = "trial") => {
+const createSubscriptionWithDefault = async (userId, planName = "trial") => {
   try {
     if (!userId) throw new Error("User ID is required.");
 
@@ -140,7 +138,7 @@ const createSubscription = async (userId, planName = "trial") => {
 
     // Prevent multiple active subscriptions
     const activeSub = await getActiveSubscription(userId);
-    if (activeSub) throw new Error("User already has an active subscription.");
+    if (activeSub.length > 0) throw new Error("User already has an active subscription.");
 
     // Insert new subscription
     const query = `
@@ -222,23 +220,10 @@ const getSubscriptionStatus = async (userId) => {
   }
 };
 
-/**
- * Deactivate expired subscriptions
- */
-const checkAndDeactivateSubscriptions = async () => {
-  try {
-    const query = 'UPDATE subscriptions SET status = "Expired" WHERE end_date < NOW() AND status = "Active"';
-    await db.execute(query);
-    console.log("Expired subscriptions deactivated.");
-  } catch (error) {
-    console.error("Error deactivating expired subscriptions:", error.message);
-  }
-};
-
 // Export functions
 module.exports = {
   checkAndDeactivateSubscriptions,
-  createSubscription,
+  createSubscriptionWithDefault, // Renamed function to avoid name conflict
   getActiveSubscription,
   upgradeSubscription,
   cancelSubscriptionByUserId,
