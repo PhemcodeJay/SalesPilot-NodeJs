@@ -10,6 +10,7 @@ const csrf = require('csurf');
 const cors = require('cors');
 const { verifyToken } = require('./config/auth');
 const paypalClient = require('./config/paypalconfig');
+const authMiddleware = require('./middleware/auth');
 const tenancy = require('./middleware/tenancyMiddleware');
 const asyncHandler = require('./middleware/asyncHandler');
 const rateLimiter = require('./middleware/rateLimiter');
@@ -30,6 +31,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser()); // Must be before session
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(authMiddleware);  // Run authentication first
+app.use(tenancy); // Then apply tenant-specific logic
 
 // ✅ Enable CORS (Before CSRF)
 app.use(

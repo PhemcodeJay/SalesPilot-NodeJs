@@ -28,12 +28,25 @@ const signup = async (req, res) => {
     const activationToken = crypto.randomBytes(20).toString('hex');
 
     // Ensure user ID and tenant ID exist
-    const userId = req.user?.id;
-    const tenantId = req.tenant?.id;
+  const userId = req.user?.id;
+  const tenantId = req.tenant?.id;
 
-    if (!userId || !tenantId) {
-      return res.status(400).json({ message: 'User ID or Tenant ID is missing' });
-    }
+  // Debugging logs
+  console.log('User ID:', userId);
+  console.log('Tenant ID:', tenantId);
+  console.log('req.user:', req.user);
+console.log('req.user?.id:', req.user?.id);
+
+
+  if (!userId) {
+    return res.status(400).json({ message: 'User ID is missing' });
+  }
+
+  if (!tenantId) {
+    return res.status(400).json({ message: 'Tenant ID is missing' });
+  }
+
+// Proceed with the rest of your logic
 
     // Check if the user already has a trial subscription
     const defaultSubscription = await Subscription.findOne({ where: { user_id: userId, subscription_plan: 'trial' } });
