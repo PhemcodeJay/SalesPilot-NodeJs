@@ -38,6 +38,8 @@ const signup = async (req, res) => {
         status: 'active',
         start_date: new Date(),
         end_date: new Date(new Date().setMonth(new Date().getMonth() + 1)), // 1 month trial
+        user_id: null, // Initially setting user_id to null to be updated later
+        tenant_id: null, // Initially setting tenant_id to null to be updated later
       });
     }
 
@@ -57,6 +59,11 @@ const signup = async (req, res) => {
       tenantId: tenantId,  // Assign the generated tenant ID to the user
     });
     await user.save();
+
+    // Update the subscription record with user_id and tenant_id
+    defaultSubscription.user_id = user._id;  // Set user_id in subscription
+    defaultSubscription.tenant_id = tenantId; // Set tenant_id in subscription
+    await defaultSubscription.save();  // Save the updated subscription
 
     // Create a Free Trial subscription for the user using the `createFreeTrial` method
     await Subscription.createFreeTrial(user._id, tenantId); // Create the trial subscription
@@ -78,6 +85,7 @@ const signup = async (req, res) => {
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
+
 
 /** ======= ACCOUNT ACTIVATION ======= **/
 const activateAccount = async (req, res) => {

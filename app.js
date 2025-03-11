@@ -16,6 +16,7 @@ const { checkAndDeactivateSubscriptions } = require('./controllers/subscriptionc
 const { getTenantDatabase } = require('./config/db');
 const tenantService = require('./services/tenantservices');
 const { OrdersCreateRequest } = require('@paypal/checkout-server-sdk');
+const { v4: uuidv4 } = require('uuid'); // Importing UUID for generating unique tenant IDs
 
 const app = express();
 const PORT = process.env.PORT || 5000;

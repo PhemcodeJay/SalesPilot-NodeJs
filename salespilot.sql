@@ -74,7 +74,7 @@ DROP TABLE IF EXISTS `category_analytics`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `category_analytics` (
-  `id` int NOT NULL,
+  `id` int NOT NULL AUTO_INCREMENT,
   `date` date NOT NULL,
   `revenue` decimal(10,2) NOT NULL,
   `profit_margin` decimal(10,2) NOT NULL,
@@ -143,7 +143,7 @@ DROP TABLE IF EXISTS `expenses`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `expenses` (
-  `expense_id` int NOT NULL,
+  `expense_id` int NOT NULL AUTO_INCREMENT,
   `description` text COLLATE utf8mb4_general_ci NOT NULL,
   `amount` decimal(10,2) NOT NULL,
   `expense_date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -169,7 +169,7 @@ DROP TABLE IF EXISTS `feedback`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `feedback` (
-  `id` int NOT NULL,
+  `id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `email` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `message` text COLLATE utf8mb4_general_ci NOT NULL,
@@ -196,7 +196,7 @@ DROP TABLE IF EXISTS `inventory`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `inventory` (
-  `inventory_id` int NOT NULL,
+  `inventory_id` int NOT NULL AUTO_INCREMENT,
   `product_id` int NOT NULL,
   `sales_qty` int NOT NULL,
   `last_updated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -226,7 +226,7 @@ DROP TABLE IF EXISTS `invoice_items`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `invoice_items` (
-  `invoice_items_id` int NOT NULL,
+  `invoice_items_id` int NOT NULL AUTO_INCREMENT,
   `invoice_id` int NOT NULL,
   `item_name` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `qty` int NOT NULL,
@@ -253,7 +253,7 @@ DROP TABLE IF EXISTS `invoices`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `invoices` (
-  `invoice_id` int NOT NULL,
+  `invoice_id` int NOT NULL AUTO_INCREMENT,
   `invoice_number` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
   `customer_name` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `invoice_description` text COLLATE utf8mb4_general_ci,
@@ -313,7 +313,7 @@ DROP TABLE IF EXISTS `password_resets`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `password_resets` (
-  `id` int NOT NULL,
+  `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
   `reset_code` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
   `expires_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -339,7 +339,7 @@ DROP TABLE IF EXISTS `payments`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `payments` (
-  `id` int NOT NULL,
+  `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
   `payment_method` enum('paypal','binance','mpesa','naira') NOT NULL,
   `payment_proof` varchar(255) NOT NULL,
@@ -369,7 +369,7 @@ DROP TABLE IF EXISTS `product_analytics`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `product_analytics` (
-  `reports_id` int NOT NULL,
+  `reports_id` int NOT NULL AUTO_INCREMENT,
   `report_date` date NOT NULL,
   `revenue` decimal(10,2) NOT NULL,
   `profit_margin` decimal(5,2) NOT NULL,
@@ -389,6 +389,7 @@ CREATE TABLE `product_analytics` (
   `total_profit` decimal(10,2) NOT NULL,
   `total_expenses` decimal(10,2) NOT NULL,
   `net_profit` decimal(10,2) NOT NULL,
+  PRIMARY KEY (`reports_id`),
   CONSTRAINT `product_analytics_chk_1` CHECK (json_valid(`revenue_by_product`))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -410,7 +411,7 @@ DROP TABLE IF EXISTS `products`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `products` (
-  `id` int NOT NULL,
+  `id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
   `description` text COLLATE utf8mb4_general_ci NOT NULL,
   `price` decimal(10,2) NOT NULL,
@@ -446,7 +447,7 @@ DROP TABLE IF EXISTS `revenue_by_product`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `revenue_by_product` (
-  `id` int NOT NULL,
+  `id` int NOT NULL AUTO_INCREMENT,
   `report_id` int NOT NULL,
   `product_id` int NOT NULL,
   `product_name` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
@@ -455,7 +456,8 @@ CREATE TABLE `revenue_by_product` (
   `total_cost` decimal(15,2) NOT NULL,
   `total_profit` decimal(15,2) NOT NULL,
   `inventory_turnover_rate` decimal(10,4) NOT NULL,
-  `sell_through_rate` decimal(10,4) NOT NULL
+  `sell_through_rate` decimal(10,4) NOT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -476,7 +478,7 @@ DROP TABLE IF EXISTS `sales`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sales` (
-  `sales_id` int NOT NULL,
+  `sales_id` int NOT NULL AUTO_INCREMENT,
   `product_id` int NOT NULL,
   `customer_id` int NOT NULL,
   `staff_id` int NOT NULL,
@@ -508,7 +510,7 @@ DROP TABLE IF EXISTS `staffs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `staffs` (
-  `staff_id` int NOT NULL,
+  `staff_id` int NOT NULL AUTO_INCREMENT,
   `staff_name` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
   `staff_email` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
   `staff_phone` varchar(20) COLLATE utf8mb4_general_ci NOT NULL,
@@ -535,21 +537,22 @@ DROP TABLE IF EXISTS `subscriptions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `subscriptions` (
-  `id` int NOT NULL,
+  `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
   `subscription_plan` enum('trial','starter','business','enterprise') NOT NULL DEFAULT 'trial',
   `end_date` datetime NOT NULL,
   `status` varchar(255) NOT NULL DEFAULT 'Active',
   `is_free_trial_used` tinyint(1) DEFAULT '0',
   `updatedAt` datetime NOT NULL,
-  `tenant_id` int NOT NULL,
+  `tenant_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `createdAt` datetime NOT NULL,
   `start_date` datetime NOT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `tenant_id_UNIQUE` (`tenant_id`),
   KEY `user_id` (`user_id`),
   KEY `tenant_id` (`tenant_id`),
   CONSTRAINT `subscriptions_ibfk_17` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `subscriptions_ibfk_18` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+  CONSTRAINT `subscriptions_ibfk_18` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -570,7 +573,7 @@ DROP TABLE IF EXISTS `suppliers`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `suppliers` (
-  `supplier_id` int NOT NULL,
+  `supplier_id` int NOT NULL AUTO_INCREMENT,
   `supplier_name` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `supplier_email` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `supplier_phone` varchar(20) COLLATE utf8mb4_general_ci NOT NULL,
@@ -600,13 +603,13 @@ DROP TABLE IF EXISTS `tenants`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `tenants` (
-  `id` int NOT NULL,
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `name` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `email` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `phone` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `address` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `status` enum('active','inactive') COLLATE utf8mb4_general_ci DEFAULT 'inactive',
-  `subscription_type` enum('trial','basic','premium','enterprise') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'trial',
+  `subscription_type` enum('trial','starter','business','enterprise') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'trial',
   `subscription_end_date` datetime NOT NULL,
   `subscription_start_date` datetime NOT NULL,
   `createdAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -638,7 +641,8 @@ CREATE TABLE `tenants` (
   UNIQUE KEY `email_24` (`email`),
   UNIQUE KEY `email_25` (`email`),
   UNIQUE KEY `email_26` (`email`),
-  UNIQUE KEY `email_27` (`email`)
+  UNIQUE KEY `email_27` (`email`) /*!80000 INVISIBLE */,
+  UNIQUE KEY `id_UNIQUE` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -672,7 +676,7 @@ CREATE TABLE `users` (
   `reset_token` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `reset_token_expiry` datetime DEFAULT NULL,
   `updatedAt` datetime NOT NULL,
-  `tenant_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `tenant_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `createdAt` datetime NOT NULL,
   `activation_token_expiry` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -697,7 +701,9 @@ CREATE TABLE `users` (
   UNIQUE KEY `username_3` (`username`),
   UNIQUE KEY `email_16` (`email`),
   UNIQUE KEY `username_4` (`username`),
-  UNIQUE KEY `email_17` (`email`)
+  UNIQUE KEY `email_17` (`email`),
+  UNIQUE KEY `tenant_id_UNIQUE` (`tenant_id`),
+  CONSTRAINT `users_ibfk_18` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -719,4 +725,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-03-11 20:14:50
+-- Dump completed on 2025-03-12  2:00:48
