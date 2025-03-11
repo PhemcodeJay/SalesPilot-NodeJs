@@ -1,27 +1,28 @@
 const express = require("express");
 const router = express.Router();
 const csrf = require("csurf");
+
 const authController = require("../controllers/authcontroller");
 const { validateSignup, validateLogin, validateResetPassword } = require("../middleware/auth");
-const authMiddleware = require("../middleware/auth");
+const { authMiddleware } = require("../middleware/auth");
 const tenancyMiddleware = require("../middleware/tenancyMiddleware");
 
-// CSRF Protection Middleware (Only for state-changing routes)
+// ** CSRF Protection Middleware (Only for state-changing routes) **
 const csrfProtection = csrf({ cookie: true });
 
 // ** CSRF Token Route ** //
 router.get("/csrf-token", csrfProtection, authController.getCsrfToken);
 
 // ** Public Routes (No Authentication Required) ** //
-router.get("/sign-up", (req, res) => {
+router.get("/sign-up", csrfProtection, (req, res) => {
   res.render("auth/signup", { csrfToken: req.csrfToken() });
 });
 
-router.get("/login", (req, res) => {
+router.get("/login", csrfProtection, (req, res) => {
   res.render("auth/login", { csrfToken: req.csrfToken() });
 });
 
-router.get("/activate", (req, res) => {
+router.get("/activate", csrfProtection, (req, res) => {
   const activationCode = req.query.code;
   if (!activationCode) {
     return res.status(400).json({ error: "Activation code is required" });
@@ -29,11 +30,11 @@ router.get("/activate", (req, res) => {
   res.render("auth/activate", { activationCode });
 });
 
-router.get("/passwordreset", (req, res) => {
+router.get("/passwordreset", csrfProtection, (req, res) => {
   res.render("auth/passwordreset", { csrfToken: req.csrfToken() });
 });
 
-router.get("/recoverpwd", (req, res) => {
+router.get("/recoverpwd", csrfProtection, (req, res) => {
   res.render("auth/recoverpwd", { csrfToken: req.csrfToken() });
 });
 
@@ -45,6 +46,7 @@ router.post("/activate", csrfProtection, authController.activateAccount);
 router.post("/passwordreset", csrfProtection, authController.requestPasswordReset);
 router.post("/recoverpwd", csrfProtection, validateResetPassword, authController.resetPassword);
 
+// ** Profile Update & Account Deletion (Requires Authentication & Tenant Validation) ** //
 router.put("/profile", csrfProtection, authMiddleware, tenancyMiddleware, authController.updateProfile);
 router.delete("/delete", csrfProtection, authMiddleware, tenancyMiddleware, authController.deleteAccount);
 
@@ -58,6 +60,7 @@ router.get("/activate/:token", authController.activateAccount);
 router.get("/tenant-data", authMiddleware, tenancyMiddleware, async (req, res) => {
   try {
     if (!req.sequelize) {
+      console.error("[ERROR] Tenant database connection is missing.");
       return res.status(500).json({ error: "Tenant database connection is missing." });
     }
 

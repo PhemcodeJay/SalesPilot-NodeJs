@@ -8,51 +8,54 @@ const flash = require('connect-flash');
 const cookieParser = require('cookie-parser');
 const csrf = require('csurf');
 const cors = require('cors');
+const authMiddleware = require("./middleware/auth").authMiddleware;
 const { verifyToken } = require('./config/auth');
 const paypalClient = require('./config/paypalconfig');
-const authMiddleware = require('./middleware/auth');
-const tenancy = require('./middleware/tenancyMiddleware');
+const tenancyMiddleware = require('./middleware/tenancyMiddleware'); 
 const asyncHandler = require('./middleware/asyncHandler');
-const rateLimiter = require('./middleware/rateLimiter');
 const { checkAndDeactivateSubscriptions } = require('./controllers/subscriptioncontroller');
 const { getTenantDatabase } = require('./config/db');
 const tenantService = require('./services/tenantservices');
 const { OrdersCreateRequest } = require('@paypal/checkout-server-sdk');
+const { rateLimiter } = require('./middleware/rateLimiter');
+const { apiLimiter, loginLimiter } = require("./middleware/rateLimiter");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ✅ Passport Configuration
+// ✅ Load Passport Configuration
 require('./config/passport')(passport);
 
-// ✅ Middleware Setup (Corrected Order)
+// ✅ Middleware Setup
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser()); // Must be before session
+app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(authMiddleware);  // Run authentication first
-app.use(tenancy); // Then apply tenant-specific logic
 
-// ✅ Enable CORS (Before CSRF)
+app.use(authMiddleware);
+app.use(tenancyMiddleware);
+
+
+// ✅ Enable CORS
 app.use(
   cors({
     credentials: true,
-    origin: process.env.CLIENT_URL || "http://localhost:5000", // Ensure this matches frontend origin
+    origin: process.env.CLIENT_URL || 'http://localhost:5000',
   })
 );
 
-// ✅ Session Middleware (Before Passport)
+// ✅ Session Middleware
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
-    saveUninitialized: false, // ✅ Prevents empty sessions
+    saveUninitialized: false,
     cookie: {
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
       sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000, // ✅ Session expires after 1 day
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
     },
   })
 );
@@ -61,15 +64,11 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
 
-// ✅ Tenancy and Rate Limiting Middleware
-app.use(tenancy);
-app.use(rateLimiter);
-
-// ✅ CSRF Middleware (After CORS, Session, and Passport)
+// ✅ CSRF Protection
 const csrfProtection = csrf({ cookie: true });
 app.use(csrfProtection);
 
-// ✅ Middleware to send CSRF token to frontend
+// ✅ Middleware to Send CSRF Token
 app.use((req, res, next) => {
   const csrfToken = req.csrfToken();
   res.cookie('XSRF-TOKEN', csrfToken, { httpOnly: false, secure: process.env.NODE_ENV === 'production' });
@@ -77,18 +76,16 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ View Engine Setup
+// ✅ Set View Engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// ✅ Serve Public Folder
-app.use(express.static(path.join(__dirname, 'public')));
-
 // ✅ Serve Static Files
+app.use(express.static(path.join(__dirname, 'public')));
 app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
 app.use('/home_assets', express.static(path.join(__dirname, 'public', 'home_assets')));
 
-// ✅ Routes Import
+// ✅ Import Routes
 const routes = {
   auth: require('./routes/authRoute'),
   dashboard: require('./routes/dashboardRoute'),
@@ -100,12 +97,16 @@ const routes = {
   subscription: require('./routes/subscriptionRoute'),
 };
 
-// ✅ Use Routes
+// ✅ Apply Routes
 const formRoutes = require('./routes/formRoutes');
 app.use('/', formRoutes);
 
 Object.entries(routes).forEach(([name, route]) => {
-  app.use(`/${name}`, route);
+  if (route) {
+    app.use(`/${name}`, route);
+  } else {
+    console.error(`❌ Route '${name}' is undefined! Check your route imports.`);
+  }
 });
 
 // ✅ Home Route
@@ -124,7 +125,7 @@ app.post(
         purchase_units: [
           {
             amount: {
-              currency_code: 'USD', // Ensure you define the correct currency
+              currency_code: 'USD',
               value: req.body.amount,
             },
           },
@@ -138,7 +139,7 @@ app.post(
       const request = new OrdersCreateRequest();
       request.requestBody(order);
       const orderResponse = await paypalClient.execute(request);
-      
+
       if (!orderResponse?.result?.id) {
         throw new Error('PayPal response did not include an order ID');
       }
@@ -151,12 +152,12 @@ app.post(
   })
 );
 
-// ✅ 404 Handler
+// ✅ 404 Error Handling
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found', csrfToken: req.csrfToken() });
 });
 
-// ✅ Sync Databases for Tenants
+// ✅ Sync Tenant Databases
 async function syncDatabases() {
   try {
     const tenants = await tenantService.getAllTenants();
@@ -190,7 +191,7 @@ async function syncDatabases() {
   }
 })();
 
-// ✅ Start the Server
+// ✅ Start Server
 (async function startServer() {
   await syncDatabases();
   app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
