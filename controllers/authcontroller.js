@@ -25,10 +25,14 @@ const signup = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const activationToken = crypto.randomBytes(20).toString('hex');
 
-    const defaultSubscription = await Subscription.findOne({ plan: 'Free Trial' });
+    const defaultSubscription = await Subscription.findOne({ 
+      where: { subscription_plan: 'Trial' } 
+    });
+    
     if (!defaultSubscription) {
       return res.status(500).json({ message: 'Default subscription plan not found' });
     }
+    
 
     const user = new User({
       name,

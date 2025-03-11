@@ -196,8 +196,9 @@ Subscription.init(
       onDelete: 'CASCADE',
     },
     subscription_plan: {
-      type: DataTypes.STRING,
-      allowNull: false,
+        type: DataTypes.ENUM('trial', 'starter', 'business', 'enterprise'),
+        allowNull: false,
+        unique: true
     },
     start_date: {
       type: DataTypes.DATE,
@@ -224,5 +225,7 @@ Subscription.init(
     timestamps: true,
   }
 );
+
+// ✅ Export the Subscription model
 
 module.exports = Subscription;
