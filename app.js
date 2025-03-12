@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config();  // Load environment variables from .env file
 const express = require("express");
 const path = require("path");
 const session = require("express-session");
@@ -7,16 +7,12 @@ const passport = require("passport");
 const flash = require("connect-flash");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
-const { verifyToken } = require("./config/auth");
-const paypalClient = require("./config/paypalconfig");
 const { authenticateUser } = require("./middleware/auth");
 const tenancyMiddleware = require("./middleware/tenancyMiddleware");
 const asyncHandler = require("./middleware/asyncHandler");
 const { checkAndDeactivateSubscriptions } = require("./controllers/subscriptioncontroller");
 const { getTenantDatabase } = require("./config/db");
 const tenantService = require("./services/tenantservices");
-const { OrdersCreateRequest } = require("@paypal/checkout-server-sdk");
-const { v4: uuidv4 } = require("uuid");
 const rateLimiter = require("./middleware/rateLimiter");
 
 // ✅ Initialize Express App
@@ -80,7 +76,7 @@ app.use("/protected-route", authenticateUser, (req, res) => {
   res.json({ message: "Access granted", user: req.user });
 });
 
-// ✅ Import & Apply Routes
+// ✅ Import & Apply Routes Dynamically
 const routes = {
   auth: require("./routes/authRoute"),
   dashboard: require("./routes/dashboardRoute"),
@@ -92,6 +88,7 @@ const routes = {
   subscription: require("./routes/subscriptionRoute"),
 };
 
+// Dynamically applying routes
 Object.entries(routes).forEach(([name, route]) => {
   if (route) {
     app.use(`/${name}`, route);
@@ -100,7 +97,18 @@ Object.entries(routes).forEach(([name, route]) => {
   }
 });
 
-// ✅ 404 Error Handling
+// ✅ Authorization Middleware (Check Authorization Headers)
+app.use((req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) {
+      return res.status(401).json({ error: "🔹 No authorization headers" });
+  }
+  const token = authHeader.split(' ')[1]; // Extract token after "Bearer"
+  req.token = token;
+  next();
+});
+
+// ✅ 404 Error Handling (Catch-all route handler for undefined routes)
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
