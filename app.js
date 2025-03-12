@@ -65,10 +65,13 @@ app.use(tenancyMiddleware);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// ✅ Serve Static Files
-app.use(express.static(path.join(__dirname, 'public')));
-app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
-app.use('/home_assets', express.static(path.join(__dirname, 'public', 'home_assets')));
+// ✅ Serve the entire 'public' folder (best practice)
+app.use(express.static(path.join(__dirname, "public")));
+
+// ✅ Explicitly serve 'assets' and 'home_assets' if needed
+app.use("/assets", express.static(path.join(__dirname, "public/assets")));
+app.use("/home_assets", express.static(path.join(__dirname, "public/home_assets")));
+
 
 // ✅ Define Public Routes (No Authentication Needed)
 app.get("/", (req, res) => {
