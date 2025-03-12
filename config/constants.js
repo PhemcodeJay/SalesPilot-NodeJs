@@ -1,4 +1,3 @@
 module.exports = {
-    publicRoutes: ["/login", "/signup", "/index"],
-  };
-  
+  publicRoutes: ["/", "/login", "/sign-up", "/index", "/passwordreset", "/recoverpwd", "/activate"],
+};
