@@ -68,10 +68,10 @@ const generateToken = (user) => {
 };
 
 // 🔹 Public Routes List
-const publicRoutes = ["/", "/home", "/login", "/register", "/about"];
+const publicRoutes = ["/", "/home", "/login", "/signup", "/about"];
 
 // 🔹 Authentication Middleware
-function authenticateUser(req, res, next) {
+async function authenticateUser(req, res, next) {
   if (publicRoutes.includes(req.path)) {
     console.log(`✅ Public route accessed: ${req.path}, skipping auth check.`);
     return next();
@@ -86,7 +86,15 @@ function authenticateUser(req, res, next) {
   const token = authHeader.split(" ")[1];
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    req.user = decoded; // Store user info in `req.user`
+
+    // Get User and attach tenantId
+    const UserModel = await getTenantModel(req.user.tenantId, "User");
+    const user = await UserModel.findByPk(req.user.id);
+
+    if (!user) return res.status(401).json({ error: "Unauthorized: User not found" });
+
+    req.user.tenantId = user.tenantId; // Attach tenantId for easy access
     next();
   } catch (error) {
     console.warn("🔹 Invalid or expired token.");

@@ -11,7 +11,7 @@
             background-color: #f4f7f6;
         }
         .container {
-            max-width: 500px;
+            max-width: 1000px;
             margin-top: 50px;
             background: #fff;
             padding: 20px;
@@ -45,7 +45,7 @@
                                             <div class="card-body">
                                                
                                                 <form role="form" id="registrationForm" method="POST" action="/auth/signup" autocomplete="off">
-                                                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                                                   
                                                 
                                                     <div class="input-group input-group-outline mb-3">
                                                         <input type="text" class="form-control" id="username" name="username" placeholder="Enter your username" required>

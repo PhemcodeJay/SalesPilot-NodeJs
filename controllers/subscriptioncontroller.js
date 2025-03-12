@@ -1,34 +1,25 @@
-const mysql = require('mysql2/promise');
 const { DateTime } = require('luxon');
-const { Subscription } = require('../models'); // Sequelize model for Subscription
-const pool = require('../config/db'); // MySQL Pool for raw queries
-
-// Create a database pool (raw queries)
-const db = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '1234',
-  database: 'salespilot',
-});
+const { Op } = require('sequelize');
+const { Subscription, Plan } = require('../models');
 
 /**
  * Check and deactivate expired subscriptions dynamically
  */
 const checkAndDeactivateSubscriptions = async () => {
   try {
-    const [subscriptions] = await db.execute(
-      'SELECT id, user_id, end_date FROM subscriptions WHERE status = "active"'
-    );
+    const now = DateTime.now().toISODate();
 
-    const now = DateTime.now();
-    for (const subscription of subscriptions) {
-      if (DateTime.fromISO(subscription.end_date) < now) {
-        await db.execute(
-          'UPDATE subscriptions SET status = "inactive" WHERE id = ?',
-          [subscription.id]
-        );
-        console.log(`Deactivated Subscription ID ${subscription.id} for User ID ${subscription.user_id}`);
+    const expiredSubscriptions = await Subscription.findAll({
+      where: {
+        status: 'active',
+        end_date: { [Op.lt]: now }  // Less than today's date
       }
+    });
+
+    for (const subscription of expiredSubscriptions) {
+      subscription.status = 'inactive';
+      await subscription.save();
+      console.log(`Deactivated Subscription ID ${subscription.id} for User ID ${subscription.user_id}`);
     }
   } catch (error) {
     console.error('Error checking subscriptions:', error);
@@ -37,21 +28,26 @@ const checkAndDeactivateSubscriptions = async () => {
 };
 
 /**
- * Create a subscription dynamically (supports Sequelize)
+ * Create a new subscription
  */
-const createSubscription = async (userId, planId, paymentDetails) => {
+const createSubscription = async (userId, tenantId, planId, paymentDetails) => {
   try {
-    if (!Subscription) {
-      throw new Error('Subscription model is not available');
-    }
+    const plan = await Plan.findByPk(planId);
+    if (!plan) throw new Error('Invalid subscription plan.');
+
+    const startDate = DateTime.now();
+    const endDate = startDate.plus({ days: plan.duration }).toISODate();
+
     const subscription = await Subscription.create({
       user_id: userId,
+      tenant_id: tenantId,
       plan_id: planId,
       payment_details: paymentDetails,
       status: 'active',
-      start_date: new Date(),
-      end_date: null, // Set end date based on plan duration
+      start_date: startDate.toISODate(),
+      end_date: endDate,
     });
+
     return subscription;
   } catch (error) {
     console.error('Error creating subscription:', error);
@@ -60,16 +56,18 @@ const createSubscription = async (userId, planId, paymentDetails) => {
 };
 
 /**
- * Get active subscriptions dynamically (Sequelize)
+ * Get active subscriptions for a user within a tenant
  */
-const getActiveSubscription = async (userId) => {
+const getActiveSubscriptions = async (userId, tenantId) => {
   try {
-    if (!Subscription) {
-      throw new Error('Subscription model is not available');
-    }
     return await Subscription.findAll({
-      where: { user_id: userId, status: 'active' },
+      where: {
+        user_id: userId,
+        tenant_id: tenantId,
+        status: 'active',
+      },
       order: [['start_date', 'DESC']],
+      include: [{ model: Plan, attributes: ['name', 'price', 'duration'] }],
     });
   } catch (error) {
     console.error('Error fetching active subscriptions:', error);
@@ -78,18 +76,24 @@ const getActiveSubscription = async (userId) => {
 };
 
 /**
- * Cancel a subscription dynamically (Sequelize)
+ * Cancel a subscription by ID
  */
-const cancelSubscription = async (subscriptionId) => {
+const cancelSubscription = async (subscriptionId, userId, tenantId) => {
   try {
-    if (!Subscription) {
-      throw new Error('Subscription model is not available');
-    }
-    const subscription = await Subscription.findByPk(subscriptionId);
-    if (!subscription) throw new Error('Subscription not found');
+    const subscription = await Subscription.findOne({
+      where: {
+        id: subscriptionId,
+        user_id: userId,
+        tenant_id: tenantId,
+        status: 'active',
+      },
+    });
+
+    if (!subscription) throw new Error('Subscription not found or already cancelled.');
 
     subscription.status = 'cancelled';
     await subscription.save();
+
     return subscription;
   } catch (error) {
     console.error('Error cancelling subscription:', error);
@@ -98,124 +102,119 @@ const cancelSubscription = async (subscriptionId) => {
 };
 
 /**
- * Create a free trial using raw MySQL query
+ * Create a free trial for a user
  */
-const createFreeTrial = async (userId) => {
+const createFreeTrial = async (userId, tenantId) => {
   try {
-    if (!userId) throw new Error('User ID is required for a trial.');
+    const trialPlan = await Plan.findOne({ where: { name: 'trial' } });
+    if (!trialPlan) throw new Error('Trial plan not found');
 
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setMonth(startDate.getMonth() + 3); // 3 months free trial
-
-    const query = `
-      SELECT s.*, p.name AS plan_name, p.price, p.duration 
-      FROM subscriptions s
-      JOIN plans p ON s.subscription_plan = p.name
-      WHERE s.user_id = ? AND s.status = "Active"
-    `;
-
-    const [rows] = await db.execute(query, [userId]);
-    return rows.length > 0 ? rows[0] : null;
+    return await createSubscription(userId, tenantId, trialPlan.id, 'Free Trial');
   } catch (error) {
-    console.error(`Error fetching subscription for user ${userId}: ${error.message}`);
+    console.error(`Error creating free trial for user ${userId}:`, error);
     throw error;
   }
 };
 
 /**
- * Create a subscription (assign default trial if no plan is provided)
+ * Create a subscription with a default plan
  */
-const createSubscriptionWithDefault = async (userId, planName = "trial") => {
+const createSubscriptionWithDefault = async (userId, tenantId, planName = 'trial') => {
   try {
-    if (!userId) throw new Error("User ID is required.");
-
-    // Check if the plan exists
-    const [planRows] = await db.execute("SELECT * FROM plans WHERE name = ?", [planName]);
-    if (planRows.length === 0) throw new Error("Invalid subscription plan.");
-
-    const plan = planRows[0];
+    const plan = await Plan.findOne({ where: { name: planName } });
+    if (!plan) throw new Error('Invalid subscription plan.');
 
     // Prevent multiple active subscriptions
-    const activeSub = await getActiveSubscription(userId);
-    if (activeSub.length > 0) throw new Error("User already has an active subscription.");
+    const activeSub = await Subscription.findOne({
+      where: {
+        user_id: userId,
+        tenant_id: tenantId,
+        status: 'active',
+      },
+    });
 
-    // Insert new subscription
-    const query = `
-      INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, status)
-      VALUES (?, ?, NOW(), DATE_ADD(NOW(), INTERVAL ? DAY), "Active")
-    `;
-    const [result] = await db.execute(query, [userId, plan.name, plan.duration]);
+    if (activeSub) throw new Error('User already has an active subscription.');
 
-    return result.affectedRows > 0;
+    return await createSubscription(userId, tenantId, plan.id, 'Default Plan Subscription');
   } catch (error) {
-    console.error(`Error creating subscription for user ${userId}: ${error.message}`);
+    console.error(`Error creating subscription for user ${userId}:`, error);
     throw error;
   }
 };
 
 /**
- * Upgrade subscription plan
+ * Upgrade a user's subscription plan
  */
-const upgradeSubscription = async (userId, newPlan) => {
+const upgradeSubscription = async (userId, tenantId, newPlanName) => {
   try {
-    if (!userId || !newPlan) throw new Error("User ID and new plan are required.");
+    const newPlan = await Plan.findOne({ where: { name: newPlanName } });
+    if (!newPlan) throw new Error('Invalid subscription plan.');
 
-    // Check if the plan exists
-    const [planRows] = await db.execute("SELECT * FROM plans WHERE name = ?", [newPlan]);
-    if (planRows.length === 0) throw new Error("Invalid subscription plan.");
+    const subscription = await Subscription.findOne({
+      where: {
+        user_id: userId,
+        tenant_id: tenantId,
+        status: 'active',
+      },
+    });
 
-    const plan = planRows[0];
+    if (!subscription) throw new Error('No active subscription found.');
 
-    const query = `
-      UPDATE subscriptions 
-      SET subscription_plan = ?, end_date = DATE_ADD(NOW(), INTERVAL ? DAY), status = "Active"
-      WHERE user_id = ? AND status = "Active"
-    `;
-    const [result] = await db.execute(query, [plan.name, plan.duration, userId]);
+    subscription.plan_id = newPlan.id;
+    subscription.end_date = DateTime.now().plus({ days: newPlan.duration }).toISODate();
+    await subscription.save();
 
-    return result.affectedRows > 0;
+    return subscription;
   } catch (error) {
-    console.error(`Error upgrading subscription for user ${userId}: ${error.message}`);
+    console.error(`Error upgrading subscription for user ${userId}:`, error);
     throw error;
   }
 };
 
 /**
- * Cancel subscription by user ID
+ * Cancel a subscription by user ID
  */
-const cancelSubscriptionByUserId = async (userId) => {
+const cancelSubscriptionByUserId = async (userId, tenantId) => {
   try {
-    if (!userId) throw new Error("User ID is required.");
+    const subscription = await Subscription.findOne({
+      where: {
+        user_id: userId,
+        tenant_id: tenantId,
+        status: 'active',
+      },
+    });
 
-    const query = 'UPDATE subscriptions SET status = "Cancelled" WHERE user_id = ? AND status = "Active"';
-    const [result] = await db.execute(query, [userId]);
+    if (!subscription) throw new Error('No active subscription found.');
 
-    return result.affectedRows > 0;
+    subscription.status = 'cancelled';
+    await subscription.save();
+
+    return subscription;
   } catch (error) {
-    console.error(`Error cancelling subscription for user ${userId}: ${error.message}`);
+    console.error(`Error cancelling subscription for user ${userId}:`, error);
     throw error;
   }
 };
 
 /**
- * Get subscription status including plan details
+ * Get a user's subscription status with plan details
  */
-const getSubscriptionStatus = async (userId) => {
+const getSubscriptionStatus = async (userId, tenantId) => {
   try {
-    if (!userId) throw new Error("User ID is required.");
+    const subscription = await Subscription.findOne({
+      where: {
+        user_id: userId,
+        tenant_id: tenantId,
+        status: 'active',
+      },
+      include: [{ model: Plan, attributes: ['name', 'price', 'duration'] }],
+    });
 
-    const query = `
-      SELECT s.*, p.name AS plan_name, p.price, p.duration 
-      FROM subscriptions s
-      JOIN plans p ON s.subscription_plan = p.name
-      WHERE s.user_id = ? AND s.status = "Active"
-    `;
+    if (!subscription) throw new Error('No active subscription found.');
 
-    const [rows] = await db.execute(query, [userId]);
-    return rows.length > 0 ? rows[0] : null;
+    return subscription;
   } catch (error) {
-    console.error(`Error fetching subscription status for user ${userId}: ${error.message}`);
+    console.error(`Error fetching subscription status for user ${userId}:`, error);
     throw error;
   }
 };
@@ -223,8 +222,11 @@ const getSubscriptionStatus = async (userId) => {
 // Export functions
 module.exports = {
   checkAndDeactivateSubscriptions,
-  createSubscriptionWithDefault, // Renamed function to avoid name conflict
-  getActiveSubscription,
+  createSubscription,
+  getActiveSubscriptions,
+  cancelSubscription,
+  createFreeTrial,
+  createSubscriptionWithDefault,
   upgradeSubscription,
   cancelSubscriptionByUserId,
   getSubscriptionStatus,

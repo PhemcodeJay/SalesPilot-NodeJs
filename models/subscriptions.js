@@ -27,11 +27,11 @@ class Subscription extends Model {
         throw new Error('User already has an active subscription.');
       }
 
-      const existingtrial = await Subscription.findOne({
+      const existingTrial = await Subscription.findOne({
         where: { user_id: userId, tenant_id: tenantId, subscription_plan: 'trial' },
       });
 
-      if (existingtrial) {
+      if (existingTrial) {
         throw new Error('User has already used a free trial.');
       }
 
@@ -42,7 +42,7 @@ class Subscription extends Model {
       return await Subscription.create({
         user_id: userId,
         tenant_id: tenantId,
-        subscription_plan: 'trial',  // Default subscription plan is 'trial'
+        subscription_plan: 'trial', // Default subscription plan is 'trial'
         start_date: startDate,
         end_date: endDate,
         status: 'Active',
@@ -59,6 +59,10 @@ class Subscription extends Model {
    */
   static async getActiveSubscription(userId, tenantId) {
     try {
+      if (!userId || !tenantId) {
+        throw new Error('User ID and Tenant ID are required.');
+      }
+
       return await Subscription.findOne({
         where: { user_id: userId, tenant_id: tenantId, status: 'Active' },
       });
@@ -73,6 +77,10 @@ class Subscription extends Model {
    */
   static async updateSubscription(userId, tenantId, data) {
     try {
+      if (!userId || !tenantId) {
+        throw new Error('User ID and Tenant ID are required.');
+      }
+
       const subscription = await Subscription.findOne({
         where: { user_id: userId, tenant_id: tenantId },
       });
@@ -94,6 +102,10 @@ class Subscription extends Model {
    */
   static async upgradeSubscription(userId, tenantId, newPlan, durationMonths) {
     try {
+      if (!userId || !tenantId) {
+        throw new Error('User ID and Tenant ID are required.');
+      }
+
       const subscription = await Subscription.findOne({
         where: { user_id: userId, tenant_id: tenantId, status: 'Active' },
       });
@@ -123,6 +135,10 @@ class Subscription extends Model {
    */
   static async renewSubscription(userId, tenantId, durationMonths) {
     try {
+      if (!userId || !tenantId) {
+        throw new Error('User ID and Tenant ID are required.');
+      }
+
       const subscription = await Subscription.findOne({
         where: {
           user_id: userId,
@@ -157,6 +173,10 @@ class Subscription extends Model {
    */
   static async cancelSubscription(userId, tenantId) {
     try {
+      if (!userId || !tenantId) {
+        throw new Error('User ID and Tenant ID are required.');
+      }
+
       const subscription = await Subscription.findOne({
         where: { user_id: userId, tenant_id: tenantId, status: 'Active' },
       });
@@ -186,19 +206,27 @@ Subscription.init(
     user_id: {
       type: DataTypes.UUID,
       allowNull: false,
+      validate: {
+        notNull: { msg: 'User ID is required' },
+        isUUID: 4,
+      },
       references: { model: 'users', key: 'id' },
       onDelete: 'CASCADE',
     },
     tenant_id: {
       type: DataTypes.UUID,
       allowNull: false,
+      validate: {
+        notNull: { msg: 'Tenant ID is required' },
+        isUUID: 4,
+      },
       references: { model: 'tenants', key: 'id' },
       onDelete: 'CASCADE',
     },
     subscription_plan: {
       type: DataTypes.ENUM('trial', 'starter', 'business', 'enterprise'),
       allowNull: false,
-      defaultValue: 'trial',  // Default value for subscription_plan is 'trial'
+      defaultValue: 'trial', // Default value for subscription_plan is 'trial'
     },
     start_date: {
       type: DataTypes.DATE,
@@ -227,5 +255,4 @@ Subscription.init(
 );
 
 // ✅ Export the Subscription model
-
 module.exports = Subscription;

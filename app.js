@@ -1,4 +1,4 @@
-require("dotenv").config();  // Load environment variables from .env file
+require("dotenv").config();
 const express = require("express");
 const path = require("path");
 const session = require("express-session");
@@ -9,7 +9,6 @@ const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const { authenticateUser } = require("./middleware/auth");
 const tenancyMiddleware = require("./middleware/tenancyMiddleware");
-const asyncHandler = require("./middleware/asyncHandler");
 const { checkAndDeactivateSubscriptions } = require("./controllers/subscriptioncontroller");
 const { getTenantDatabase } = require("./config/db");
 const tenantService = require("./services/tenantservices");
@@ -53,10 +52,6 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
 
-// ✅ Apply Authentication Middleware (Excluding Public Routes)
-app.use(authenticateUser);
-app.use(tenancyMiddleware);
-
 // ✅ View Engine Setup
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
@@ -66,17 +61,35 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use("/assets", express.static(path.join(__dirname, "public/assets")));
 app.use("/home_assets", express.static(path.join(__dirname, "public/home_assets")));
 
-// ✅ Define Public Routes (No Authentication Needed)
+// ✅ Public Routes (No Authentication Required)
 app.get("/", (req, res) => {
+  console.log("✅ Public route accessed: /");
   res.render("home/index", { title: "Home" });
 });
-
-// ✅ Protected Test Route
-app.use("/protected-route", authenticateUser, (req, res) => {
-  res.json({ message: "Access granted", user: req.user });
+app.get("/home", (req, res) => {
+  console.log("✅ Public route accessed: /home, skipping auth check.");
+  res.render("home/index", { title: "Home" });
+});
+app.get("/login", (req, res) => {
+  console.log("✅ Public route accessed: /login");
+  res.render("auth/login", { title: "Login" });
+});
+app.get("/signup", (req, res) => {
+  console.log("✅ Public route accessed: /signup");
+  res.render("auth/signup", { title: "Signup" });
 });
 
-// ✅ Import & Apply Routes Dynamically
+// ✅ Apply Authentication Middleware **Only to Protected Routes**
+app.use("/dashboard", authenticateUser);
+app.use("/invoice", authenticateUser);
+app.use("/sales", authenticateUser);
+app.use("/product", authenticateUser);
+app.use("/customer", authenticateUser);
+app.use("/inventory", authenticateUser);
+app.use("/subscription", authenticateUser);
+app.use(tenancyMiddleware);
+
+// ✅ Import & Apply Routes
 const routes = {
   auth: require("./routes/authRoute"),
   dashboard: require("./routes/dashboardRoute"),
@@ -88,7 +101,6 @@ const routes = {
   subscription: require("./routes/subscriptionRoute"),
 };
 
-// Dynamically applying routes
 Object.entries(routes).forEach(([name, route]) => {
   if (route) {
     app.use(`/${name}`, route);
@@ -97,60 +109,12 @@ Object.entries(routes).forEach(([name, route]) => {
   }
 });
 
-// ✅ Authorization Middleware (Check Authorization Headers)
-app.use((req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader) {
-      return res.status(401).json({ error: "🔹 No authorization headers" });
-  }
-  const token = authHeader.split(' ')[1]; // Extract token after "Bearer"
-  req.token = token;
-  next();
-});
-
-// ✅ 404 Error Handling (Catch-all route handler for undefined routes)
+// ✅ 404 Error Handling
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 
-// ✅ Sync Tenant Databases
-async function syncDatabases() {
-  try {
-    const tenants = await tenantService.getAllTenants();
-    if (!tenants.length) return console.log("⚠️ No tenants found. Skipping sync.");
-
-    console.log(`🔄 Syncing ${tenants.length} tenant databases...`);
-    await Promise.all(
-      tenants.map(async (tenant) => {
-        try {
-          const { sequelize } = await getTenantDatabase(tenant.id);
-          await sequelize.sync({ alter: true });
-          console.log(`✅ Synced: ${tenant.dbName}`);
-        } catch (error) {
-          console.error(`❌ Sync failed for ${tenant.dbName}:`, error.message);
-        }
-      })
-    );
-  } catch (error) {
-    console.error("❌ Critical database sync error:", error.message);
-  }
-}
-
-// ✅ Initial Subscription Check
-(async function () {
-  try {
-    console.log("🔄 Checking subscriptions...");
-    await checkAndDeactivateSubscriptions();
-    console.log("✅ Subscription check complete.");
-  } catch (error) {
-    console.error("❌ Subscription check error:", error.message);
-  }
-})();
-
 // ✅ Start Server
-(async function startServer() {
-  await syncDatabases();
-  app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
-})();
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
 
 module.exports = app;

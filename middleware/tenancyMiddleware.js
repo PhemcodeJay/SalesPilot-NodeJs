@@ -4,8 +4,7 @@ const { publicRoutes } = require("../config/constants");
 /**
  * Tenancy Middleware
  * - Skips tenancy check for public routes
- * - Ensures user authentication before checking tenant
- * - Initializes tenant-specific database connection
+ * - Initializes tenant-specific database connection without enforcing authentication
  */
 module.exports = async (req, res, next) => {
   try {
@@ -15,13 +14,14 @@ module.exports = async (req, res, next) => {
       return next();
     }
 
-    // 🔒 Ensure authentication for protected routes
-    if (!req.user || !req.user.id || !req.user.tenantId) {
-      console.warn(`🔴 [WARNING] Unauthorized access attempt to ${req.path}.`);
-      return res.status(401).json({ message: "Unauthorized. Authentication required." });
+    // 🔹 Check if user is authenticated but **DO NOT** enforce authentication
+    const tenantId = req.user?.tenantId;
+
+    if (!tenantId) {
+      console.warn(`⚠️ [WARNING] No tenant ID found for request to ${req.path}. Proceeding without tenant DB.`);
+      return next(); // Allow request to proceed even if no tenant ID is found
     }
 
-    const tenantId = req.user.tenantId;
     console.log(`🔄 [INFO] Initializing tenant database for Tenant ID: ${tenantId}`);
 
     // 🔹 Fetch the tenant-specific database instance

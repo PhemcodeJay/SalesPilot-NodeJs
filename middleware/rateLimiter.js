@@ -5,7 +5,7 @@ const rateLimit = (req, res, next) => {
   const ip = req.ip;  // Get user IP address
   const currentTime = Date.now();
   const timeWindow = 15 * 60 * 1000;  // 15 minutes
-  const maxRequests = 100;  // Allow 100 requests per IP within the time window
+  const maxRequests = 1000;  // Allow 100 requests per IP within the time window
 
   if (!req.app.locals.requests) req.app.locals.requests = {};
 
