@@ -9,7 +9,7 @@ const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const { verifyToken } = require('./config/auth');
 const paypalClient = require('./config/paypalconfig');
-const authMiddleware = require('./middleware/auth');
+const { authenticateUser } = require('./middleware/auth');
 const tenancyMiddleware = require('./middleware/tenancyMiddleware');
 const asyncHandler = require('./middleware/asyncHandler');
 const { checkAndDeactivateSubscriptions } = require('./controllers/subscriptioncontroller');
@@ -18,7 +18,6 @@ const tenantService = require('./services/tenantservices');
 const { OrdersCreateRequest } = require('@paypal/checkout-server-sdk');
 const { v4: uuidv4 } = require('uuid');
 const rateLimiter = require('./middleware/rateLimiter');
-const { authenticateUser } = require("./middleware/auth");
 
 // ✅ Initialize Express App
 const app = express();
@@ -35,7 +34,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// ✅ Rate Limiting (before session handling)
+// ✅ Rate Limiting
 app.use(rateLimiter);
 
 // ✅ Session Middleware
@@ -58,26 +57,9 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
 
-// ✅ Apply Authentication Middleware (before tenancy)
-if (authMiddleware && typeof authMiddleware.authenticateUser === 'function') {
-  app.use(authMiddleware.authenticateUser); // ✅ Apply only the authentication middleware
-} else {
-  console.error('Error: authMiddleware.authenticateUser is not a function');
-}
-
+// ✅ Apply Authentication Middleware (Excluding Public Routes)
+app.use(authenticateUser);
 app.use(tenancyMiddleware);
-
-
-app.use("/protected-route", authenticateUser, (req, res) => {
-  res.json({ message: "Access granted", user: req.user });
-});
-app.get("/", (req, res) => {
-  res.render("index"); // Allow access without authentication
-});
-app.use(cors({
-  origin: "*", // Allow all domains (adjust for production)
-  allowedHeaders: ["Authorization", "Content-Type"], // ✅ Ensure Authorization is allowed
-}));
 
 // ✅ View Engine Setup
 app.set('view engine', 'ejs');
@@ -87,6 +69,16 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
 app.use('/home_assets', express.static(path.join(__dirname, 'public', 'home_assets')));
+
+// ✅ Define Public Routes (No Authentication Needed)
+app.get("/", (req, res) => {
+  res.render("home/index", { title: "Home" });
+});
+
+// ✅ Protected Test Route
+app.use("/protected-route", authenticateUser, (req, res) => {
+  res.json({ message: "Access granted", user: req.user });
+});
 
 // ✅ Import & Apply Routes
 const routes = {
@@ -100,50 +92,6 @@ const routes = {
   subscription: require('./routes/subscriptionRoute'),
 };
 
-// ✅ Home Route
-app.get('/', (req, res) => {
-  res.render('views/home/index', { title: 'Home' });
-});
-
-// ✅ PayPal Payment Route
-app.post(
-  '/create-payment',
-  verifyToken,
-  asyncHandler(async (req, res) => {
-    try {
-      const order = {
-        intent: 'CAPTURE',
-        purchase_units: [
-          {
-            amount: {
-              currency_code: 'USD',
-              value: req.body.amount,
-            },
-          },
-        ],
-        application_context: {
-          return_url: `${process.env.BASE_URL}/payment-success`,
-          cancel_url: `${process.env.BASE_URL}/payment-cancel`,
-        },
-      };
-
-      const request = new OrdersCreateRequest();
-      request.requestBody(order);
-      const orderResponse = await paypalClient.execute(request);
-
-      if (!orderResponse?.result?.id) {
-        throw new Error('PayPal response did not include an order ID');
-      }
-
-      res.json({ orderId: orderResponse.result.id });
-    } catch (error) {
-      console.error('❌ PayPal Error:', error);
-      res.status(500).json({ error: 'Payment processing failed' });
-    }
-  })
-);
-
-// ✅ Apply Routes
 Object.entries(routes).forEach(([name, route]) => {
   try {
     if (route) {

@@ -1,9 +1,11 @@
 const { Sequelize, DataTypes } = require('sequelize');
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const { body, validationResult } = require('express-validator');
 
 const tenantConnections = {}; // Store database connections per tenant
+const MAX_DB_CONNECTIONS = 100; // Set a reasonable limit
 
 // 🔹 Get database connection for a specific tenant
 function getTenantDatabase(tenantId) {
@@ -16,14 +18,26 @@ function getTenantDatabase(tenantId) {
         host: process.env.DB_HOST,
         dialect: 'mysql',
         logging: false,
+        pool: {
+          max: 5, // Limit concurrent connections per tenant
+          min: 0,
+          acquire: 30000,
+          idle: 10000,
+        },
       }
     );
   }
+
+  // Cleanup mechanism (if needed)
+  if (Object.keys(tenantConnections).length > MAX_DB_CONNECTIONS) {
+    console.warn('⚠️ Too many database connections! Consider closing inactive ones.');
+  }
+
   return tenantConnections[tenantId];
 }
 
 // 🔹 Get or define a model for the tenant
-function getTenantModel(tenantId, modelName) {
+async function getTenantModel(tenantId, modelName) {
   const db = getTenantDatabase(tenantId);
 
   if (!db.models[modelName]) {
@@ -39,11 +53,21 @@ function getTenantModel(tenantId, modelName) {
         },
         tenantId: { type: DataTypes.INTEGER, allowNull: false },
       });
+
+      await db.sync(); // Ensure the table exists
     }
   }
+
   return db.models[modelName];
 }
 
+// 🔹 Hash password before saving
+async function hashPassword(password) {
+  const saltRounds = 10;
+  return await bcrypt.hash(password, saltRounds);
+}
+
+// 🔹 Generate JWT Token
 const generateToken = (user) => {
   return jwt.sign(
     { id: user.id, username: user.username, role: user.role },
@@ -56,29 +80,35 @@ const generateToken = (user) => {
 function authenticateUser(req, res, next) {
   try {
     const authHeader = req.headers["authorization"];
-
-    // ✅ Define public routes that don't require authentication
-    const publicRoutes = ["/", "/login", "/sign-up", "/home"];
+    const publicRoutes = ["/", "/login", "/sign-up"];
 
     if (publicRoutes.includes(req.path)) {
-      return next(); // ✅ Allow access without authentication
+      console.log(`🟢 Public route accessed: ${req.path}`);
+      return next(); 
     }
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.warn("🔹 No authorization header found. Redirecting to login.");
-      return res.redirect("/login"); // ✅ Redirect to login if no token
+      console.warn("🔹 No authorization header found.");
+      
+      // 🔹 Check if request expects JSON (for API calls)
+      if (req.accepts('json')) {
+        return res.status(401).json({ message: "Unauthorized: Token required" });
+      }
+      
+      // 🔹 Otherwise, redirect (for web users)
+      return res.redirect("/login");
     }
 
-    const token = authHeader.split(" ")[1]; // Extract token
+    const token = authHeader.split(" ")[1];
 
     jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
       if (err) {
         console.warn("🔹 Invalid or expired token.");
-        return res.redirect("/login"); // ✅ Redirect if token is invalid
+        return res.status(403).json({ message: "Forbidden: Invalid token" });
       }
 
-      req.user = decoded; // Attach decoded user to request
-      next(); // ✅ Proceed to next middleware
+      req.user = decoded;
+      next();
     });
 
   } catch (error) {
@@ -90,7 +120,7 @@ function authenticateUser(req, res, next) {
 // 🔹 Role-Based Access Middleware
 function authorizeRoles(...allowedRoles) {
   return (req, res, next) => {
-    if (!req.user || !allowedRoles.includes(req.user.role)) {
+    if (!req.user || !allowedRoles.map(role => role.toLowerCase()).includes(req.user.role.toLowerCase())) {
       return res.status(403).json({ message: "Forbidden: Access denied" });
     }
     next();
@@ -103,11 +133,14 @@ const validateSignup = [
   body('email').isEmail().withMessage('Valid email is required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
   body('role').isIn(['admin', 'sales', 'inventory']).withMessage('Invalid role'),
-  (req, res, next) => {
+  async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
+
+    // Hash password before passing to controller
+    req.body.password = await hashPassword(req.body.password);
     next();
   },
 ];
@@ -129,11 +162,14 @@ const validateLogin = [
 const validateResetPassword = [
   body('email').isEmail().withMessage('Valid email is required'),
   body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters long'),
-  (req, res, next) => {
+  async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
+
+    // Hash the new password before proceeding
+    req.body.newPassword = await hashPassword(req.body.newPassword);
     next();
   },
 ];

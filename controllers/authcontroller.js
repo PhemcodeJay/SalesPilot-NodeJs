@@ -9,8 +9,10 @@ const Subscription = require('../models/subscriptions');
 const sendEmail = require('../utils/emailUtils');
 
 /** ======= TOKEN GENERATION FUNCTION ======= **/
-const generateToken = (user) => {
-  return jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+const generateToken = (userId) => {
+  return jwt.sign({ userId }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRY || '7d', // Default: 7 days
+  });
 };
 
 /** ======= MIDDLEWARE FOR AUTHORIZATION ======= **/
@@ -18,7 +20,7 @@ const verifyToken = (req, res, next) => {
   const token = req.header('Authorization')?.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ message: 'Access denied. No token provided.' });
+    return res.status(401).json({ success: false, message: 'Access denied. No token provided.' });
   }
 
   try {
@@ -26,7 +28,7 @@ const verifyToken = (req, res, next) => {
     req.user = decoded;
     next();
   } catch (error) {
-    res.status(403).json({ message: 'Invalid or expired token' });
+    res.status(403).json({ success: false, message: 'Invalid or expired token' });
   }
 };
 
@@ -35,10 +37,10 @@ const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
-    let existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: 'User already exists' });
+    const existingUser = await User.findOne({ email });
+    if (existingUser) return res.status(400).json({ success: false, message: 'User already exists' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const activationToken = crypto.randomBytes(20).toString('hex');
@@ -46,28 +48,17 @@ const signup = async (req, res) => {
 
     let defaultSubscription = await Subscription.findOne({ subscription_plan: 'trial' });
     if (!defaultSubscription) {
-      defaultSubscription = await Subscription.create({
+      defaultSubscription = new Subscription({
         subscription_plan: 'trial',
         status: 'active',
         start_date: new Date(),
         end_date: new Date(new Date().setMonth(new Date().getMonth() + 1)),
-        user_id: null,
-        tenant_id: null,
       });
+      await defaultSubscription.save();
     }
 
-    const user = new User({
-      name,
-      email,
-      password: hashedPassword,
-      subscriptionId: defaultSubscription._id,
-      tenantId: tenantId,
-    });
+    const user = new User({ name, email, password: hashedPassword, subscriptionId: defaultSubscription._id, tenantId });
     await user.save();
-
-    defaultSubscription.user_id = user._id;
-    defaultSubscription.tenant_id = tenantId;
-    await defaultSubscription.save();
 
     await Subscription.createFreeTrial(user._id, tenantId);
 
@@ -77,9 +68,9 @@ const signup = async (req, res) => {
     const activationUrl = `${process.env.CLIENT_URL}/activate/${activationToken}`;
     await sendEmail(email, 'Account Activation', `Click here to activate: ${activationUrl}`);
 
-    res.status(201).json({ message: 'User registered, check email for activation link' });
+    res.status(201).json({ success: true, message: 'User registered. Check email for activation link' });
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error: error.message });
+    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
 
@@ -87,17 +78,17 @@ const signup = async (req, res) => {
 const activateAccount = async (req, res) => {
   try {
     const { token } = req.params;
-    let auth = await Auth.findOne({ activationToken: token });
+    const auth = await Auth.findOne({ activationToken: token });
 
-    if (!auth) return res.status(400).json({ message: 'Invalid activation token' });
+    if (!auth) return res.status(400).json({ success: false, message: 'Invalid activation token' });
 
     auth.isActive = true;
     auth.activationToken = null;
     await auth.save();
 
-    res.status(200).json({ message: 'Account activated successfully' });
+    res.status(200).json({ success: true, message: 'Account activated successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error: error.message });
+    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
 
@@ -106,24 +97,24 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!user) return res.status(400).json({ success: false, message: 'Invalid credentials' });
 
     const auth = await Auth.findOne({ userId: user._id });
     if (!auth || !auth.isActive) {
-      return res.status(403).json({ message: 'Account is not activated. Check your email.' });
+      return res.status(403).json({ success: false, message: 'Account not activated. Check your email.' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!isMatch) return res.status(400).json({ success: false, message: 'Invalid credentials' });
 
-    const token = generateToken(user);
+    const token = generateToken(user._id);
 
-    res.json({ token, message: 'Login successful' });
+    res.json({ success: true, token, message: 'Login successful' });
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error: error.message });
+    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
 
@@ -131,20 +122,20 @@ const login = async (req, res) => {
 const requestPasswordReset = async (req, res) => {
   try {
     const { email } = req.body;
-    let user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: 'User not found' });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ success: false, message: 'User not found' });
 
     const resetToken = crypto.randomBytes(20).toString('hex');
     user.resetToken = resetToken;
-    user.resetTokenExpires = Date.now() + 3600000;
+    user.resetTokenExpires = Date.now() + 3600000; // 1 hour expiry
     await user.save();
 
     const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
     await sendEmail(email, 'Password Reset Request', `Click here to reset password: ${resetUrl}`);
 
-    res.json({ message: 'Password reset email sent' });
+    res.json({ success: true, message: 'Password reset email sent' });
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error: error.message });
+    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
 
@@ -152,75 +143,63 @@ const requestPasswordReset = async (req, res) => {
 const resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
-    let user = await User.findOne({ resetToken: token, resetTokenExpires: { $gt: Date.now() } });
+    const user = await User.findOne({ resetToken: token, resetTokenExpires: { $gt: Date.now() } });
 
-    if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
+    if (!user) return res.status(400).json({ success: false, message: 'Invalid or expired token' });
 
     user.password = await bcrypt.hash(newPassword, 10);
     user.resetToken = null;
     user.resetTokenExpires = null;
     await user.save();
 
-    res.json({ message: 'Password reset successful' });
+    res.json({ success: true, message: 'Password reset successful' });
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error: error.message });
+    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
 
-/** ======= UPDATE PROFILE (AUTH REQUIRED) ======= **/
+/** ======= UPDATE PROFILE ======= **/
 const updateProfile = async (req, res) => {
   try {
     const { userId } = req.user;
     const { name, email } = req.body;
 
-    let user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     user.name = name || user.name;
     user.email = email || user.email;
-
     await user.save();
-    res.json({ message: 'Profile updated successfully', user });
+
+    res.json({ success: true, message: 'Profile updated successfully', user });
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error: error.message });
+    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
 
-/** ======= DELETE ACCOUNT (AUTH REQUIRED) ======= **/
+/** ======= DELETE ACCOUNT ======= **/
 const deleteAccount = async (req, res) => {
   try {
     const { userId } = req.user;
     await User.findByIdAndDelete(userId);
     await Auth.findOneAndDelete({ userId });
 
-    res.json({ message: 'Account deleted successfully' });
+    res.json({ success: true, message: 'Account deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error: error.message });
+    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
 
-/** ======= GET USER DETAILS (AUTH REQUIRED) ======= **/
+/** ======= GET USER DETAILS ======= **/
 const getUserDetails = async (req, res) => {
   try {
-    const { userId } = req.user;
-    const user = await User.findById(userId).select('-password');
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    const user = await User.findById(req.user.userId).select('-password');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    res.json({ user });
+    res.json({ success: true, user });
   } catch (error) {
-    res.status(500).json({ message: 'Server Error', error: error.message });
+    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
 
-/** ======= EXPORT CONTROLLERS ======= **/
-module.exports = {
-  signup,
-  activateAccount,
-  login,
-  requestPasswordReset,
-  resetPassword,
-  updateProfile,
-  deleteAccount,
-  getUserDetails,
-  verifyToken,
-};
+module.exports = { signup, activateAccount, login, requestPasswordReset, resetPassword, updateProfile, deleteAccount, getUserDetails, verifyToken };
