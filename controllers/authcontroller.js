@@ -17,9 +17,11 @@ const signup = async (req, res) => {
       return res.status(400).json({ errors: errors.array() });
     }
 
+    // Check if the user already exists
     let existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
+    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
     const activationToken = crypto.randomBytes(20).toString('hex');
 
@@ -34,12 +36,11 @@ const signup = async (req, res) => {
       console.log('Default subscription plan (trial) not found, creating a new one.');
       defaultSubscription = await Subscription.create({
         subscription_plan: 'trial',
-        // Add other subscription properties if needed
         status: 'active',
         start_date: new Date(),
         end_date: new Date(new Date().setMonth(new Date().getMonth() + 1)), // 1 month trial
-        user_id: null, // Initially setting user_id to null to be updated later
-        tenant_id: null, // Initially setting tenant_id to null to be updated later
+        user_id: null, // Initially setting user_id to null
+        tenant_id: null, // Initially setting tenant_id to null
       });
     }
 
@@ -65,6 +66,10 @@ const signup = async (req, res) => {
     defaultSubscription.tenant_id = tenantId; // Set tenant_id in subscription
     await defaultSubscription.save();  // Save the updated subscription
 
+    // Update the user record to associate the user with the subscription (optional if you want to ensure consistency)
+    user.subscriptionId = defaultSubscription._id;
+    await user.save();
+
     // Create a Free Trial subscription for the user using the `createFreeTrial` method
     await Subscription.createFreeTrial(user._id, tenantId); // Create the trial subscription
 
@@ -76,16 +81,17 @@ const signup = async (req, res) => {
     });
     await auth.save();
 
+    // Send activation email
     const activationUrl = `${process.env.CLIENT_URL}/activate/${activationToken}`;
     await sendEmail(email, 'Account Activation', `Click here to activate: ${activationUrl}`);
 
+    // Respond with a success message
     res.status(201).json({ message: 'User registered, check email for activation link' });
   } catch (error) {
     console.error('Error during signup:', error.message);
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
-
 
 /** ======= ACCOUNT ACTIVATION ======= **/
 const activateAccount = async (req, res) => {
