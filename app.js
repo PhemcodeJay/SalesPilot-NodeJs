@@ -9,14 +9,15 @@ const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const { verifyToken } = require('./config/auth');
 const paypalClient = require('./config/paypalconfig');
-const tenancyMiddleware = require('./middleware/tenancyMiddleware'); 
+const authMiddleware = require('./middleware/auth');
+const tenancyMiddleware = require('./middleware/tenancyMiddleware');
 const asyncHandler = require('./middleware/asyncHandler');
 const { checkAndDeactivateSubscriptions } = require('./controllers/subscriptioncontroller');
 const { getTenantDatabase } = require('./config/db');
 const tenantService = require('./services/tenantservices');
 const { OrdersCreateRequest } = require('@paypal/checkout-server-sdk');
-const { v4: uuidv4 } = require('uuid'); // Importing UUID for generating unique tenant IDs
-const rateLimiter = require('./middleware/rateLimiter');  //
+const { v4: uuidv4 } = require('uuid');
+const rateLimiter = require('./middleware/rateLimiter');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -25,22 +26,15 @@ const PORT = process.env.PORT || 5000;
 require('./config/passport')(passport);
 
 // ✅ Middleware Setup
+app.use(cors({ credentials: true, origin: process.env.CLIENT_URL || 'http://localhost:5000' }));
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.use(tenancyMiddleware);
-
-
-// ✅ Enable CORS
-app.use(
-  cors({
-    credentials: true,
-    origin: process.env.CLIENT_URL || 'http://localhost:5000',
-  })
-);
+// ✅ Rate Limiting (before session handling)
+app.use(rateLimiter);
 
 // ✅ Session Middleware
 app.use(
@@ -57,13 +51,19 @@ app.use(
   })
 );
 
+// ✅ Initialize Passport & Flash Messages
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
 
-// ✅ Tenancy and Rate Limiting Middleware
+// ✅ Apply Authentication Middleware (before tenancy)
+if (authMiddleware && typeof authMiddleware.authenticateUser === 'function') {
+  app.use(authMiddleware.authenticateUser); // ✅ Apply only the authentication middleware
+} else {
+  console.error('Error: authMiddleware.authenticateUser is not a function');
+}
+
 app.use(tenancyMiddleware);
-app.use(rateLimiter);
 
 // ✅ View Engine Setup
 app.set('view engine', 'ejs');
@@ -74,7 +74,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/assets', express.static(path.join(__dirname, 'public', 'assets')));
 app.use('/home_assets', express.static(path.join(__dirname, 'public', 'home_assets')));
 
-// ✅ Import Routes
+// ✅ Import & Apply Routes
 const routes = {
   auth: require('./routes/authRoute'),
   dashboard: require('./routes/dashboardRoute'),
@@ -85,18 +85,6 @@ const routes = {
   inventory: require('./routes/inventoryRoute'),
   subscription: require('./routes/subscriptionRoute'),
 };
-
-// ✅ Apply Routes
-const formRoutes = require('./routes/formRoutes');
-app.use('/', formRoutes);
-
-Object.entries(routes).forEach(([name, route]) => {
-  if (route) {
-    app.use(`/${name}`, route);
-  } else {
-    console.error(`❌ Route '${name}' is undefined! Check your route imports.`);
-  }
-});
 
 // ✅ Home Route
 app.get('/', (req, res) => {
@@ -141,6 +129,19 @@ app.post(
   })
 );
 
+// ✅ Apply Routes
+Object.entries(routes).forEach(([name, route]) => {
+  try {
+    if (route) {
+      app.use(`/${name}`, route);
+    } else {
+      console.error(`❌ Route '${name}' is undefined! Check your route imports.`);
+    }
+  } catch (error) {
+    console.error(`❌ Error loading route '${name}':`, error);
+  }
+});
+
 // ✅ 404 Error Handling
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
@@ -156,7 +157,7 @@ async function syncDatabases() {
     await Promise.all(
       tenants.map(async (tenant) => {
         try {
-          const { sequelize } = await getTenantDatabase(tenant.dbName);
+          const { sequelize } = await getTenantDatabase(tenant.id);
           await sequelize.sync({ alter: true });
           console.log(`✅ Synced: ${tenant.dbName}`);
         } catch (error) {
