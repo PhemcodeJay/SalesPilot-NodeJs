@@ -2,93 +2,83 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { validationResult } = require('express-validator');
-const { v4: uuidv4 } = require('uuid');  // Import UUID package
-const User = require('../models/User'); // User Model
-const Auth = require('../models/authModel'); // Auth Model
-const Subscription = require('../models/subscriptions'); // Subscription Model
-const sendEmail = require('../utils/emailUtils'); // Email Utility
+const { v4: uuidv4 } = require('uuid');
+const User = require('../models/User');
+const Auth = require('../models/authModel');
+const Subscription = require('../models/subscriptions');
+const sendEmail = require('../utils/emailUtils');
+
+/** ======= TOKEN GENERATION FUNCTION ======= **/
+const generateToken = (user) => {
+  return jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+};
+
+/** ======= MIDDLEWARE FOR AUTHORIZATION ======= **/
+const verifyToken = (req, res, next) => {
+  const token = req.header('Authorization')?.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ message: 'Access denied. No token provided.' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    res.status(403).json({ message: 'Invalid or expired token' });
+  }
+};
 
 /** ======= SIGNUP WITH ACCOUNT ACTIVATION ======= **/
 const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
     const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    // Check if the user already exists
     let existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: 'User already exists' });
 
-    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
     const activationToken = crypto.randomBytes(20).toString('hex');
+    const tenantId = uuidv4();
 
-    // Create a unique tenant ID
-    const tenantId = uuidv4();  // Generate a unique tenant ID using uuid
-
-    // Check if the 'trial' subscription plan exists in the database
     let defaultSubscription = await Subscription.findOne({ subscription_plan: 'trial' });
-
-    // If no 'trial' subscription is found, create one dynamically
     if (!defaultSubscription) {
-      console.log('Default subscription plan (trial) not found, creating a new one.');
       defaultSubscription = await Subscription.create({
         subscription_plan: 'trial',
         status: 'active',
         start_date: new Date(),
-        end_date: new Date(new Date().setMonth(new Date().getMonth() + 1)), // 1 month trial
-        user_id: null, // Initially setting user_id to null
-        tenant_id: null, // Initially setting tenant_id to null
+        end_date: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+        user_id: null,
+        tenant_id: null,
       });
     }
 
-    // Create a tenant record for this new user
-    const tenant = new Tenant({
-      tenantId: tenantId,
-      subscriptionId: defaultSubscription._id, // Associate with the 'trial' subscription plan
-    });
-    await tenant.save();
-
-    // Create the user record and associate the user with the tenant and subscription
     const user = new User({
       name,
       email,
       password: hashedPassword,
-      subscriptionId: defaultSubscription._id, // Assign the trial subscription ID
-      tenantId: tenantId,  // Assign the generated tenant ID to the user
+      subscriptionId: defaultSubscription._id,
+      tenantId: tenantId,
     });
     await user.save();
 
-    // Update the subscription record with user_id and tenant_id
-    defaultSubscription.user_id = user._id;  // Set user_id in subscription
-    defaultSubscription.tenant_id = tenantId; // Set tenant_id in subscription
-    await defaultSubscription.save();  // Save the updated subscription
+    defaultSubscription.user_id = user._id;
+    defaultSubscription.tenant_id = tenantId;
+    await defaultSubscription.save();
 
-    // Update the user record to associate the user with the subscription (optional if you want to ensure consistency)
-    user.subscriptionId = defaultSubscription._id;
-    await user.save();
+    await Subscription.createFreeTrial(user._id, tenantId);
 
-    // Create a Free Trial subscription for the user using the `createFreeTrial` method
-    await Subscription.createFreeTrial(user._id, tenantId); // Create the trial subscription
-
-    // Create an authentication record for the user with the activation token
-    const auth = new Auth({
-      userId: user._id,
-      activationToken,
-      isActive: false, // Account is not yet activated
-    });
+    const auth = new Auth({ userId: user._id, activationToken, isActive: false });
     await auth.save();
 
-    // Send activation email
     const activationUrl = `${process.env.CLIENT_URL}/activate/${activationToken}`;
     await sendEmail(email, 'Account Activation', `Click here to activate: ${activationUrl}`);
 
-    // Respond with a success message
     res.status(201).json({ message: 'User registered, check email for activation link' });
   } catch (error) {
-    console.error('Error during signup:', error.message);
     res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
@@ -111,14 +101,12 @@ const activateAccount = async (req, res) => {
   }
 };
 
-/** ======= LOGIN WITH ACTIVATION CHECK ======= **/
+/** ======= LOGIN WITH TOKEN AUTHORIZATION ======= **/
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: 'Invalid credentials' });
@@ -131,7 +119,7 @@ const login = async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = generateToken(user);
 
     res.json({ token, message: 'Login successful' });
   } catch (error) {
@@ -148,7 +136,7 @@ const requestPasswordReset = async (req, res) => {
 
     const resetToken = crypto.randomBytes(20).toString('hex');
     user.resetToken = resetToken;
-    user.resetTokenExpires = Date.now() + 3600000; // 1 hour expiry
+    user.resetTokenExpires = Date.now() + 3600000;
     await user.save();
 
     const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
@@ -179,7 +167,7 @@ const resetPassword = async (req, res) => {
   }
 };
 
-/** ======= UPDATE PROFILE ======= **/
+/** ======= UPDATE PROFILE (AUTH REQUIRED) ======= **/
 const updateProfile = async (req, res) => {
   try {
     const { userId } = req.user;
@@ -198,7 +186,7 @@ const updateProfile = async (req, res) => {
   }
 };
 
-/** ======= DELETE ACCOUNT ======= **/
+/** ======= DELETE ACCOUNT (AUTH REQUIRED) ======= **/
 const deleteAccount = async (req, res) => {
   try {
     const { userId } = req.user;
@@ -211,7 +199,7 @@ const deleteAccount = async (req, res) => {
   }
 };
 
-/** ======= GET USER DETAILS ======= **/
+/** ======= GET USER DETAILS (AUTH REQUIRED) ======= **/
 const getUserDetails = async (req, res) => {
   try {
     const { userId } = req.user;
@@ -224,12 +212,6 @@ const getUserDetails = async (req, res) => {
   }
 };
 
-/** ======= LOGOUT ======= **/
-const logout = (req, res) => {
-  res.clearCookie('token');
-  res.json({ message: 'Logged out successfully' });
-};
-
 /** ======= EXPORT CONTROLLERS ======= **/
 module.exports = {
   signup,
@@ -240,5 +222,5 @@ module.exports = {
   updateProfile,
   deleteAccount,
   getUserDetails,
-  logout,
+  verifyToken,
 };

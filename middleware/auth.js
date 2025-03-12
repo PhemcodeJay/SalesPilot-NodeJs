@@ -57,9 +57,16 @@ function authenticateUser(req, res, next) {
   try {
     const authHeader = req.headers["authorization"];
 
+    // ✅ Define public routes that don't require authentication
+    const publicRoutes = ["/", "/login", "/sign-up", "/home"];
+
+    if (publicRoutes.includes(req.path)) {
+      return next(); // ✅ Allow access without authentication
+    }
+
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      console.warn("🔹 No authorization header found. Rejecting request.");
-      return res.status(401).json({ message: "Unauthorized: No token provided" });
+      console.warn("🔹 No authorization header found. Redirecting to login.");
+      return res.redirect("/login"); // ✅ Redirect to login if no token
     }
 
     const token = authHeader.split(" ")[1]; // Extract token
@@ -67,7 +74,7 @@ function authenticateUser(req, res, next) {
     jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
       if (err) {
         console.warn("🔹 Invalid or expired token.");
-        return res.status(403).json({ message: "Forbidden: Invalid or expired token" });
+        return res.redirect("/login"); // ✅ Redirect if token is invalid
       }
 
       req.user = decoded; // Attach decoded user to request
