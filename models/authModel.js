@@ -64,17 +64,12 @@ const ActivationCode = {
 
 // Subscription Service
 const SubscriptionService = {
-  createTrial: async (userId) => {
-    return Subscription.createFreeTrial(userId);
-  },
+  createTrial: async (userId) => Subscription.createFreeTrial(userId),
 
-  createSubscription: async (userId, plan, startDate, endDate) => {
-    return Subscription.createSubscription(userId, plan, startDate, endDate);
-  },
+  createSubscription: async (userId, plan, startDate, endDate) => 
+    Subscription.createSubscription(userId, plan, startDate, endDate),
 
-  getSubscriptionByUser: async (userId) => {
-    return Subscription.getActiveSubscription(userId);
-  },
+  getSubscriptionByUser: async (userId) => Subscription.getActiveSubscription(userId),
 };
 
 // Authentication Logic
@@ -82,19 +77,14 @@ const signup = async ({ username, email, password, confirmpassword }) => {
   if (password !== confirmpassword) throw new Error('Passwords do not match');
   if (!validator.isEmail(email)) throw new Error('Invalid email format');
 
-  const existingUser = await User.findUserByEmail(email);
+  const existingUser = await User.findOne({ where: { email } });
   if (existingUser) throw new Error('User already exists. Please log in.');
 
   const hashedPassword = await bcryptUtils.hash(password, 10);
-  const userData = {
-    username,
-    email,
-    password: hashedPassword,
-    role: 'user',
-  };
+  const userData = { username, email, password: hashedPassword, role: 'user' };
 
-  const result = await User.createUser(userData);
-  const userId = result.insertId;
+  const result = await User.create(userData);
+  const userId = result.id;
 
   const activationCode = generateRandomCode();
   await ActivationCode.create(userId, activationCode);
@@ -106,7 +96,7 @@ const signup = async ({ username, email, password, confirmpassword }) => {
   await SubscriptionService.createTrial(userId);
 
   // Activate the user after signup
-  await User.activateUser(userId); // Assuming you have an `activateUser` function in the User model
+  await User.update({ is_active: true }, { where: { id: userId } });
 
   return { id: userId, username, email };
 };
@@ -114,17 +104,16 @@ const signup = async ({ username, email, password, confirmpassword }) => {
 const login = async (email, password, tenant) => {
   if (!validator.isEmail(email)) throw new Error('Invalid email format');
 
-  // Fetch tenant-specific database connection
   const tenantDb = await tenancy.getTenantDatabase(tenant);
+  const user = await User.findOne({ where: { email }, transaction: tenantDb });
 
-  const user = await User.getByEmail(email, tenantDb);
   if (!user) throw new Error('Invalid email or password');
   if (!user.is_active) throw new Error('Account is not activated');
 
   const isMatch = await bcryptUtils.compare(password, user.password);
   if (!isMatch) throw new Error('Invalid email or password');
 
-  // Fetch the active subscription of the user
+  // Fetch active subscription
   const subscription = await SubscriptionService.getSubscriptionByUser(user.id);
   if (!subscription) throw new Error('No subscription found. Please contact support.');
 
@@ -134,14 +123,17 @@ const login = async (email, password, tenant) => {
 const resetPassword = async (email) => {
   if (!validator.isEmail(email)) throw new Error('Invalid email format');
 
-  const user = await User.getByEmail(email);
+  const user = await User.findOne({ where: { email } });
   if (!user) return { message: 'If an account exists, a reset link has been sent.' };
 
   const resetToken = generateRandomCode();
   const hashedToken = hashToken(resetToken);
   const expiryDate = getExpiryDate('hours', 1);
 
-  await User.insertPasswordReset(user.id, hashedToken, expiryDate);
+  await User.update(
+    { password_reset_token: hashedToken, password_reset_expires: expiryDate },
+    { where: { id: user.id } }
+  );
 
   const resetLink = `${process.env.APP_URL}/reset-password?token=${resetToken}`;
   await sendEmail(email, 'Password Reset', `Click to reset your password: ${resetLink}`);
@@ -153,19 +145,13 @@ const resetPassword = async (email) => {
 class AuthModel {
   static async verifyCredentials(email, password, tenant) {
     try {
-      const tenantDb = await tenancy.getTenantDatabase(tenant); // Fetch the tenant-specific database connection
-      const [results] = await tenantDb.execute('SELECT * FROM users WHERE email = ?', [email]);
+      const tenantDb = await tenancy.getTenantDatabase(tenant);
+      const user = await User.findOne({ where: { email }, transaction: tenantDb });
 
-      if (!results || results.length === 0) {
-        throw new Error('User not found.');
-      }
-
-      const user = results[0];
+      if (!user) throw new Error('User not found.');
 
       const isPasswordValid = await bcryptUtils.compare(password, user.password);
-      if (!isPasswordValid) {
-        throw new Error('Invalid password.');
-      }
+      if (!isPasswordValid) throw new Error('Invalid password.');
 
       return user;
     } catch (error) {
@@ -183,9 +169,7 @@ class AuthModel {
         role: user.role,
       };
 
-      const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
-
-      return token;
+      return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
     } catch (error) {
       console.error('Error generating token:', error.message);
       throw new Error('Could not generate token.');
@@ -194,8 +178,7 @@ class AuthModel {
 
   static decodeToken(token) {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      return decoded;
+      return jwt.verify(token, process.env.JWT_SECRET);
     } catch (error) {
       console.error('Error decoding token:', error.message);
       throw new Error('Invalid token.');
@@ -205,7 +188,6 @@ class AuthModel {
   static async authenticate(email, password, tenant) {
     try {
       const user = await this.verifyCredentials(email, password, tenant);
-
       const token = this.generateToken(user);
 
       return { user, token };

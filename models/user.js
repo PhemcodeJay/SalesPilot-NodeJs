@@ -44,8 +44,8 @@ class User extends Model {
       const existingUser = await User.findOne({
         where: {
           [Op.or]: [
-            sequelize.where(sequelize.fn('LOWER', sequelize.col('email')), email.toLowerCase()),
-            sequelize.where(sequelize.fn('LOWER', sequelize.col('username')), username.toLowerCase()),
+            { email: sequelize.where(sequelize.fn('LOWER', sequelize.col('email')), email.toLowerCase()) },
+            { username: sequelize.where(sequelize.fn('LOWER', sequelize.col('username')), username.toLowerCase()) },
           ],
         },
       });
@@ -55,10 +55,7 @@ class User extends Model {
       }
 
       // Find or create tenant
-      let tenant = await Tenant.findOne({
-        where: { name: tenant_name },
-        transaction,
-      });
+      let tenant = await Tenant.findOne({ where: { name: tenant_name }, transaction });
 
       if (!tenant) {
         tenant = await Tenant.create(
@@ -115,7 +112,7 @@ class User extends Model {
       return { success: true, message: 'User registered. Activation email sent.', activation_token };
     } catch (error) {
       await transaction.rollback();
-      console.error('Signup Error:', error);
+      console.error('Signup Error:', error.message);
       throw new Error('Signup failed. Please try again.');
     }
   }
@@ -135,7 +132,7 @@ class User extends Model {
 
       return { success: true, user };
     } catch (error) {
-      console.error('Login Error:', error);
+      console.error('Login Error:', error.message);
       throw new Error('Login failed. Check credentials.');
     }
   }
@@ -155,7 +152,7 @@ class User extends Model {
 
       return { success: true, message: 'Password reset request sent.', resetToken };
     } catch (error) {
-      console.error('Request Password Reset Error:', error);
+      console.error('Request Password Reset Error:', error.message);
       throw new Error('Password reset request failed.');
     }
   }
@@ -182,7 +179,7 @@ class User extends Model {
 
       return { success: true, message: 'Password reset successfully.' };
     } catch (error) {
-      console.error('Reset Password Error:', error);
+      console.error('Reset Password Error:', error.message);
       throw new Error('Password reset failed.');
     }
   }

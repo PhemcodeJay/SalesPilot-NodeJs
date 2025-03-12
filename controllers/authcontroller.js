@@ -36,32 +36,34 @@ const signup = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
-    // Ensure tenant ID is provided or generate a new one
     const assignedTenantId = tenantId || uuidv4();
 
-    // Prevent duplicate users within the same tenant
-    const existingUser = await User.findOne({ email, tenantId: assignedTenantId });
+    // Check if user already exists in the same tenant
+    const existingUser = await User.findOne({ email, tenantId: assignedTenantId }).lean();
     if (existingUser) return res.status(400).json({ success: false, message: 'User already exists in this tenant' });
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     const activationToken = crypto.randomBytes(20).toString('hex');
 
-    // Set up default trial subscription
-    let defaultSubscription = await Subscription.findOne({ subscription_plan: 'trial' });
+    // Check if trial subscription exists
+    let defaultSubscription = await Subscription.findOne({ subscription_plan: 'trial' }).lean();
     if (!defaultSubscription) {
-      defaultSubscription = new Subscription({
+      defaultSubscription = await Subscription.create({
         subscription_plan: 'trial',
         status: 'active',
         start_date: new Date(),
         end_date: new Date(new Date().setMonth(new Date().getMonth() + 1)),
       });
-      await defaultSubscription.save();
     }
 
     // Create new user
-    const user = new User({ name, email, password: hashedPassword, subscriptionId: defaultSubscription._id, tenantId: assignedTenantId });
-    await user.save();
+    const user = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+      subscriptionId: defaultSubscription._id,
+      tenantId: assignedTenantId,
+    });
 
     // Create authentication record
     await Auth.create({ userId: user._id, activationToken, isActive: false });
@@ -101,14 +103,12 @@ const login = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
-    // Ensure tenant ID is provided
     if (!tenantId) return res.status(400).json({ success: false, message: 'Tenant ID is required' });
 
-    // Find user in the specified tenant
-    const user = await User.findOne({ email, tenantId });
+    const user = await User.findOne({ email, tenantId }).lean();
     if (!user) return res.status(400).json({ success: false, message: 'Invalid credentials' });
 
-    const auth = await Auth.findOne({ userId: user._id });
+    const auth = await Auth.findOne({ userId: user._id }).lean();
     if (!auth || !auth.isActive) return res.status(403).json({ success: false, message: 'Account not activated' });
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -131,7 +131,7 @@ const requestPasswordReset = async (req, res) => {
 
     const resetToken = crypto.randomBytes(20).toString('hex');
     user.resetToken = resetToken;
-    user.resetTokenExpires = Date.now() + 3600000; // 1 hour expiry
+    user.resetTokenExpires = Date.now() + 3600000;
     await user.save();
 
     const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
@@ -181,17 +181,32 @@ const updateProfile = async (req, res) => {
   }
 };
 
+
 /** ======= DELETE ACCOUNT ======= **/
 const deleteAccount = async (req, res) => {
   try {
     const { userId } = req.user;
-    await User.findByIdAndDelete(userId);
+
+    // Find the user before attempting to delete
+    const user = await User.findOne({ _id: userId });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Delete associated authentication record
     await Auth.findOneAndDelete({ userId });
+
+    // Delete user subscriptions (if applicable)
+    await Subscription.deleteMany({ userId });
+
+    // Finally, delete the user
+    await User.deleteOne({ _id: userId });
 
     res.json({ success: true, message: 'Account deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
+
 
 module.exports = { signup, activateAccount, login, requestPasswordReset, resetPassword, updateProfile, deleteAccount, verifyToken };

@@ -1,6 +1,11 @@
 const User = require('../models/User');
 
-const findUserByEmail = async (email) => await User.findOne({ email });
-const findUserById = async (id) => await User.findById(id);
+const findUserByEmail = async (email) => {
+    return await User.findOne({ where: { email } });
+};
+
+const findUserById = async (id) => {
+    return await User.findByPk(id);
+};
 
 module.exports = { findUserByEmail, findUserById };
