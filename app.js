@@ -18,7 +18,9 @@ const tenantService = require('./services/tenantservices');
 const { OrdersCreateRequest } = require('@paypal/checkout-server-sdk');
 const { v4: uuidv4 } = require('uuid');
 const rateLimiter = require('./middleware/rateLimiter');
+const { authenticateUser } = require("./middleware/auth");
 
+// ✅ Initialize Express App
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -65,6 +67,18 @@ if (authMiddleware && typeof authMiddleware.authenticateUser === 'function') {
 
 app.use(tenancyMiddleware);
 
+
+app.use("/protected-route", authenticateUser, (req, res) => {
+  res.json({ message: "Access granted", user: req.user });
+});
+app.get("/", (req, res) => {
+  res.render("index"); // Allow access without authentication
+});
+app.use(cors({
+  origin: "*", // Allow all domains (adjust for production)
+  allowedHeaders: ["Authorization", "Content-Type"], // ✅ Ensure Authorization is allowed
+}));
+
 // ✅ View Engine Setup
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -88,7 +102,7 @@ const routes = {
 
 // ✅ Home Route
 app.get('/', (req, res) => {
-  res.render('home/index', { title: 'Home' });
+  res.render('views/home/index', { title: 'Home' });
 });
 
 // ✅ PayPal Payment Route

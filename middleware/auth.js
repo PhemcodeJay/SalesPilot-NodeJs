@@ -44,20 +44,39 @@ function getTenantModel(tenantId, modelName) {
   return db.models[modelName];
 }
 
-// 🔹 Authentication Middleware (JWT Verification)
-function authenticateUser(req, res, next) {
-  const token = req.headers.authorization?.split(" ")[1]; // Extract token from "Bearer TOKEN"
-  
-  if (!token) {
-    return res.status(401).json({ message: "Unauthorized: No token provided" });
-  }
+const generateToken = (user) => {
+  return jwt.sign(
+    { id: user.id, username: user.username, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: "1h" } // Set expiration time
+  );
+};
 
+// 🔹 Authentication Middleware
+function authenticateUser(req, res, next) {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // Attach user details to request
-    next();
-  } catch (err) {
-    return res.status(403).json({ message: "Forbidden: Invalid token" });
+    const authHeader = req.headers["authorization"]; // Get Authorization header
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.warn("🔹 No authorization header found. Rejecting request.");
+      return res.status(401).json({ message: "Unauthorized: No token provided" });
+    }
+
+    const token = authHeader.split(" ")[1]; // Extract token
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+      if (err) {
+        console.warn("🔹 Invalid or expired token.");
+        return res.status(403).json({ message: "Forbidden: Invalid or expired token" });
+      }
+
+      req.user = decoded; // Attach decoded user data
+      next(); // ✅ Proceed to next middleware
+    });
+
+  } catch (error) {
+    console.error("Authentication error:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 }
 

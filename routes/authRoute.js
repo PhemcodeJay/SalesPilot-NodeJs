@@ -2,21 +2,17 @@ const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/authcontroller"); // Ensure correct case
 const { validateSignup, validateLogin, validateResetPassword } = require("../middleware/auth");
-const authMiddleware = require("../middleware/auth");
+const authMiddleware = require("../middleware/auth").authenticateUser; // ✅ Fix Import
 
 // ** View Routes ** //
-
-// Render the signup page
-router.get('/sign-up', (req, res) => {
-  res.render('auth/signup');
+router.get("/sign-up", (req, res) => {
+  res.render("auth/signup");
 });
 
-// Render the login page
 router.get("/login", (req, res) => {
   res.render("auth/login");
 });
 
-// Render the account activation page
 router.get("/activate", (req, res) => {
   const activationCode = req.query.code;
   if (!activationCode) {
@@ -25,37 +21,27 @@ router.get("/activate", (req, res) => {
   res.render("auth/activate", { activationCode });
 });
 
-// Render the password reset request page
 router.get("/passwordreset", (req, res) => {
   res.render("auth/passwordreset");
 });
 
-// Render the confirm password reset page
 router.get("/recoverpwd", (req, res) => {
   res.render("auth/recoverpwd");
 });
 
 // ** API Routes ** //
-
-// Authentication Routes
 router.post("/signup", validateSignup, authController.signup);
 router.post("/login", validateLogin, authController.login);
 router.post("/activate", authController.activateAccount);
+router.post("/passwordreset", authController.requestPasswordReset);
+router.post("/recoverpwd", validateResetPassword, authController.resetPassword);
 
-// ** Password Reset Routes ** //
-router.post("/passwordreset", authController.requestPasswordReset); // Sends password reset email
-router.post("/recoverpwd", validateResetPassword, authController.resetPassword); // Resets password
-
-// ** Account Management Routes ** //
-router.put("/profile", authController.updateProfile); // Update user profile
-router.delete("/delete", authController.deleteAccount); // Delete user account
-
-// ** Logout Route ** //
-router.post("/logout", authController.logout);
+// ** Protected Routes ** //
+router.put("/profile", authMiddleware, authController.updateProfile); // ✅ Requires authentication
+router.delete("/delete", authMiddleware, authController.deleteAccount); // ✅ Requires authentication
+router.post("/logout", authMiddleware, authController.logout); // ✅ Requires authentication
 
 // ** Handle email verification via URL token ** //
 router.get("/activate/:token", authController.activateAccount);
 
-
-
-module.exports = router; // ✅ Export at the end
+module.exports = router;

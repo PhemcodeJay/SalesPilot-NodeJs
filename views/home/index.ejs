@@ -14,6 +14,37 @@
 
   gtag('config', 'G-TXR1WFJ4GP');
 </script>
+<script>
+  const token = localStorage.getItem("authToken");
+
+  if (token) {
+    console.log("🔹 Token found. Sending request...");
+
+    fetch("/api/protected-route", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`, // ✅ Send token with request
+        "Content-Type": "application/json",
+      },
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => console.log("✅ Data received:", data))
+      .catch(error => {
+        console.error("❌ API Request Error:", error);
+        console.warn("🔹 Token might be expired. Redirecting to login...");
+        localStorage.removeItem("authToken"); // Remove expired token
+        window.location.href = "/login"; // Redirect if token is invalid
+      });
+  } else {
+    console.warn("🔹 No token found. Redirecting to login...");
+    window.location.href = "/login"; // Redirect if no token
+  }
+</script>
   
   <title>Home - Sales Pilot</title>
   <meta content="" name="Boost your business efficiency with SalesPilot – the ultimate sales management app. Track leads, manage clients, and increase revenue effortlessly with our user-friendly platform.">
@@ -494,7 +525,69 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- Template Main JS File -->
   <script src="/home_assets/js/main.js"></script>
+  <script>
+    async function loginUser() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+  
+      try {
+        const response = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+  
+        const data = await response.json();
+  
+        if (response.ok && data.token) {
+          localStorage.setItem("authToken", data.token); // ✅ Store token
+          window.location.href = "/dashboard"; // ✅ Redirect to dashboard
+        } else {
+          alert("Login failed: " + (data.message || "Invalid credentials"));
+        }
+      } catch (error) {
+        console.error("Login error:", error);
+        alert("An error occurred. Please try again.");
+      }
+    }
+  </script>
+  
+  <script>
+    // ✅ Check for token & validate it before redirecting
+    async function checkAuth() {
+      const token = localStorage.getItem("authToken");
+  
+      if (!token) {
+        console.warn("🔹 No token found. Redirecting to login...");
+        window.location.href = "/login";
+        return;
+      }
+  
+      try {
+        const response = await fetch("/api/verify-token", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+  
+        if (response.status === 401 || response.status === 403) {
+          console.warn("🔹 Token expired or invalid. Redirecting to login...");
+          localStorage.removeItem("authToken"); // Clear invalid token
+          window.location.href = "/login";
+        }
+      } catch (error) {
+        console.error("🔹 Token validation error:", error);
+        window.location.href = "/login";
+      }
+    }
+  
+    window.onload = checkAuth; // ✅ Run on page load
+  </script>
 
+ 
+  
 </body>
 
 </html>
