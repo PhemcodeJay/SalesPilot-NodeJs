@@ -1,8 +1,15 @@
 const express = require("express");
 const router = express.Router();
-const authController = require("../controllers/authcontroller"); // Ensure correct case
+const authController = require("../controllers/authcontroller");
 const { validateSignup, validateLogin, validateResetPassword } = require("../middleware/auth");
-const authMiddleware = require("../middleware/auth").authenticateUser; // ✅ Fix Import
+
+// ✅ Fix Import - Use `authenticateUser` instead of `authMiddleware`
+const { authenticateUser } = require("../middleware/auth");
+
+// ** Protected Route Example **
+router.get("/protected-route", authenticateUser, (req, res) => {
+  res.json({ message: "Access granted", user: req.user });
+});
 
 // ** View Routes ** //
 router.get("/sign-up", (req, res) => {
@@ -36,10 +43,10 @@ router.post("/activate", authController.activateAccount);
 router.post("/passwordreset", authController.requestPasswordReset);
 router.post("/recoverpwd", validateResetPassword, authController.resetPassword);
 
-// ** Protected Routes ** //
-router.put("/profile", authMiddleware, authController.updateProfile); // ✅ Requires authentication
-router.delete("/delete", authMiddleware, authController.deleteAccount); // ✅ Requires authentication
-router.post("/logout", authMiddleware, authController.logout); // ✅ Requires authentication
+// ** Protected Routes - Use `authenticateUser` Instead ** //
+router.put("/profile", authenticateUser, authController.updateProfile); // ✅ Requires authentication
+router.delete("/delete", authenticateUser, authController.deleteAccount); // ✅ Requires authentication
+router.post("/logout", authenticateUser, authController.logout); // ✅ Requires authentication
 
 // ** Handle email verification via URL token ** //
 router.get("/activate/:token", authController.activateAccount);

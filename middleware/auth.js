@@ -55,7 +55,7 @@ const generateToken = (user) => {
 // 🔹 Authentication Middleware
 function authenticateUser(req, res, next) {
   try {
-    const authHeader = req.headers["authorization"]; // Get Authorization header
+    const authHeader = req.headers["authorization"];
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       console.warn("🔹 No authorization header found. Rejecting request.");
@@ -70,12 +70,12 @@ function authenticateUser(req, res, next) {
         return res.status(403).json({ message: "Forbidden: Invalid or expired token" });
       }
 
-      req.user = decoded; // Attach decoded user data
+      req.user = decoded; // Attach decoded user to request
       next(); // ✅ Proceed to next middleware
     });
 
   } catch (error) {
-    console.error("Authentication error:", error);
+    console.error("🔹 Authentication error:", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 }

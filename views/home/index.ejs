@@ -18,33 +18,22 @@
   const token = localStorage.getItem("authToken");
 
   if (token) {
-    console.log("🔹 Token found. Sending request...");
-
     fetch("/api/protected-route", {
       method: "GET",
       headers: {
-        "Authorization": `Bearer ${token}`, // ✅ Send token with request
+        "Authorization": `Bearer ${token}`, // ✅ Ensure token is sent correctly
         "Content-Type": "application/json",
       },
     })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        return response.json();
-      })
-      .then(data => console.log("✅ Data received:", data))
-      .catch(error => {
-        console.error("❌ API Request Error:", error);
-        console.warn("🔹 Token might be expired. Redirecting to login...");
-        localStorage.removeItem("authToken"); // Remove expired token
-        window.location.href = "/login"; // Redirect if token is invalid
-      });
+    .then(response => response.json())
+    .then(data => console.log("Data received:", data))
+    .catch(error => console.error("Fetch error:", error));
   } else {
     console.warn("🔹 No token found. Redirecting to login...");
     window.location.href = "/login"; // Redirect if no token
   }
 </script>
+
   
   <title>Home - Sales Pilot</title>
   <meta content="" name="Boost your business efficiency with SalesPilot – the ultimate sales management app. Track leads, manage clients, and increase revenue effortlessly with our user-friendly platform.">
