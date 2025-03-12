@@ -14,40 +14,6 @@
 
   gtag('config', 'G-TXR1WFJ4GP');
 </script>
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const token = localStorage.getItem("authToken");
-
-    if (!token) {
-      console.warn("🔹 No token found. Redirecting to login...");
-      window.location.href = "/login";
-      return;
-    }
-
-    fetch("/api/protected-route", {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${token}`, // ✅ Ensure token is sent correctly
-        "Content-Type": "application/json",
-      },
-    })
-    .then(response => {
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          console.warn("🔴 Unauthorized access. Logging out...");
-          localStorage.removeItem("authToken"); // Remove invalid token
-          window.location.href = "/login"; // Redirect to login
-        }
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-      return response.json();
-    })
-    .then(data => console.log("✅ Data received:", data))
-    .catch(error => console.error("⚠️ Fetch error:", error));
-  });
-</script>
-
-
   
   <title>Home - Sales Pilot</title>
   <meta content="" name="Boost your business efficiency with SalesPilot – the ultimate sales management app. Track leads, manage clients, and increase revenue effortlessly with our user-friendly platform.">
