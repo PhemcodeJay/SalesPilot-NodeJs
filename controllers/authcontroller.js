@@ -3,9 +3,8 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { validationResult } = require('express-validator');
 const { v4: uuidv4 } = require('uuid');
-const User = require('../models/User');
-const Auth = require('../models/authModel');
-const Subscription = require('../models/subscriptions');
+const { Op } = require('sequelize');
+const { User, Auth, Subscription } = require('../models'); // Sequelize models
 const sendEmail = require('../utils/emailUtils');
 
 /** ======= GENERATE JWT TOKEN ======= **/
@@ -37,16 +36,13 @@ const signup = async (req, res) => {
     if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
 
     const assignedTenantId = tenantId || uuidv4();
-
-    // Check if user already exists in the same tenant
-    const existingUser = await User.findOne({ email, tenantId: assignedTenantId }).lean();
+    const existingUser = await User.findOne({ where: { email, tenantId: assignedTenantId } });
     if (existingUser) return res.status(400).json({ success: false, message: 'User already exists in this tenant' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const activationToken = crypto.randomBytes(20).toString('hex');
 
-    // Check if trial subscription exists
-    let defaultSubscription = await Subscription.findOne({ subscription_plan: 'trial' }).lean();
+    let defaultSubscription = await Subscription.findOne({ where: { subscription_plan: 'trial' } });
     if (!defaultSubscription) {
       defaultSubscription = await Subscription.create({
         subscription_plan: 'trial',
@@ -56,19 +52,16 @@ const signup = async (req, res) => {
       });
     }
 
-    // Create new user
     const user = await User.create({
       name,
       email,
       password: hashedPassword,
-      subscriptionId: defaultSubscription._id,
+      subscriptionId: defaultSubscription.id,
       tenantId: assignedTenantId,
     });
 
-    // Create authentication record
-    await Auth.create({ userId: user._id, activationToken, isActive: false });
+    await Auth.create({ userId: user.id, activationToken, isActive: false });
 
-    // Send activation email
     const activationUrl = `${process.env.CLIENT_URL}/activate/${activationToken}`;
     await sendEmail(email, 'Account Activation', `Click here to activate: ${activationUrl}`);
 
@@ -82,13 +75,11 @@ const signup = async (req, res) => {
 const activateAccount = async (req, res) => {
   try {
     const { token } = req.params;
-    const auth = await Auth.findOne({ activationToken: token });
+    const auth = await Auth.findOne({ where: { activationToken: token } });
 
     if (!auth) return res.status(400).json({ success: false, message: 'Invalid activation token' });
 
-    auth.isActive = true;
-    auth.activationToken = null;
-    await auth.save();
+    await auth.update({ isActive: true, activationToken: null });
 
     res.status(200).json({ success: true, message: 'Account activated successfully' });
   } catch (error) {
@@ -105,16 +96,16 @@ const login = async (req, res) => {
 
     if (!tenantId) return res.status(400).json({ success: false, message: 'Tenant ID is required' });
 
-    const user = await User.findOne({ email, tenantId }).lean();
+    const user = await User.findOne({ where: { email, tenantId } });
     if (!user) return res.status(400).json({ success: false, message: 'Invalid credentials' });
 
-    const auth = await Auth.findOne({ userId: user._id }).lean();
+    const auth = await Auth.findOne({ where: { userId: user.id } });
     if (!auth || !auth.isActive) return res.status(403).json({ success: false, message: 'Account not activated' });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ success: false, message: 'Invalid credentials' });
 
-    const token = generateToken(user._id, tenantId);
+    const token = generateToken(user.id, tenantId);
     res.json({ success: true, token, message: 'Login successful' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
@@ -125,14 +116,12 @@ const login = async (req, res) => {
 const requestPasswordReset = async (req, res) => {
   try {
     const { email } = req.body;
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ where: { email } });
 
     if (!user) return res.status(400).json({ success: false, message: 'User not found' });
 
     const resetToken = crypto.randomBytes(20).toString('hex');
-    user.resetToken = resetToken;
-    user.resetTokenExpires = Date.now() + 3600000;
-    await user.save();
+    await user.update({ resetToken, resetTokenExpires: new Date(Date.now() + 3600000) });
 
     const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
     await sendEmail(email, 'Password Reset Request', `Click here to reset password: ${resetUrl}`);
@@ -147,14 +136,11 @@ const requestPasswordReset = async (req, res) => {
 const resetPassword = async (req, res) => {
   try {
     const { token, newPassword } = req.body;
-    const user = await User.findOne({ resetToken: token, resetTokenExpires: { $gt: Date.now() } });
+    const user = await User.findOne({ where: { resetToken: token, resetTokenExpires: { [Op.gt]: new Date() } } });
 
     if (!user) return res.status(400).json({ success: false, message: 'Invalid or expired token' });
 
-    user.password = await bcrypt.hash(newPassword, 10);
-    user.resetToken = null;
-    user.resetTokenExpires = null;
-    await user.save();
+    await user.update({ password: await bcrypt.hash(newPassword, 10), resetToken: null, resetTokenExpires: null });
 
     res.json({ success: true, message: 'Password reset successful' });
   } catch (error) {
@@ -166,47 +152,33 @@ const resetPassword = async (req, res) => {
 const updateProfile = async (req, res) => {
   try {
     const { userId } = req.user;
-    const { name, email } = req.body;
-    const user = await User.findById(userId);
+    const { name, email, password } = req.body;
 
+    const user = await User.findOne({ where: { id: userId } });
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    user.name = name || user.name;
-    user.email = email || user.email;
-    await user.save();
+    const updatedData = {};
+    if (name) updatedData.name = name;
+    if (email) updatedData.email = email;
+    if (password) updatedData.password = await bcrypt.hash(password, 10);
 
-    res.json({ success: true, message: 'Profile updated successfully', user });
+    await user.update(updatedData);
+    res.json({ success: true, message: 'Profile updated successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
 
-
 /** ======= DELETE ACCOUNT ======= **/
 const deleteAccount = async (req, res) => {
   try {
     const { userId } = req.user;
-
-    // Find the user before attempting to delete
-    const user = await User.findOne({ _id: userId });
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-
-    // Delete associated authentication record
-    await Auth.findOneAndDelete({ userId });
-
-    // Delete user subscriptions (if applicable)
-    await Subscription.deleteMany({ userId });
-
-    // Finally, delete the user
-    await User.deleteOne({ _id: userId });
+    await User.destroy({ where: { id: userId } });
 
     res.json({ success: true, message: 'Account deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
   }
 };
-
 
 module.exports = { signup, activateAccount, login, requestPasswordReset, resetPassword, updateProfile, deleteAccount, verifyToken };

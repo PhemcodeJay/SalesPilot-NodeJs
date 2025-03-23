@@ -1,4 +1,3 @@
-const { getTenantDatabase } = require('../config/db'); // Import dynamic DB function
 const { DataTypes } = require('sequelize');
 
 // Import Models

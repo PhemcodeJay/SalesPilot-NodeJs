@@ -19,9 +19,7 @@ const checkAndDeactivateSubscriptions = async () => {
     for (const subscription of expiredSubscriptions) {
       subscription.status = "inactive";
       await subscription.save();
-      console.log(
-        `✅ Deactivated Subscription ID ${subscription.id} for User ID ${subscription.user_id}`
-      );
+      console.log(`✅ Deactivated Subscription ID ${subscription.id} for User ID ${subscription.user_id}`);
     }
   } catch (error) {
     console.error("❌ Error checking subscriptions:", error);
@@ -32,13 +30,9 @@ const checkAndDeactivateSubscriptions = async () => {
 /**
  * Create a new subscription
  */
-const createSubscription = async (userId, tenantId, planId, paymentDetails) => {
+const createSubscription = async (userId, tenantId = null, planId, paymentDetails) => {
   try {
     if (!userId) throw new Error("User ID is required.");
-    if (!tenantId) {
-      console.warn("⚠️ No tenant ID provided. Defaulting to NULL.");
-      tenantId = null;
-    }
 
     const plan = await Plan.findByPk(planId);
     if (!plan) throw new Error("Invalid subscription plan.");
@@ -78,13 +72,9 @@ const createSubscription = async (userId, tenantId, planId, paymentDetails) => {
 /**
  * Get active subscriptions for a user within a tenant
  */
-const getActiveSubscriptions = async (userId, tenantId) => {
+const getActiveSubscriptions = async (userId, tenantId = null) => {
   try {
     if (!userId) throw new Error("User ID is required.");
-    if (!tenantId) {
-      console.warn("⚠️ No tenant ID provided. Returning subscriptions for all tenants.");
-      tenantId = null;
-    }
 
     return await Subscription.findAll({
       where: {
@@ -106,8 +96,7 @@ const getActiveSubscriptions = async (userId, tenantId) => {
  */
 const cancelSubscription = async (subscriptionId, userId, tenantId) => {
   try {
-    if (!subscriptionId || !userId)
-      throw new Error("Subscription ID and User ID are required.");
+    if (!subscriptionId || !userId) throw new Error("Subscription ID and User ID are required.");
 
     const subscription = await Subscription.findOne({
       where: {
@@ -134,7 +123,7 @@ const cancelSubscription = async (subscriptionId, userId, tenantId) => {
 /**
  * Create a free trial for a user
  */
-const createFreeTrial = async (userId, tenantId) => {
+const createFreeTrial = async (userId, tenantId = null) => {
   try {
     if (!userId) throw new Error("User ID is required.");
 
@@ -151,7 +140,7 @@ const createFreeTrial = async (userId, tenantId) => {
 /**
  * Create a subscription with a default plan
  */
-const createSubscriptionWithDefault = async (userId, tenantId, planName = "trial") => {
+const createSubscriptionWithDefault = async (userId, tenantId = null, planName = "trial") => {
   try {
     if (!userId) throw new Error("User ID is required.");
 
@@ -201,7 +190,7 @@ const upgradeSubscription = async (userId, tenantId, newPlanName) => {
 /**
  * Cancel a subscription by user ID
  */
-const cancelSubscriptionByUserId = async (userId, tenantId) => {
+const cancelSubscriptionByUserId = async (userId, tenantId = null) => {
   try {
     if (!userId) throw new Error("User ID is required.");
 
@@ -229,7 +218,7 @@ const cancelSubscriptionByUserId = async (userId, tenantId) => {
 /**
  * Get a user's subscription status with plan details
  */
-const getSubscriptionStatus = async (userId, tenantId) => {
+const getSubscriptionStatus = async (userId, tenantId = null) => {
   try {
     if (!userId) throw new Error("User ID is required.");
 

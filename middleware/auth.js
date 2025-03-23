@@ -61,7 +61,7 @@ async function hashPassword(password) {
 // 🔹 Generate JWT Token
 const generateToken = (user) => {
   return jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
+    { id: user.id, username: user.username, role: user.role, tenantId: user.tenantId },
     process.env.JWT_SECRET,
     { expiresIn: "1h" }
   );
@@ -164,4 +164,6 @@ module.exports = {
   validateSignup,
   validateLogin,
   validateResetPassword,
+  generateToken,
 };
+

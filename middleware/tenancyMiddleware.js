@@ -1,4 +1,3 @@
-const { getTenantDatabase } = require("../config/db");
 const { publicRoutes } = require("../config/constants");
 
 /**
