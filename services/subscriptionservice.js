@@ -1,17 +1,22 @@
-const { Subscription } = require('../models'); // Sequelize model for Subscription
-const { Sequelize } = require('sequelize');
-const pool = require('../config/db'); // MySQL Pool (only if you want to mix in custom queries)
+const { Subscription } = require('../models'); // Sequelize model
+const { Op } = require('sequelize');
 
-// Create a new subscription (with Sequelize)
-const createSubscription = async (userId, planId, paymentDetails) => {
+/**
+ * Create a new subscription.
+ * @param {number} userId - User ID.
+ * @param {number} planId - Subscription Plan ID.
+ * @param {object|null} paymentDetails - Payment details (optional).
+ * @returns {Promise<object>} Subscription object.
+ */
+const createSubscription = async (userId, planId, paymentDetails = null) => {
     try {
         const subscription = await Subscription.create({
             user_id: userId,
             plan_id: planId,
             payment_details: paymentDetails,
-            status: 'active', // Default status, can be changed later
+            status: 'active',
             start_date: new Date(),
-            end_date: null, // Set later when subscription ends
+            end_date: null
         });
         return subscription;
     } catch (error) {
@@ -20,170 +25,157 @@ const createSubscription = async (userId, planId, paymentDetails) => {
     }
 };
 
-// Get active subscriptions for a user (with Sequelize)
+/**
+ * Get active subscriptions for a user.
+ * @param {number} userId - User ID.
+ * @returns {Promise<object[]>} List of active subscriptions.
+ */
 const getActiveSubscriptions = async (userId) => {
     try {
-        const subscriptions = await Subscription.findAll({
+        return await Subscription.findAll({
             where: { user_id: userId, status: 'active' },
-            order: [['start_date', 'DESC']], // Most recent subscription first
+            order: [['start_date', 'DESC']]
         });
-        return subscriptions;
     } catch (error) {
         console.error('Error fetching active subscriptions:', error);
         throw new Error('Unable to fetch active subscriptions');
     }
 };
 
-// Cancel a subscription (with Sequelize)
+/**
+ * Cancel a subscription by ID.
+ * @param {number} subscriptionId - Subscription ID.
+ * @returns {Promise<boolean>} True if cancelled, otherwise false.
+ */
 const cancelSubscription = async (subscriptionId) => {
     try {
         const subscription = await Subscription.findByPk(subscriptionId);
-        if (!subscription) {
-            throw new Error('Subscription not found');
-        }
-        subscription.status = 'cancelled';
-        await subscription.save();
-        return subscription;
+        if (!subscription) return false;
+
+        await subscription.update({ status: 'cancelled', end_date: new Date() });
+        return true;
     } catch (error) {
         console.error('Error cancelling subscription:', error);
         throw new Error('Subscription cancellation failed');
     }
 };
 
-// Create Free Trial subscription using MySQL Pool (raw query)
+/**
+ * Create a Free Trial Subscription.
+ * @param {number} userId - User ID.
+ * @returns {Promise<object>} Free trial subscription object.
+ */
 const createFreeTrial = async (userId) => {
     try {
-        if (!userId) {
-            throw new Error('User ID is required to create a free trial subscription.');
-        }
+        const existingTrial = await Subscription.findOne({
+            where: { user_id: userId, is_free_trial: true }
+        });
+
+        if (existingTrial) throw new Error('Free trial already used.');
 
         const startDate = new Date();
         const endDate = new Date();
-        endDate.setMonth(startDate.getMonth() + 3); // Add 3 months to the start date
+        endDate.setMonth(startDate.getMonth() + 3); // 3-month free trial
 
-        const query = `
-            INSERT INTO subscriptions (user_id, subscription_plan, start_date, end_date, status, is_free_trial_used)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `;
-
-        const [result] = await pool.execute(query, [
-            userId,
-            'Free Trial',
-            startDate.toISOString(),
-            endDate.toISOString(),
-            'Active',
-            true,
-        ]);
-
-        return {
-            id: result.insertId,
-            userId,
-            subscription_plan: 'Free Trial',
-            start_date: startDate.toISOString(),
-            end_date: endDate.toISOString(),
-            status: 'Active',
-            is_free_trial_used: true
-        };
+        return await Subscription.create({
+            user_id: userId,
+            plan_id: null, // No specific plan for free trial
+            status: 'active',
+            start_date: startDate,
+            end_date: endDate,
+            is_free_trial: true
+        });
     } catch (error) {
-        console.error(`Error creating free trial subscription for user ${userId}: ${error.message}`);
+        console.error(`Error creating free trial subscription: ${error.message}`);
         throw error;
     }
 };
 
-// Get active subscription (MySQL Pool query)
+/**
+ * Get active subscription for a user.
+ * @param {number} userId - User ID.
+ * @returns {Promise<object|null>} Subscription object or null.
+ */
 const getActiveSubscription = async (userId) => {
     try {
-        if (!userId) {
-            throw new Error('User ID is required to fetch an active subscription.');
-        }
-
-        const query = 'SELECT * FROM subscriptions WHERE user_id = ? AND status = "Active"';
-        const [rows] = await pool.execute(query, [userId]);
-
-        return rows.length > 0 ? rows[0] : null; // Return the subscription if found, else null
+        return await Subscription.findOne({
+            where: { user_id: userId, status: 'active' },
+            order: [['start_date', 'DESC']]
+        });
     } catch (error) {
-        console.error(`Error fetching active subscription for user ${userId}: ${error.message}`);
+        console.error(`Error fetching active subscription: ${error.message}`);
         throw error;
     }
 };
 
-// Update a subscription using MySQL Pool (raw query)
+/**
+ * Update a subscription status and end date.
+ * @param {number} userId - User ID.
+ * @param {object} data - Update data {status, end_date}.
+ * @returns {Promise<boolean>} True if updated, otherwise false.
+ */
 const updateSubscription = async (userId, data) => {
     try {
-        if (!userId || !data || typeof data !== 'object') {
-            throw new Error('User ID and data are required for updating a subscription.');
-        }
-
-        const { status, end_date } = data;
-        const query = `
-            UPDATE subscriptions
-            SET status = ?, end_date = ?
-            WHERE user_id = ?
-        `;
-
-        const [result] = await pool.execute(query, [status, end_date, userId]);
-        return result.affectedRows > 0; // Return true if the update was successful
+        const result = await Subscription.update(data, {
+            where: { user_id: userId }
+        });
+        return result[0] > 0;
     } catch (error) {
-        console.error(`Error updating subscription for user ${userId}: ${error.message}`);
+        console.error(`Error updating subscription: ${error.message}`);
         throw error;
     }
 };
 
-// Upgrade a subscription plan for a user (MySQL Pool query)
-const upgradeSubscription = async (userId, newPlan) => {
+/**
+ * Upgrade a subscription plan for a user.
+ * @param {number} userId - User ID.
+ * @param {number} newPlanId - New Plan ID.
+ * @returns {Promise<boolean>} True if upgraded, otherwise false.
+ */
+const upgradeSubscription = async (userId, newPlanId) => {
     try {
-        if (!userId || !newPlan) {
-            throw new Error('User ID and new subscription plan are required to upgrade.');
-        }
-
-        const query = `
-            UPDATE subscriptions
-            SET subscription_plan = ?, status = 'Active', is_free_trial_used = false
-            WHERE user_id = ? AND status = 'Active'
-        `;
-
-        const [result] = await pool.execute(query, [newPlan, userId]);
-        return result.affectedRows > 0; // Return true if the upgrade was successful
+        const result = await Subscription.update(
+            { plan_id: newPlanId, status: 'active', is_free_trial: false },
+            { where: { user_id: userId, status: 'active' } }
+        );
+        return result[0] > 0;
     } catch (error) {
-        console.error(`Error upgrading subscription for user ${userId}: ${error.message}`);
+        console.error(`Error upgrading subscription: ${error.message}`);
         throw error;
     }
 };
 
-// Cancel an active subscription using MySQL Pool (raw query)
+/**
+ * Cancel an active subscription by User ID.
+ * @param {number} userId - User ID.
+ * @returns {Promise<boolean>} True if cancelled, otherwise false.
+ */
 const cancelSubscriptionByUserId = async (userId) => {
     try {
-        if (!userId) {
-            throw new Error('User ID is required to cancel a subscription.');
-        }
-
-        const query = `
-            UPDATE subscriptions
-            SET status = 'Cancelled'
-            WHERE user_id = ? AND status = 'Active'
-        `;
-
-        const [result] = await pool.execute(query, [userId]);
-        return result.affectedRows > 0; // Return true if the cancellation was successful
+        const result = await Subscription.update(
+            { status: 'cancelled', end_date: new Date() },
+            { where: { user_id: userId, status: 'active' } }
+        );
+        return result[0] > 0;
     } catch (error) {
-        console.error(`Error cancelling subscription for user ${userId}: ${error.message}`);
+        console.error(`Error cancelling subscription for user: ${error.message}`);
         throw error;
     }
 };
 
-// Get the subscription status (MySQL Pool query)
+/**
+ * Get the subscription status for a user.
+ * @param {number} userId - User ID.
+ * @returns {Promise<string|null>} Subscription status or null.
+ */
 const getSubscriptionStatus = async (userId) => {
     try {
-        if (!userId) {
-            throw new Error('User ID is required to fetch subscription status.');
-        }
-
-        const query = `SELECT * FROM subscriptions WHERE user_id = ? AND status = 'Active'`;
-        const [rows] = await pool.execute(query, [userId]);
-
-        return rows.length > 0 ? rows[0] : null; // Return the subscription if found, else null
+        const subscription = await Subscription.findOne({
+            where: { user_id: userId, status: 'active' }
+        });
+        return subscription ? subscription.status : null;
     } catch (error) {
-        console.error(`Error fetching subscription status for user ${userId}: ${error.message}`);
+        console.error(`Error fetching subscription status: ${error.message}`);
         throw error;
     }
 };

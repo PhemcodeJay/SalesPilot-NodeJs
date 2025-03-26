@@ -1,4 +1,5 @@
 const { DataTypes } = require('sequelize');
+const { getTenantDatabase } = require('../config/db.js');
 
 // Import Models
 const Tenant = require('./Tenant');
@@ -20,49 +21,39 @@ const PasswordResetToken = require('./passwordreset');
  */
 async function initializeTenantModels(tenantDbName) {
   try {
-    const sequelize = await getTenantDatabase(tenantDbName); // Get dynamic Sequelize instance
+    // ✅ Get Sequelize instance for the tenant
+    const { sequelize } = await getTenantDatabase(tenantDbName);
 
     // ✅ Initialize models dynamically for the tenant
-    Tenant.init(sequelize, DataTypes);
-    User.init(sequelize, DataTypes);
-    Subscription.init(sequelize, DataTypes);
-    Product.init(sequelize, DataTypes);
-    Category.init(sequelize, DataTypes);
-    Sale.init(sequelize, DataTypes);
-    Customer.init(sequelize, DataTypes);
-    Supplier.init(sequelize, DataTypes);
-    Invoice.init(sequelize, DataTypes);
-    Payment.init(sequelize, DataTypes);
-    PasswordResetToken.init(sequelize, DataTypes);
+    const models = {
+      Tenant: Tenant.init(sequelize, DataTypes),
+      User: User.init(sequelize, DataTypes),
+      Subscription: Subscription.init(sequelize, DataTypes),
+      Product: Product.init(sequelize, DataTypes),
+      Category: Category.init(sequelize, DataTypes),
+      Sale: Sale.init(sequelize, DataTypes),
+      Customer: Customer.init(sequelize, DataTypes),
+      Supplier: Supplier.init(sequelize, DataTypes),
+      Invoice: Invoice.init(sequelize, DataTypes),
+      Payment: Payment.init(sequelize, DataTypes),
+      PasswordResetToken: PasswordResetToken.init(sequelize, DataTypes),
+    };
 
-    // ✅ Define associations (if any)
-    Object.values(sequelize.models).forEach((model) => {
+    // ✅ Define model associations
+    Object.values(models).forEach((model) => {
       if (typeof model.associate === 'function') {
-        model.associate(sequelize.models);
+        model.associate(models);
       }
     });
 
     console.log(`✅ Models initialized for tenant: ${tenantDbName}`);
 
-    return {
-      sequelize,
-      Tenant,
-      User,
-      Subscription,
-      Product,
-      Category,
-      Sale,
-      Customer,
-      Supplier,
-      Invoice,
-      Payment,
-      PasswordResetToken,
-    };
+    return { sequelize, ...models };
   } catch (error) {
     console.error(`❌ Error initializing models for tenant ${tenantDbName}:`, error.message);
     throw error;
   }
 }
 
-// Export the function to be used where needed
+// ✅ Export the function for use in other files
 module.exports = initializeTenantModels;

@@ -1,26 +1,44 @@
-const { Configuration, OpenAIApi } = require('openai');
+const OpenAI = require("openai");
+const dotenv = require("dotenv");
 
-// Initialize OpenAI API configuration
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+dotenv.config(); // Load environment variables
 
-// Create an OpenAIApi instance
-const openai = new OpenAIApi(configuration);
+// Ensure API key is provided
+if (!process.env.OPENAI_API_KEY) {
+  console.error("❌ OpenAI API key is missing. Please set OPENAI_API_KEY in your .env file.");
+  process.exit(1);
+}
 
-async function main() {
+// Initialize OpenAI API client
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+/**
+ * Generate AI response using OpenAI's GPT model.
+ * @param {string} userMessage - The message from the user.
+ * @param {string} model - The OpenAI model to use (default: gpt-4).
+ * @returns {Promise<string>} - The AI-generated response.
+ */
+async function generateResponse(userMessage, model = "gpt-4") {
   try {
-    const chatCompletion = await openai.createChatCompletion({
-      model: 'gpt-4', // Corrected model name
-      messages: [{ role: 'user', content: 'Say this is a test' }],
+    const response = await openai.chat.completions.create({
+      model,
+      messages: [{ role: "user", content: userMessage }],
     });
 
-    console.log('Chat Completion:', chatCompletion.data.choices[0].message.content);
+    return response.choices[0]?.message?.content || "No response generated.";
   } catch (error) {
-    console.error('Error with OpenAI API:', error.response?.data || error.message);
+    console.error("❌ OpenAI API Error:", error.response?.data || error.message);
+    return "Error generating response.";
   }
 }
 
-main();
+// Example usage (Remove in production)
+if (require.main === module) {
+  (async () => {
+    const testMessage = "Say this is a test";
+    const response = await generateResponse(testMessage);
+    console.log("AI Response:", response);
+  })();
+}
 
-module.exports = { openai };
+module.exports = { openai, generateResponse };

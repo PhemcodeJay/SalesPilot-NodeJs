@@ -4,17 +4,18 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const moment = require('moment');
 const validator = require('validator');
-const pool = require('../config/db'); // Assuming a MySQL connection pool
-const User = require('../models/User'); // User model
-const Subscription = require('../models/subscriptions'); // Subscription model
 const jwt = require('jsonwebtoken');
-const tenancy = require('../middleware/tenancyMiddleware'); // Assuming you're using tenancy package for multi-tenant
+const tenancy = require('../middleware/tenancyMiddleware'); // Multi-tenancy middleware
+
+// Import Sequelize models
+const { User, Subscription, ActivationCode } = require('../models');
 
 // Utility Functions
 const generateRandomCode = () => crypto.randomBytes(20).toString('hex');
 const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 const getExpiryDate = (unit, value) => moment().add(value, unit).toDate();
 
+// Email Sending Utility
 const sendEmail = async (to, subject, text) => {
   const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
@@ -28,48 +29,41 @@ const sendEmail = async (to, subject, text) => {
 
   try {
     await transporter.sendMail({ from: process.env.EMAIL_USER, to, subject, text });
-    console.log(`Email sent successfully to ${to}`);
+    console.log(`✅ Email sent successfully to ${to}`);
   } catch (error) {
-    console.error('Error sending email:', error.message);
+    console.error('❌ Error sending email:', error.message);
     throw new Error('Failed to send email');
   }
 };
 
-// Activation Code Model
-const ActivationCode = {
+// Activation Code Model (Rewritten using Sequelize)
+const ActivationCodeService = {
   create: async (userId, activationCode) => {
-    const result = await pool.execute(
-      `INSERT INTO activation_codes (user_id, activation_code) VALUES (?, ?)`,
-      [userId, activationCode]
-    );
-    return result;
+    return await ActivationCode.create({ user_id: userId, activation_code: activationCode });
   },
 
   findByCode: async (activationCode) => {
-    const [rows] = await pool.execute(
-      `SELECT * FROM activation_codes WHERE activation_code = ?`,
-      [activationCode]
-    );
-    return rows[0];
+    return await ActivationCode.findOne({ where: { activation_code: activationCode } });
   },
 
   remove: async (activationCode) => {
-    const result = await pool.execute(
-      `DELETE FROM activation_codes WHERE activation_code = ?`,
-      [activationCode]
-    );
-    return result;
+    return await ActivationCode.destroy({ where: { activation_code: activationCode } });
   },
 };
 
 // Subscription Service
 const SubscriptionService = {
-  createTrial: async (userId) => Subscription.createFreeTrial(userId),
+  createTrial: async (userId) => {
+    return await Subscription.createFreeTrial(userId);
+  },
 
-  createSubscription: async (userId, plan, startDate, endDate) => 
-    Subscription.createSubscription(userId, plan, startDate, endDate),
+  createSubscription: async (userId, plan, startDate, endDate) => {
+    return await Subscription.createSubscription(userId, plan, startDate, endDate);
+  },
 
-  getSubscriptionByUser: async (userId) => Subscription.getActiveSubscription(userId),
+  getSubscriptionByUser: async (userId) => {
+    return await Subscription.getActiveSubscription(userId);
+  },
 };
 
 // Authentication Logic
@@ -81,24 +75,18 @@ const signup = async ({ username, email, password, confirmpassword }) => {
   if (existingUser) throw new Error('User already exists. Please log in.');
 
   const hashedPassword = await bcryptUtils.hash(password, 10);
-  const userData = { username, email, password: hashedPassword, role: 'user' };
-
-  const result = await User.create(userData);
-  const userId = result.id;
+  const user = await User.create({ username, email, password: hashedPassword, role: 'user' });
 
   const activationCode = generateRandomCode();
-  await ActivationCode.create(userId, activationCode);
+  await ActivationCodeService.create(user.id, activationCode);
 
   const activationLink = `${process.env.APP_URL}/activate?code=${activationCode}`;
   await sendEmail(email, 'Activate Your Account', `Click the link to activate: ${activationLink}`);
 
-  // Create free trial subscription for the user
-  await SubscriptionService.createTrial(userId);
+  await SubscriptionService.createTrial(user.id);
+  await user.update({ is_active: true });
 
-  // Activate the user after signup
-  await User.update({ is_active: true }, { where: { id: userId } });
-
-  return { id: userId, username, email };
+  return { id: user.id, username, email };
 };
 
 const login = async (email, password, tenant) => {
@@ -113,7 +101,6 @@ const login = async (email, password, tenant) => {
   const isMatch = await bcryptUtils.compare(password, user.password);
   if (!isMatch) throw new Error('Invalid email or password');
 
-  // Fetch active subscription
   const subscription = await SubscriptionService.getSubscriptionByUser(user.id);
   if (!subscription) throw new Error('No subscription found. Please contact support.');
 
@@ -130,10 +117,7 @@ const resetPassword = async (email) => {
   const hashedToken = hashToken(resetToken);
   const expiryDate = getExpiryDate('hours', 1);
 
-  await User.update(
-    { password_reset_token: hashedToken, password_reset_expires: expiryDate },
-    { where: { id: user.id } }
-  );
+  await user.update({ password_reset_token: hashedToken, password_reset_expires: expiryDate });
 
   const resetLink = `${process.env.APP_URL}/reset-password?token=${resetToken}`;
   await sendEmail(email, 'Password Reset', `Click to reset your password: ${resetLink}`);
@@ -155,7 +139,7 @@ class AuthModel {
 
       return user;
     } catch (error) {
-      console.error('Error during credential verification:', error.message);
+      console.error('❌ Error during credential verification:', error.message);
       throw error;
     }
   }
@@ -171,7 +155,7 @@ class AuthModel {
 
       return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
     } catch (error) {
-      console.error('Error generating token:', error.message);
+      console.error('❌ Error generating token:', error.message);
       throw new Error('Could not generate token.');
     }
   }
@@ -180,7 +164,7 @@ class AuthModel {
     try {
       return jwt.verify(token, process.env.JWT_SECRET);
     } catch (error) {
-      console.error('Error decoding token:', error.message);
+      console.error('❌ Error decoding token:', error.message);
       throw new Error('Invalid token.');
     }
   }
@@ -192,7 +176,7 @@ class AuthModel {
 
       return { user, token };
     } catch (error) {
-      console.error('Error during authentication:', error.message);
+      console.error('❌ Error during authentication:', error.message);
       throw error;
     }
   }
@@ -202,7 +186,7 @@ module.exports = {
   signup,
   login,
   resetPassword,
-  ActivationCode,
+  ActivationCodeService,
   SubscriptionService,
   AuthModel,
 };

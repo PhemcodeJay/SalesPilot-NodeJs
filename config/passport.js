@@ -1,28 +1,68 @@
-const { Strategy: JwtStrategy, ExtractJwt } = require('passport-jwt');
-require('dotenv').config(); // Load secret key from .env
-const fakeUser = {
-    id: 1,
-    email: 'user@example.com',
-}; // Replace with actual database or ORM query
+const passport = require("passport");
+const { Strategy: JwtStrategy, ExtractJwt } = require("passport-jwt");
+const LocalStrategy = require("passport-local").Strategy;
+const bcrypt = require("bcryptjs"); // Ensure bcrypt is installed
+const dotenv = require("dotenv");
+const db = require("../models"); // Replace with actual ORM model import
 
-const opts = {
-    jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(), // Extract JWT from Authorization header
-    secretOrKey: process.env.JWT_SECRET, // Secret key
-};
-
-const jwtStrategy = new JwtStrategy(opts, (payload, done) => {
-    try {
-        // Example: Replace with a database lookup
-        if (payload.id === fakeUser.id) {
-            return done(null, fakeUser); // Success: Attach user to request
-        } else {
-            return done(null, false); // No user found
-        }
-    } catch (error) {
-        return done(error, false);
-    }
-});
+dotenv.config(); // Load environment variables
 
 module.exports = (passport) => {
-    passport.use(jwtStrategy); // Add the JWT strategy to Passport
+    // JWT Authentication Strategy
+    const jwtOpts = {
+        jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+        secretOrKey: process.env.JWT_SECRET,
+    };
+
+    passport.use(
+        new JwtStrategy(jwtOpts, async (payload, done) => {
+            try {
+                // Fetch user using either ID or email
+                const user = await db.User.findOne({
+                    where: {
+                        [db.Sequelize.Op.or]: [{ id: payload.id }, { email: payload.email }],
+                    },
+                });
+
+                if (user) return done(null, user);
+                return done(null, false);
+            } catch (error) {
+                console.error("❌ Error in Passport JWT Strategy:", error);
+                return done(error, false);
+            }
+        })
+    );
+
+    // Local Authentication Strategy (Email & Password)
+    passport.use(
+        new LocalStrategy({ usernameField: "email" }, async (email, password, done) => {
+            try {
+                const user = await db.User.findOne({ where: { email } });
+                if (!user) return done(null, false, { message: "User not found" });
+
+                // Compare hashed password
+                const isMatch = await bcrypt.compare(password, user.password);
+                if (!isMatch) return done(null, false, { message: "Incorrect password" });
+
+                return done(null, user);
+            } catch (error) {
+                return done(error);
+            }
+        })
+    );
+
+    // Serialize user ID into session
+    passport.serializeUser((user, done) => {
+        done(null, user.id);
+    });
+
+    // Deserialize user from session
+    passport.deserializeUser(async (id, done) => {
+        try {
+            const user = await db.User.findByPk(id);
+            done(null, user);
+        } catch (error) {
+            done(error);
+        }
+    });
 };
