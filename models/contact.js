@@ -1,101 +1,55 @@
-const mysql = require('mysql2');
+const { DataTypes } = require("sequelize");
+const sequelize = require("../config/db"); // Import Sequelize instance
 
-// Create database connection pool
-const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '1234',
-  database: 'salespilot',
-  charset: 'utf8mb4',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-});
-
-// Promisify the pool for async/await support
-const db = pool.promise();
-
-class Contact {
-  static async createContactsTable() {
-    const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS contacts (
-        id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) NOT NULL,
-        message TEXT NOT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP() ON UPDATE CURRENT_TIMESTAMP(),
-        phone VARCHAR(50) NOT NULL
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-    `;
-    await db.query(createTableQuery);
-    console.log('Contacts table created or already exists.');
+const Contact = sequelize.define(
+  "Contact",
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+      allowNull: false,
+    },
+    name: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+    },
+    email: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+      validate: {
+        isEmail: true,
+      },
+    },
+    message: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+    },
+    phone: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
+  },
+  {
+    tableName: "contacts",
+    timestamps: false, // Disable Sequelize's auto timestamps
+    underscored: true, // Use snake_case column names
   }
+);
 
-  static async createContactRecord(contactData) {
-    const insertQuery = `
-      INSERT INTO contacts 
-      (name, email, message, phone)
-      VALUES (?, ?, ?, ?)
-    `;
-    const { name, email, message, phone } = contactData;
-
-    try {
-      const [result] = await db.query(insertQuery, [name, email, message, phone]);
-      return { id: result.insertId };
-    } catch (error) {
-      throw new Error(`Error creating contact record: ${error.message}`);
-    }
+// ✅ Sync model with database (Creates table if not exists)
+const syncContactTable = async () => {
+  try {
+    await Contact.sync();
+    console.log("✅ Contacts table created or already exists.");
+  } catch (error) {
+    console.error("❌ Error creating Contacts table:", error.message);
   }
+};
 
-  static async getContactById(id) {
-    const query = `SELECT * FROM contacts WHERE id = ?`;
-
-    try {
-      const [rows] = await db.query(query, [id]);
-      if (rows.length === 0) throw new Error('Contact record not found.');
-      return rows[0];
-    } catch (error) {
-      throw new Error(`Error fetching contact: ${error.message}`);
-    }
-  }
-
-  static async getAllContacts() {
-    const query = `SELECT * FROM contacts ORDER BY created_at DESC`;
-
-    try {
-      const [rows] = await db.query(query);
-      return rows;
-    } catch (error) {
-      throw new Error(`Error fetching all contacts: ${error.message}`);
-    }
-  }
-
-  static async updateContact(id, updatedData) {
-    const { name, email, message, phone } = updatedData;
-
-    const updateQuery = `
-      UPDATE contacts
-      SET name = ?, email = ?, message = ?, phone = ?
-      WHERE id = ?
-    `;
-
-    try {
-      const [result] = await db.query(updateQuery, [name, email, message, phone, id]);
-      return result.affectedRows > 0;
-    } catch (error) {
-      throw new Error(`Error updating contact record: ${error.message}`);
-    }
-  }
-
-  static async deleteContact(id) {
-    const deleteQuery = `DELETE FROM contacts WHERE id = ?`;
-
-    try {
-      const [result] = await db.query(deleteQuery, [id]);
-      return result.affectedRows > 0;
-    } catch (error) {
-      throw new Error(`Error deleting contact record: ${error.message}`);
-    }
-  }
-}
-
+module.exports = { Contact, syncContactTable };

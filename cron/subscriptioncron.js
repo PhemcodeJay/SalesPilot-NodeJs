@@ -1,11 +1,16 @@
-const { checkAndDeactivateSubscriptions } = require('../controllers/subscriptioncontroller');
+const { checkAndDeactivateSubscriptions } = require("../controllers/subscriptioncontroller");
 
-(async function () {
+(async function runSubscriptionCheck() {
+  console.log(`[${new Date().toISOString()}] 🔄 Running subscription check...`);
+
   try {
-    console.log('Running initial subscription check on server startup...');
     await checkAndDeactivateSubscriptions();
-    console.log('Initial subscription check completed.');
+    console.log(`[${new Date().toISOString()}] ✅ Subscription check completed successfully.`);
   } catch (error) {
-    console.error('Error during initial subscription check:', error.message);
+    console.error(`[${new Date().toISOString()}] ❌ Error during subscription check:`, error);
+  } finally {
+    console.log(`[${new Date().toISOString()}] 🛑 Subscription check process exiting.`);
+    process.exit();
   }
 })();
+

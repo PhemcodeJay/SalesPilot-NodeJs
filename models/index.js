@@ -1,59 +1,70 @@
-const { DataTypes } = require('sequelize');
-const { getTenantDatabase } = require('../config/db.js');
+const { Sequelize, DataTypes } = require("sequelize");
+const dotenv = require("dotenv");
+const fs = require("fs");
+const path = require("path");
+const { sequelize, getTenantDatabase } = require("../config/db.js"); // Ensure db.js exports a sequelize instance
 
-// Import Models
-const Tenant = require('./Tenant');
-const User = require('./User');
-const Subscription = require('./subscriptions');
-const Product = require('./product');
-const Category = require('./category');
-const Sale = require('./sales');
-const Customer = require('./customer');
-const Supplier = require('./supplier');
-const Invoice = require('./invoice');
-const Payment = require('./payment');
-const PasswordResetToken = require('./passwordreset');
+// Load environment variables
+dotenv.config();
+
+const models = {};
+
+// ✅ Dynamically load all model files in the root "models" folder
+fs.readdirSync(__dirname)
+  .filter((file) => file.endsWith(".js") && file !== path.basename(__filename))
+  .forEach((file) => {
+    const modelPath = path.join(__dirname, file);
+    const model = require(modelPath);
+
+    if (model.init && typeof model.init === "function") {
+      const initializedModel = model.init(sequelize, DataTypes);
+      models[initializedModel.name] = initializedModel;
+    }
+  });
+
+// ✅ Establish model associations if defined
+Object.values(models).forEach((model) => {
+  if (model.associate && typeof model.associate === "function") {
+    model.associate(models);
+  }
+});
+
+models.sequelize = sequelize;
+models.Sequelize = sequelize.Sequelize;
+
+// ✅ Define model associations
+Object.values(models).forEach((model) => {
+  if (model.associate) {
+    model.associate(models);
+  }
+});
 
 /**
- * Function to initialize models dynamically for a tenant
- * @param {string} tenantDbName - The tenant's database name
- * @returns {Promise<object>} - Object containing initialized models
+ * Initialize models for a tenant database.
+ * @param {string} tenantDbName - The tenant's database name.
+ * @returns {Promise<{sequelize: Sequelize, models: object}>}
  */
 async function initializeTenantModels(tenantDbName) {
-  try {
-    // ✅ Get Sequelize instance for the tenant
-    const { sequelize } = await getTenantDatabase(tenantDbName);
+  const tenantSequelize = await getTenantDatabase(tenantDbName);
+  const tenantModels = {};
 
-    // ✅ Initialize models dynamically for the tenant
-    const models = {
-      Tenant: Tenant.init(sequelize, DataTypes),
-      User: User.init(sequelize, DataTypes),
-      Subscription: Subscription.init(sequelize, DataTypes),
-      Product: Product.init(sequelize, DataTypes),
-      Category: Category.init(sequelize, DataTypes),
-      Sale: Sale.init(sequelize, DataTypes),
-      Customer: Customer.init(sequelize, DataTypes),
-      Supplier: Supplier.init(sequelize, DataTypes),
-      Invoice: Invoice.init(sequelize, DataTypes),
-      Payment: Payment.init(sequelize, DataTypes),
-      PasswordResetToken: PasswordResetToken.init(sequelize, DataTypes),
-    };
+  // Initialize models for the tenant
+  Object.keys(models).forEach((modelName) => {
+    if (models[modelName].init) {
+      tenantModels[modelName] = models[modelName].init(tenantSequelize, DataTypes);
+    }
+  });
 
-    // ✅ Define model associations
-    Object.values(models).forEach((model) => {
-      if (typeof model.associate === 'function') {
-        model.associate(models);
-      }
-    });
+  // Associate tenant models
+  Object.values(tenantModels).forEach((model) => {
+    if (model.associate) {
+      model.associate(tenantModels);
+    }
+  });
 
-    console.log(`✅ Models initialized for tenant: ${tenantDbName}`);
-
-    return { sequelize, ...models };
-  } catch (error) {
-    console.error(`❌ Error initializing models for tenant ${tenantDbName}:`, error.message);
-    throw error;
-  }
+  console.log(`✅ Models initialized for tenant: ${tenantDbName}`);
+  return { sequelize: tenantSequelize, models: tenantModels };
 }
 
-// ✅ Export the function for use in other files
-module.exports = initializeTenantModels;
+// ✅ Export Sequelize instance and models for the main database
+module.exports = { sequelize, models, initializeTenantModels };

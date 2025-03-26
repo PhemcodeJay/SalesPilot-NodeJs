@@ -1,38 +1,72 @@
-const db = require('../config/db');  // Assuming db is in the 'db.js' file or configured separately.
+const { Sequelize, DataTypes, Model } = require('sequelize');
+const { sequelize } = require('../config/db'); // Import Sequelize instance
 
-class staff {
+class Staff extends Model {}
 
-    // Method to insert a new staff record
-    static insertStaff(staff_name, staff_email, staff_phone, position) {
-        const query = "INSERT INTO staffs (staff_name, staff_email, staff_phone, position) VALUES (?, ?, ?, ?)";
-        const params = [staff_name, staff_email, staff_phone, position];
-        return db.execute(query, params);
-    }
+// **Define Staff Model**
+Staff.init(
+  {
+    staff_id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    staff_name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    staff_email: {
+      type: DataTypes.STRING,
+      allowNull: true, // Optional
+      validate: {
+        isEmail: true,
+      },
+    },
+    staff_phone: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    position: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+  },
+  {
+    sequelize,
+    modelName: 'Staff',
+    tableName: 'staffs',
+    freezeTableName: true,
+    timestamps: false,
+  }
+);
 
-    // Method to update an existing staff record
-    static updateStaff(staff_name, staff_email, staff_phone, position, staff_id) {
-        const query = "UPDATE staffs SET staff_name = ?, staff_email = ?, staff_phone = ?, position = ? WHERE staff_id = ?";
-        const params = [staff_name, staff_email, staff_phone, position, staff_id];
-        return db.execute(query, params);
-    }
+// **CRUD Methods Using Sequelize**
+class StaffService {
+  // **Insert a new staff record**
+  static async insertStaff(staffData) {
+    return await Staff.create(staffData);
+  }
 
-    // Method to delete a staff record by staff_id
-    static deleteStaff(staff_id) {
-        const query = "DELETE FROM staffs WHERE staff_id = ?";
-        return db.execute(query, [staff_id]);
-    }
+  // **Update an existing staff record**
+  static async updateStaff(staff_id, staffData) {
+    return await Staff.update(staffData, { where: { staff_id } });
+  }
 
-    // Method to fetch staff data by staff_id
-    static getStaffById(staff_id) {
-        const query = "SELECT * FROM staffs WHERE staff_id = ?";
-        return db.execute(query, [staff_id]);
-    }
+  // **Delete a staff record by ID**
+  static async deleteStaff(staff_id) {
+    return await Staff.destroy({ where: { staff_id } });
+  }
 
-    // Method to fetch all staff data
-    static getAllStaff() {
-        const query = "SELECT * FROM staffs";
-        return db.execute(query);
-    }
+  // **Get staff by ID**
+  static async getStaffById(staff_id) {
+    return await Staff.findByPk(staff_id);
+  }
+
+  // **Fetch all staff records**
+  static async getAllStaff() {
+    return await Staff.findAll();
+  }
 }
 
-module.exports = staff;
+// **Export Model & Service**
+module.exports = { Staff, StaffService };

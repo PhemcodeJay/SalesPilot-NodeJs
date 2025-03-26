@@ -7,10 +7,15 @@ const dotenv = require("dotenv");
 
 dotenv.config(); // Load environment variables
 
-module.exports = (passport, sequelize) => {
-    const User = require("../models/User")(sequelize); // ✅ Ensure User model gets Sequelize instance
+module.exports = (passport, models) => {
+    if (!models || !models.User) {
+        console.error("❌ Error: User model not initialized in Passport setup.");
+        return;
+    }
 
-    // JWT Authentication Strategy
+    const { User } = models; // ✅ Ensure the User model is available
+
+    // ✅ JWT Authentication Strategy
     const jwtOpts = {
         jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
         secretOrKey: process.env.JWT_SECRET,
@@ -21,12 +26,16 @@ module.exports = (passport, sequelize) => {
             try {
                 const user = await User.findOne({
                     where: {
-                        [Op.or]: [{ id: payload.id }, { email: payload.email }, { username: payload.username }],
+                        [Op.or]: [
+                            { id: payload.id },
+                            { email: payload.email },
+                            { username: payload.username },
+                        ],
                     },
                 });
 
                 if (user) return done(null, user);
-                return done(null, false);
+                return done(null, false, { message: "Invalid token" });
             } catch (error) {
                 console.error("❌ Error in Passport JWT Strategy:", error);
                 return done(error, false);
@@ -34,11 +43,11 @@ module.exports = (passport, sequelize) => {
         })
     );
 
-    // Local Authentication Strategy (Email or Username & Password)
+    // ✅ Local Authentication Strategy (Email or Username & Password)
     passport.use(
         new LocalStrategy(
             {
-                usernameField: "identifier", // Can be email or username
+                usernameField: "identifier", // Accepts email or username
                 passwordField: "password",
             },
             async (identifier, password, done) => {
@@ -64,12 +73,12 @@ module.exports = (passport, sequelize) => {
         )
     );
 
-    // Serialize user ID into session
+    // ✅ Serialize user ID into session
     passport.serializeUser((user, done) => {
         done(null, user.id);
     });
 
-    // Deserialize user from session
+    // ✅ Deserialize user from session
     passport.deserializeUser(async (id, done) => {
         try {
             const user = await User.findByPk(id);
@@ -78,4 +87,6 @@ module.exports = (passport, sequelize) => {
             done(error);
         }
     });
+
+    console.log("✅ Passport strategies initialized.");
 };

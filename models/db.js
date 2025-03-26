@@ -1,124 +1,216 @@
-const { Sequelize } = require('sequelize');
-const mysql = require('mysql2/promise');
-require('dotenv').config();
+const { Sequelize, DataTypes } = require("sequelize");
+const mysql = require("mysql2/promise");
+const fs = require("fs");
+const path = require("path");
+require("dotenv").config();
+const debug = require("debug")("db");
 
-// Load database config from environment variables
-const DB_NAME = process.env.DB_NAME || 'salespilot';
-const DB_HOST = process.env.DB_HOST || 'localhost';
-const DB_USER = process.env.DB_USER || 'root';
-const DB_PASS = process.env.DB_PASS || '';
+// ✅ **Load Environment Variables**
+const DB_NAME = process.env.DB_NAME || "salespilot";
+const DB_HOST = process.env.DB_HOST || "localhost";
+const DB_USER = process.env.DB_USER || "root";
+const DB_PASS = process.env.DB_PASS || "1234";
 const DB_PORT = process.env.DB_PORT || 3306;
+const DB_SSL = process.env.DB_SSL === "true"; // Use SSL if enabled
 
-class Database {
-  constructor() {
-    this.pool = null;
-    this.poolClosed = false;
-    this.sequelize = null;
-    this.init();
+// ✅ **MySQL Connection Pool**
+const pool = mysql.createPool({
+  host: DB_HOST,
+  port: DB_PORT,
+  user: DB_USER,
+  password: DB_PASS,
+  database: DB_NAME,
+  charset: "utf8mb4",
+  waitForConnections: true,
+  connectionLimit: 20,
+  queueLimit: 0,
+  ssl: DB_SSL ? { rejectUnauthorized: true } : undefined, // Fix SSL handling
+});
+
+// ✅ **Test MySQL Connection**
+async function testPoolConnection() {
+  try {
+    const connection = await pool.getConnection();
+    debug(`✅ MySQL pool connected to database: ${DB_NAME}`);
+    connection.release();
+  } catch (error) {
+    console.error(`❌ MySQL pool connection error: ${error.message}`);
+    process.exit(1);
   }
+}
 
-  /** Initialize both Sequelize and MySQL connection pool */
-  async init() {
-    await this.ensureDatabaseExists();
-    this.initMySQLPool();
-    this.initSequelize();
+// ✅ **Execute raw SQL queries**
+async function executeQuery(query, params = []) {
+  try {
+    const [results] = await pool.execute(query, params);
+    return results;
+  } catch (error) {
+    console.error("❌ SQL Query Error:", error.message);
+    throw error;
   }
+}
 
-  /** Ensure the database exists before connecting */
-  async ensureDatabaseExists() {
+// ✅ **Sequelize Connection**
+const sequelize = new Sequelize(DB_NAME, DB_USER, DB_PASS, {
+  host: DB_HOST,
+  dialect: "mysql",
+  port: DB_PORT,
+  logging: false,
+  define: {
+    freezeTableName: true,
+    timestamps: false,
+  },
+  pool: {
+    max: 15,
+    min: 5,
+    acquire: 20000,
+    idle: 5000,
+  },
+  retry: { max: 3 }, // Reduce retry attempts to avoid long waits
+  dialectOptions: DB_SSL ? { ssl: { rejectUnauthorized: true } } : {},
+});
+
+// ✅ **Authenticate Sequelize Connection**
+async function connectSequelize() {
+  try {
+    await sequelize.authenticate();
+    debug(`✅ Sequelize connected to: ${DB_NAME}`);
+  } catch (error) {
+    console.error(`❌ Sequelize connection error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+// ✅ **Load Sequelize Models**
+const models = {};
+fs.readdirSync(__dirname)
+  .filter((file) => file.endsWith(".js") && file !== path.basename(__filename))
+  .forEach((file) => {
     try {
-      const connection = await mysql.createConnection({
-        host: DB_HOST,
-        user: DB_USER,
-        password: DB_PASS,
-      });
-
-      await connection.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\``);
-      console.log(`✅ Database "${DB_NAME}" is ready.`);
-      await connection.end();
+      const model = require(path.join(__dirname, file));
+      if (typeof model === "function") {
+        const initializedModel = model(sequelize, DataTypes);
+        models[initializedModel.name] = initializedModel;
+      }
     } catch (error) {
-      console.error(`❌ Error creating database "${DB_NAME}":`, error.message);
-      throw error;
+      console.error(`❌ Model Load Error (${file}):`, error.message);
     }
-  }
+  });
 
-  /** Initialize MySQL connection pool for raw queries */
-  initMySQLPool() {
-    this.pool = mysql.createPool({
+// ✅ **Associate models**
+Object.keys(models).forEach((modelName) => {
+  if (models[modelName].associate) {
+    models[modelName].associate(models);
+  }
+});
+
+// ✅ **Sync all models**
+sequelize
+  .sync()
+  .then(() => debug("✅ All models synchronized successfully"))
+  .catch((err) => console.error("❌ Sequelize Sync Error:", err));
+
+// ✅ **Tenant Database Handling**
+const tenantConnections = new Map();
+
+/**
+ * Get or create a tenant-specific Sequelize instance.
+ * @param {string} tenantDbName - The tenant's database name
+ * @returns {Promise<Sequelize>}
+ */
+async function getTenantDatabase(tenantDbName) {
+  if (!tenantDbName) throw new Error("Tenant database name is required.");
+  if (tenantConnections.has(tenantDbName)) return tenantConnections.get(tenantDbName);
+
+  try {
+    // Check if the database exists before creating a new connection
+    const [dbExists] = await executeQuery(
+      `SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?`,
+      [tenantDbName]
+    );
+
+    if (!dbExists.length) {
+      debug(`⚠️ Tenant database ${tenantDbName} does not exist. Creating it...`);
+      await executeQuery(`CREATE DATABASE ${tenantDbName}`);
+      debug(`✅ Tenant database created: ${tenantDbName}`);
+    }
+
+    // Delay to ensure the database is ready before connecting
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    const tenantSequelize = new Sequelize(tenantDbName, DB_USER, DB_PASS, {
       host: DB_HOST,
+      dialect: "mysql",
       port: DB_PORT,
-      user: DB_USER,
-      password: DB_PASS,
-      database: DB_NAME,
-      charset: 'utf8mb4',
-      waitForConnections: true,
-      connectionLimit: 10,
-      queueLimit: 0,
-    });
-
-    console.log(`✅ MySQL connection pool initialized for "${DB_NAME}".`);
-  }
-
-  /** Initialize Sequelize ORM */
-  initSequelize() {
-    this.sequelize = new Sequelize(DB_NAME, DB_USER, DB_PASS, {
-      host: DB_HOST,
-      dialect: 'mysql',
       logging: false,
+      define: {
+        freezeTableName: true,
+        timestamps: false,
+      },
+      pool: {
+        max: 10,
+        min: 2,
+        acquire: 20000,
+        idle: 5000,
+      },
     });
 
-    this.sequelize
-      .authenticate()
-      .then(() => console.log(`✅ Sequelize connected to "${DB_NAME}".`))
-      .catch((error) => {
-        console.error(`❌ Sequelize connection error:`, error.message);
-        process.exit(1);
-      });
+    await tenantSequelize.authenticate();
+    debug(`✅ Connected to tenant database: ${tenantDbName}`);
+
+    tenantConnections.set(tenantDbName, tenantSequelize);
+    return tenantSequelize;
+  } catch (error) {
+    console.error(`❌ Tenant DB Connection Error (${tenantDbName}):`, error.message);
+    throw error;
   }
+}
 
-  /** Execute raw SQL queries using MySQL connection pool */
-  async executeQuery(query, params = []) {
-    if (!this.pool) throw new Error('Connection pool is not initialized.');
+/**
+ * Close a tenant database connection.
+ * @param {string} tenantDbName
+ */
+async function closeTenantConnection(tenantDbName) {
+  if (tenantConnections.has(tenantDbName)) {
     try {
-      const [results] = await this.pool.execute(query, params);
-      return results;
+      await tenantConnections.get(tenantDbName).close();
+      debug(`🔌 Closed tenant connection: ${tenantDbName}`);
+      tenantConnections.delete(tenantDbName);
     } catch (error) {
-      console.error('❌ Query execution error:', error.message);
-      throw error;
-    }
-  }
-
-  /** Close both Sequelize and MySQL connection pool */
-  async closeConnections() {
-    try {
-      if (this.sequelize) {
-        await this.sequelize.close();
-        console.log('✅ Sequelize connection closed.');
-      }
-
-      if (this.pool && !this.poolClosed) {
-        await this.pool.end();
-        this.poolClosed = true;
-        console.log('✅ MySQL connection pool closed.');
-      }
-    } catch (error) {
-      console.error('❌ Error closing connections:', error.message);
+      console.error(`❌ Error closing tenant DB ${tenantDbName}:`, error.message);
     }
   }
 }
 
-// Create a singleton instance of the Database class
-const db = new Database();
+// ✅ **Graceful Shutdown**
+process.on("SIGINT", async () => {
+  console.log("🔄 Gracefully shutting down...");
+  try {
+    await sequelize.close();
+    debug("✅ Main Sequelize connection closed.");
 
-// Handle graceful shutdown
-process.on('SIGINT', async () => {
-  console.log('⚠️ Gracefully shutting down...');
-  await db.closeConnections();
-  process.exit(0);
+    // Close all tenant connections
+    await Promise.all([...tenantConnections.keys()].map(closeTenantConnection));
+
+    process.exit(0);
+  } catch (error) {
+    console.error("❌ Shutdown Error:", error.message);
+    process.exit(1);
+  }
 });
 
+// ✅ **Test connections before exporting**
+(async () => {
+  await testPoolConnection();
+  await connectSequelize();
+})();
+
+// ✅ **Export Modules**
 module.exports = {
-  db, // Exports the singleton database instance
-  sequelize: db.sequelize, // Sequelize instance
-  executeQuery: db.executeQuery.bind(db), // Function for raw queries
+  executeQuery,
+  sequelize,
+  getTenantDatabase,
+  closeTenantConnection,
+  DataTypes,
+  models,
 };

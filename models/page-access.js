@@ -1,102 +1,50 @@
-const mysql = require('mysql2');
+const { Sequelize, DataTypes, Model } = require('sequelize');
 
-// Create database connection pool
-const pool = mysql.createPool({
+// Initialize Sequelize (Replace with your DB credentials)
+const sequelize = new Sequelize('salespilot', 'root', '1234', {
   host: 'localhost',
-  user: 'root',
-  password: '1234',
-  database: 'salespilot',
-  charset: 'utf8mb4',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
+  dialect: 'mysql',
+  logging: false, // Disable SQL logs in the console
 });
 
-// Promisify the pool for async/await support
-const db = pool.promise();
+// Define PageAccess Model
+class PageAccess extends Model {}
 
-class PageAccess {
-    static async createPageAccessTable() {
-      const createTableQuery = `
-        CREATE TABLE IF NOT EXISTS page_access (
-          id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-          page VARCHAR(255) NOT NULL,
-          required_access_level ENUM('trial', 'starter', 'business', 'enterprise') NOT NULL,
-          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
-          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP() ON UPDATE CURRENT_TIMESTAMP()
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_general_ci;
-      `;
-      await db.query(createTableQuery);
-      console.log('Page Access table created or already exists.');
-    }
-  
-    static async createPageAccessRecord(pageData) {
-      const insertQuery = `
-        INSERT INTO page_access 
-        (page, required_access_level)
-        VALUES (?, ?)
-      `;
-      const { page, required_access_level } = pageData;
-  
-      try {
-        const [result] = await db.query(insertQuery, [page, required_access_level]);
-        return { id: result.insertId };
-      } catch (error) {
-        throw new Error(`Error creating page access record: ${error.message}`);
-      }
-    }
-  
-    static async getPageAccessById(id) {
-      const query = `SELECT * FROM page_access WHERE id = ?`;
-  
-      try {
-        const [rows] = await db.query(query, [id]);
-        if (rows.length === 0) throw new Error('Page access record not found.');
-        return rows[0];
-      } catch (error) {
-        throw new Error(`Error fetching page access: ${error.message}`);
-      }
-    }
-  
-    static async getAllPageAccessRecords() {
-      const query = `SELECT * FROM page_access ORDER BY created_at DESC`;
-  
-      try {
-        const [rows] = await db.query(query);
-        return rows;
-      } catch (error) {
-        throw new Error(`Error fetching all page access records: ${error.message}`);
-      }
-    }
-  
-    static async updatePageAccess(id, updatedData) {
-      const { page, required_access_level } = updatedData;
-  
-      const updateQuery = `
-        UPDATE page_access
-        SET page = ?, required_access_level = ?
-        WHERE id = ?
-      `;
-      
-      try {
-        const [result] = await db.query(updateQuery, [page, required_access_level, id]);
-        return result.affectedRows > 0;
-      } catch (error) {
-        throw new Error(`Error updating page access record: ${error.message}`);
-      }
-    }
-  
-    static async deletePageAccess(id) {
-      const deleteQuery = `DELETE FROM page_access WHERE id = ?`;
-  
-      try {
-        const [result] = await db.query(deleteQuery, [id]);
-        return result.affectedRows > 0;
-      } catch (error) {
-        throw new Error(`Error deleting page access record: ${error.message}`);
-      }
-    }
+PageAccess.init(
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    page: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    required_access_level: {
+      type: DataTypes.ENUM('trial', 'starter', 'business', 'enterprise'),
+      allowNull: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: 'PageAccess',
+    tableName: 'page_access',
+    timestamps: true, // Enables createdAt & updatedAt
+    underscored: true, // Converts camelCase to snake_case columns
   }
-  
-  module.exports = PageAccess;
-  
+);
+
+// Sync Database (Creates table if it doesn't exist)
+async function syncDatabase() {
+  try {
+    await sequelize.sync({ alter: true }); // `alter: true` ensures table updates without data loss
+    console.log('✅ PageAccess table synced successfully');
+  } catch (error) {
+    console.error('❌ Error syncing PageAccess table:', error.message);
+  }
+}
+
+syncDatabase();
+
+module.exports = PageAccess;

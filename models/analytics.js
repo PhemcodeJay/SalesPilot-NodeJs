@@ -1,145 +1,105 @@
+const { executeQuery } = require("../db");
 
-const mysql = require('mysql2');
+/**
+ * Get total sales revenue over a period.
+ * @param {string} startDate - Start date (YYYY-MM-DD)
+ * @param {string} endDate - End date (YYYY-MM-DD)
+ * @returns {Promise<number>} - Total revenue
+ */
+async function getTotalRevenue(startDate, endDate) {
+  const sql = `
+    SELECT SUM(total_amount) AS total_revenue 
+    FROM sales 
+    WHERE order_date BETWEEN ? AND ?
+  `;
+  const results = await executeQuery(sql, [startDate, endDate]);
+  return results[0]?.total_revenue || 0;
+}
 
-// Create database connection pool
-const pool = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '1234',
-  database: 'salespilot',
-  charset: 'utf8mb4',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-});
+/**
+ * Get top-selling products by quantity.
+ * @param {number} limit - Number of products to return
+ * @returns {Promise<Array>} - List of top products
+ */
+async function getTopSellingProducts(limit = 5) {
+  const sql = `
+    SELECT p.id, p.product_name, SUM(s.quantity) AS total_sold, SUM(s.total) AS total_sales
+    FROM sales s
+    JOIN products p ON s.product_id = p.id
+    GROUP BY p.id, p.product_name
+    ORDER BY total_sold DESC
+    LIMIT ?
+  `;
+  return await executeQuery(sql, [limit]);
+}
 
-// Promisify the pool for async/await support
-const db = pool.promise();
+/**
+ * Get inventory status for all products.
+ * @returns {Promise<Array>} - List of products with stock levels
+ */
+async function getInventoryStatus() {
+  const sql = `
+    SELECT p.id, p.product_name, i.stock_qty, i.supply_qty, (i.stock_qty - i.sales_qty) AS available_stock
+    FROM inventory i
+    JOIN products p ON i.product_id = p.id
+  `;
+  return await executeQuery(sql);
+}
 
-class SalesAnalytics {
-    static async createSalesAnalyticsTable() {
-      const createTableQuery = `
-        CREATE TABLE IF NOT EXISTS sales_analytics (
-          id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-          date DATE NOT NULL,
-          revenue DECIMAL(10,2) NOT NULL,
-          profit_margin DECIMAL(10,2) NOT NULL,
-          year_over_year_growth DECIMAL(10,2) NOT NULL,
-          cost_of_selling DECIMAL(10,2) NOT NULL,
-          inventory_turnover_rate DECIMAL(10,2) NOT NULL,
-          stock_to_sales_ratio DECIMAL(10,2) NOT NULL,
-          sell_through_rate DECIMAL(10,2) NOT NULL,
-          gross_margin_by_category DECIMAL(10,2) NOT NULL,
-          net_margin_by_category DECIMAL(10,2) NOT NULL,
-          gross_margin DECIMAL(10,2) NOT NULL,
-          net_margin DECIMAL(10,2) NOT NULL,
-          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP(),
-          total_sales DECIMAL(10,2) NOT NULL,
-          total_quantity INT(11) NOT NULL,
-          total_profit DECIMAL(10,2) NOT NULL,
-          total_expenses DECIMAL(10,2) NOT NULL,
-          net_profit DECIMAL(10,2) NOT NULL,
-          revenue_by_category DECIMAL(10,2) NOT NULL,
-          most_sold_product_id INT(11) NOT NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-      `;
-      await db.query(createTableQuery);
-      console.log('Sales Analytics table created or already exists.');
-    }
-  
-    static async createSalesAnalyticsRecord(salesData) {
-      const insertQuery = `
-        INSERT INTO sales_analytics 
-        (date, revenue, profit_margin, year_over_year_growth, cost_of_selling, inventory_turnover_rate, 
-        stock_to_sales_ratio, sell_through_rate, gross_margin_by_category, net_margin_by_category, gross_margin, 
-        net_margin, total_sales, total_quantity, total_profit, total_expenses, net_profit, revenue_by_category, 
-        most_sold_product_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-      const {
-        date, revenue, profit_margin, year_over_year_growth, cost_of_selling, inventory_turnover_rate,
-        stock_to_sales_ratio, sell_through_rate, gross_margin_by_category, net_margin_by_category, gross_margin, 
-        net_margin, total_sales, total_quantity, total_profit, total_expenses, net_profit, revenue_by_category, 
-        most_sold_product_id
-      } = salesData;
-  
-      try {
-        const [result] = await db.query(insertQuery, [
-          date, revenue, profit_margin, year_over_year_growth, cost_of_selling, inventory_turnover_rate,
-          stock_to_sales_ratio, sell_through_rate, gross_margin_by_category, net_margin_by_category, gross_margin, 
-          net_margin, total_sales, total_quantity, total_profit, total_expenses, net_profit, revenue_by_category, 
-          most_sold_product_id
-        ]);
-        return { id: result.insertId };
-      } catch (error) {
-        throw new Error(`Error creating sales analytics record: ${error.message}`);
-      }
-    }
-  
-    static async getSalesAnalyticsById(id) {
-      const query = `SELECT * FROM sales_analytics WHERE id = ?`;
-  
-      try {
-        const [rows] = await db.query(query, [id]);
-        if (rows.length === 0) throw new Error('Sales Analytics record not found.');
-        return rows[0];
-      } catch (error) {
-        throw new Error(`Error fetching sales analytics: ${error.message}`);
-      }
-    }
-  
-    static async getAllSalesAnalytics() {
-      const query = `SELECT * FROM sales_analytics ORDER BY date DESC`;
-  
-      try {
-        const [rows] = await db.query(query);
-        return rows;
-      } catch (error) {
-        throw new Error(`Error fetching all sales analytics: ${error.message}`);
-      }
-    }
-  
-    static async updateSalesAnalytics(id, updatedData) {
-      const {
-        date, revenue, profit_margin, year_over_year_growth, cost_of_selling, inventory_turnover_rate,
-        stock_to_sales_ratio, sell_through_rate, gross_margin_by_category, net_margin_by_category, gross_margin, 
-        net_margin, total_sales, total_quantity, total_profit, total_expenses, net_profit, revenue_by_category, 
-        most_sold_product_id
-      } = updatedData;
-  
-      const updateQuery = `
-        UPDATE sales_analytics
-        SET date = ?, revenue = ?, profit_margin = ?, year_over_year_growth = ?, cost_of_selling = ?, 
-            inventory_turnover_rate = ?, stock_to_sales_ratio = ?, sell_through_rate = ?, gross_margin_by_category = ?, 
-            net_margin_by_category = ?, gross_margin = ?, net_margin = ?, total_sales = ?, total_quantity = ?, 
-            total_profit = ?, total_expenses = ?, net_profit = ?, revenue_by_category = ?, most_sold_product_id = ?
-        WHERE id = ?
-      `;
-      
-      try {
-        const [result] = await db.query(updateQuery, [
-          date, revenue, profit_margin, year_over_year_growth, cost_of_selling, inventory_turnover_rate,
-          stock_to_sales_ratio, sell_through_rate, gross_margin_by_category, net_margin_by_category, gross_margin, 
-          net_margin, total_sales, total_quantity, total_profit, total_expenses, net_profit, revenue_by_category, 
-          most_sold_product_id, id
-        ]);
-        return result.affectedRows > 0;
-      } catch (error) {
-        throw new Error(`Error updating sales analytics record: ${error.message}`);
-      }
-    }
-  
-    static async deleteSalesAnalytics(id) {
-      const deleteQuery = `DELETE FROM sales_analytics WHERE id = ?`;
-  
-      try {
-        const [result] = await db.query(deleteQuery, [id]);
-        return result.affectedRows > 0;
-      } catch (error) {
-        throw new Error(`Error deleting sales analytics record: ${error.message}`);
-      }
-    }
+/**
+ * Get profit margin by product.
+ * @returns {Promise<Array>} - Profit margins per product
+ */
+async function getProfitMarginByProduct() {
+  const sql = `
+    SELECT p.id, p.product_name, 
+           SUM(s.total) AS total_revenue, 
+           SUM(s.quantity * p.cost_price) AS total_cost,
+           (SUM(s.total) - SUM(s.quantity * p.cost_price)) AS total_profit,
+           ROUND(((SUM(s.total) - SUM(s.quantity * p.cost_price)) / SUM(s.total)) * 100, 2) AS profit_margin
+    FROM sales s
+    JOIN products p ON s.product_id = p.id
+    GROUP BY p.id, p.product_name
+    ORDER BY profit_margin DESC
+  `;
+  return await executeQuery(sql);
+}
+
+/**
+ * Get sales trends over time.
+ * @param {string} interval - Time interval: 'daily', 'monthly', 'yearly'
+ * @returns {Promise<Array>} - Sales trends data
+ */
+async function getSalesTrends(interval = "monthly") {
+  let dateFormat;
+  switch (interval) {
+    case "daily":
+      dateFormat = "%Y-%m-%d";
+      break;
+    case "monthly":
+      dateFormat = "%Y-%m";
+      break;
+    case "yearly":
+      dateFormat = "%Y";
+      break;
+    default:
+      throw new Error("Invalid interval. Use 'daily', 'monthly', or 'yearly'.");
   }
-  
-  module.exports = SalesAnalytics;
-  
+
+  const sql = `
+    SELECT DATE_FORMAT(order_date, ?) AS period, 
+           SUM(total_amount) AS total_sales
+    FROM sales
+    GROUP BY period
+    ORDER BY period ASC
+  `;
+  return await executeQuery(sql, [dateFormat]);
+}
+
+module.exports = {
+  getTotalRevenue,
+  getTopSellingProducts,
+  getInventoryStatus,
+  getProfitMarginByProduct,
+  getSalesTrends,
+};

@@ -36,34 +36,28 @@ const sendEmail = async (to, subject, text) => {
   }
 };
 
-// Activation Code Model (Rewritten using Sequelize)
+// Activation Code Model (Using Sequelize)
 const ActivationCodeService = {
-  create: async (userId, activationCode) => {
-    return await ActivationCode.create({ user_id: userId, activation_code: activationCode });
-  },
+  create: async (userId, activationCode) => 
+    await ActivationCode.create({ user_id: userId, activation_code: activationCode }),
 
-  findByCode: async (activationCode) => {
-    return await ActivationCode.findOne({ where: { activation_code: activationCode } });
-  },
+  findByCode: async (activationCode) => 
+    await ActivationCode.findOne({ where: { activation_code: activationCode } }),
 
-  remove: async (activationCode) => {
-    return await ActivationCode.destroy({ where: { activation_code: activationCode } });
-  },
+  remove: async (activationCode) => 
+    await ActivationCode.destroy({ where: { activation_code: activationCode } }),
 };
 
 // Subscription Service
 const SubscriptionService = {
-  createTrial: async (userId) => {
-    return await Subscription.createFreeTrial(userId);
-  },
+  createTrial: async (userId) => 
+    await Subscription.createFreeTrial(userId),
 
-  createSubscription: async (userId, plan, startDate, endDate) => {
-    return await Subscription.createSubscription(userId, plan, startDate, endDate);
-  },
+  createSubscription: async (userId, plan, startDate, endDate) => 
+    await Subscription.createSubscription(userId, plan, startDate, endDate),
 
-  getSubscriptionByUser: async (userId) => {
-    return await Subscription.getActiveSubscription(userId);
-  },
+  getSubscriptionByUser: async (userId) => 
+    await Subscription.getActiveSubscription(userId),
 };
 
 // Authentication Logic
