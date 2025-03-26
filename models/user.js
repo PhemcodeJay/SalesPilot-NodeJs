@@ -51,7 +51,7 @@ class User extends Model {
       });
 
       if (existingUser) {
-        throw new Error('User already exists.');
+        throw new Error('User with this email or username already exists.');
       }
 
       // Find or create tenant

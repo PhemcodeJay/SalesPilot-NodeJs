@@ -1,122 +1,92 @@
-global.punycode = require('punycode/');
-
 require("dotenv").config();
 const express = require("express");
-const path = require("path");
 const session = require("express-session");
-const bodyParser = require("body-parser");
 const passport = require("passport");
-const flash = require("connect-flash");
-const cookieParser = require("cookie-parser");
 const cors = require("cors");
-const { authenticateUser } = require("./middleware/auth");
-const tenancyMiddleware = require("./middleware/tenancyMiddleware");
-const { checkAndDeactivateSubscriptions } = require("./controllers/subscriptioncontroller");
-const { getTenantDatabase } = require("./config/db");
-const tenantService = require("./services/tenantservices");
-const rateLimiter = require("./middleware/rateLimiter");
+const morgan = require("morgan");
+const helmet = require("helmet");
+const flash = require("connect-flash");
+const path = require("path");
+const debug = require("debug")("app");
+const { sequelize, models } = require("./db"); // ✅ Use db.js for DB connection
 
-// ✅ Initialize Express App
+const configurePassport = require("./passport"); // Ensure passport.js is structured properly
+const authRoutes = require("./routes/authRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
+const profileRoutes = require("./routes/profileRoutes");
+
 const app = express();
 const PORT = process.env.PORT || 5000;
+const SESSION_SECRET = process.env.SESSION_SECRET || "supersecretkey";
 
-// ✅ Load Passport Configuration
-require("./config/passport")(passport);
+// ✅ **Security & Logging Middleware**
+app.use(helmet());
+app.use(cors({ origin: process.env.CORS_ORIGIN || "*", credentials: true }));
+app.use(morgan("dev"));
 
-// ✅ Middleware Setup
-app.use(cors({ credentials: true, origin: process.env.CLIENT_URL || "http://localhost:5000" }));
-app.use(cookieParser());
+// ✅ **Body Parsers**
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: false }));
 
-// ✅ Rate Limiting
-app.use(rateLimiter);
-
-// ✅ Session Middleware
+// ✅ **Session Setup**
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "your-secret-key",
+    secret: SESSION_SECRET,
     resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      sameSite: "strict",
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
-    },
+    saveUninitialized: true,
+    cookie: { secure: process.env.NODE_ENV === "production" },
   })
 );
 
-// ✅ Initialize Passport & Flash Messages
-app.use(passport.initialize());
-app.use(passport.session());
+// ✅ **Flash Messages**
 app.use(flash());
 
-// ✅ View Engine Setup
-app.set("view engine", "ejs");
-app.set("views", path.join(__dirname, "views"));
+// ✅ **Initialize Passport**
+app.use(passport.initialize());
+app.use(passport.session());
+configurePassport(passport, models.User); // ✅ Pass User model explicitly
 
-// ✅ Serve Static Public Folders
+// ✅ **Global Middleware for Flash Messages & User Data**
+app.use((req, res, next) => {
+  res.locals.success_msg = req.flash("success_msg");
+  res.locals.error_msg = req.flash("error_msg");
+  res.locals.user = req.user || null;
+  next();
+});
+
+// ✅ **Static File Serving**
 app.use(express.static(path.join(__dirname, "public")));
-app.use("/assets", express.static(path.join(__dirname, "public/assets")));
-app.use("/home_assets", express.static(path.join(__dirname, "public/home_assets")));
 
-// ✅ Public Routes (No Authentication Required)
-app.get("/", (req, res) => {
-  console.log("✅ Public route accessed: /");
-  res.render("home/index", { title: "Home" });
-});
-app.get("/home", (req, res) => {
-  console.log("✅ Public route accessed: /home, skipping auth check.");
-  res.render("home/index", { title: "Home" });
-});
-app.get("/login", (req, res) => {
-  console.log("✅ Public route accessed: /login");
-  res.render("auth/login", { title: "Login" });
-});
-app.get("/signup", (req, res) => {
-  console.log("✅ Public route accessed: /signup");
-  res.render("auth/signup", { title: "Signup" });
-});
+// ✅ **Routes**
+app.use("/api/auth", authRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/profile", profileRoutes);
 
-// ✅ Apply Authentication Middleware **Only to Protected Routes**
-app.use("/dashboard", authenticateUser);
-app.use("/invoice", authenticateUser);
-app.use("/sales", authenticateUser);
-app.use("/product", authenticateUser);
-app.use("/customer", authenticateUser);
-app.use("/inventory", authenticateUser);
-app.use("/subscription", authenticateUser);
-app.use(tenancyMiddleware);
-
-// ✅ Import & Apply Routes
-const routes = {
-  auth: require("./routes/authRoute"),
-  dashboard: require("./routes/dashboardRoute"),
-  invoice: require("./routes/invoiceRoute"),
-  sales: require("./routes/salesRoute"),
-  product: require("./routes/productRoute"),
-  customer: require("./routes/customerRoute"),
-  inventory: require("./routes/inventoryRoute"),
-  subscription: require("./routes/subscriptionRoute"),
-};
-
-Object.entries(routes).forEach(([name, route]) => {
-  if (route) {
-    app.use(`/${name}`, route);
-  } else {
-    console.error(`❌ Route '${name}' is undefined! Check your route imports.`);
-  }
-});
-
-// ✅ 404 Error Handling
+// ✅ **404 Handler**
 app.use((req, res) => {
-  res.status(404).json({ message: "Route not found" });
+  res.status(404).json({ error: "Endpoint Not Found" });
 });
 
-// ✅ Start Server
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+// ✅ **Global Error Handler**
+app.use((err, req, res) => {
+  console.error("❌ Server Error:", err.message);
+  res.status(500).json({ error: "Internal Server Error" });
+});
 
-module.exports = app;
+// ✅ **Database Connection Check**
+(async () => {
+  try {
+    await sequelize.authenticate();
+    debug(`✅ Database connected!`);
+  } catch (error) {
+    console.error("❌ Database connection error:", error.message);
+    process.exit(1);
+  }
+})();
+
+// ✅ **Start Server**
+app.listen(PORT, () => {
+  debug(`✅ Server running on http://localhost:${PORT}`);
+});

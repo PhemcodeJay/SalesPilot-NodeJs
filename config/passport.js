@@ -1,13 +1,15 @@
 const passport = require("passport");
 const { Strategy: JwtStrategy, ExtractJwt } = require("passport-jwt");
 const LocalStrategy = require("passport-local").Strategy;
-const bcrypt = require("bcryptjs"); // Ensure bcrypt is installed
+const bcrypt = require("bcryptjs");
+const { Op } = require("sequelize");
 const dotenv = require("dotenv");
-const db = require("../models"); // Replace with actual ORM model import
 
 dotenv.config(); // Load environment variables
 
-module.exports = (passport) => {
+module.exports = (passport, sequelize) => {
+    const User = require("../models/User")(sequelize); // ✅ Ensure User model gets Sequelize instance
+
     // JWT Authentication Strategy
     const jwtOpts = {
         jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -17,10 +19,9 @@ module.exports = (passport) => {
     passport.use(
         new JwtStrategy(jwtOpts, async (payload, done) => {
             try {
-                // Fetch user using either ID or email
-                const user = await db.User.findOne({
+                const user = await User.findOne({
                     where: {
-                        [db.Sequelize.Op.or]: [{ id: payload.id }, { email: payload.email }],
+                        [Op.or]: [{ id: payload.id }, { email: payload.email }, { username: payload.username }],
                     },
                 });
 
@@ -33,22 +34,34 @@ module.exports = (passport) => {
         })
     );
 
-    // Local Authentication Strategy (Email & Password)
+    // Local Authentication Strategy (Email or Username & Password)
     passport.use(
-        new LocalStrategy({ usernameField: "email" }, async (email, password, done) => {
-            try {
-                const user = await db.User.findOne({ where: { email } });
-                if (!user) return done(null, false, { message: "User not found" });
+        new LocalStrategy(
+            {
+                usernameField: "identifier", // Can be email or username
+                passwordField: "password",
+            },
+            async (identifier, password, done) => {
+                try {
+                    const user = await User.findOne({
+                        where: {
+                            [Op.or]: [{ email: identifier }, { username: identifier }],
+                        },
+                    });
 
-                // Compare hashed password
-                const isMatch = await bcrypt.compare(password, user.password);
-                if (!isMatch) return done(null, false, { message: "Incorrect password" });
+                    if (!user) return done(null, false, { message: "User not found" });
 
-                return done(null, user);
-            } catch (error) {
-                return done(error);
+                    // Compare passwords using bcrypt
+                    const isMatch = await bcrypt.compare(password, user.password);
+                    if (!isMatch) return done(null, false, { message: "Incorrect password" });
+
+                    return done(null, user);
+                } catch (err) {
+                    console.error("❌ Error in passport authentication:", err);
+                    return done(err);
+                }
             }
-        })
+        )
     );
 
     // Serialize user ID into session
@@ -59,7 +72,7 @@ module.exports = (passport) => {
     // Deserialize user from session
     passport.deserializeUser(async (id, done) => {
         try {
-            const user = await db.User.findByPk(id);
+            const user = await User.findByPk(id);
             done(null, user);
         } catch (error) {
             done(error);

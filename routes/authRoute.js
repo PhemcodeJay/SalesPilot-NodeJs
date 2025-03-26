@@ -18,7 +18,7 @@ const { getActiveSubscriptions, createSubscription } = require("../controllers/s
 
 // ✅ Public Routes (No authentication required)
 router.get("/", (req, res) => res.render("home/index"));
-router.get("/sign-up", (req, res) => res.render("auth/signup"));
+router.get("/signup", (req, res) => res.render("auth/signup"));
 router.get("/login", (req, res) => res.render("auth/login"));
 router.get("/passwordreset", (req, res) => res.render("auth/passwordreset"));
 router.get("/recoverpwd", (req, res) => res.render("auth/recoverpwd"));

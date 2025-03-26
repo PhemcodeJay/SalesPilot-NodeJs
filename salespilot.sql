@@ -703,6 +703,8 @@ CREATE TABLE `users` (
   UNIQUE KEY `username_4` (`username`),
   UNIQUE KEY `email_17` (`email`),
   UNIQUE KEY `tenant_id_UNIQUE` (`tenant_id`),
+  UNIQUE KEY `phone_UNIQUE` (`phone`),
+  UNIQUE KEY `id_UNIQUE` (`id`),
   CONSTRAINT `users_ibfk_18` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -725,4 +727,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-03-19 23:47:29
+-- Dump completed on 2025-03-26 21:32:39
