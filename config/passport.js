@@ -1,19 +1,24 @@
 const passport = require("passport");
 const { Strategy: JwtStrategy, ExtractJwt } = require("passport-jwt");
 const LocalStrategy = require("passport-local").Strategy;
-const bcrypt = require("bcryptjs");
+const bcryptUtils = require("../utils/bcryptUtils"); // Assuming bcrypt utility functions are defined
 const { Op } = require("sequelize");
 const dotenv = require("dotenv");
 
-dotenv.config(); // Load environment variables
+dotenv.config(); // ✅ Load environment variables
 
+/**
+ * Initialize Passport authentication strategies
+ * @param {object} passport - Passport instance
+ * @param {object} models - Database models
+ */
 module.exports = (passport, models) => {
     if (!models || !models.User) {
         console.error("❌ Error: User model not initialized in Passport setup.");
         return;
     }
 
-    const { User } = models; // ✅ Ensure the User model is available
+    const { User } = models; // ✅ Ensure User model is available
 
     // ✅ JWT Authentication Strategy
     const jwtOpts = {
@@ -34,20 +39,23 @@ module.exports = (passport, models) => {
                     },
                 });
 
-                if (user) return done(null, user);
-                return done(null, false, { message: "Invalid token" });
+                if (user) {
+                    return done(null, user);
+                } else {
+                    return done(null, false, { message: "Invalid token" });
+                }
             } catch (error) {
-                console.error("❌ Error in Passport JWT Strategy:", error);
+                console.error("❌ Error in Passport JWT Strategy:", error.message);
                 return done(error, false);
             }
         })
     );
 
-    // ✅ Local Authentication Strategy (Email or Username & Password)
+    // ✅ Local Authentication Strategy (Accepts Email or Username & Password)
     passport.use(
         new LocalStrategy(
             {
-                usernameField: "identifier", // Accepts email or username
+                usernameField: "identifier", // Can be email or username
                 passwordField: "password",
             },
             async (identifier, password, done) => {
@@ -58,16 +66,25 @@ module.exports = (passport, models) => {
                         },
                     });
 
-                    if (!user) return done(null, false, { message: "User not found" });
+                    if (!user) {
+                        return done(null, false, { message: "User not found" });
+                    }
 
-                    // Compare passwords using bcrypt
-                    const isMatch = await bcrypt.compare(password, user.password);
-                    if (!isMatch) return done(null, false, { message: "Incorrect password" });
+                    // ✅ Check if user is active (for login validation)
+                    if (!user.is_active) {
+                        return done(null, false, { message: "Account not activated. Check your email." });
+                    }
+
+                    // ✅ Compare password using bcryptUtils (hash comparison)
+                    const isMatch = await bcryptUtils.comparePassword(password, user.password);
+                    if (!isMatch) {
+                        return done(null, false, { message: "Incorrect password" });
+                    }
 
                     return done(null, user);
-                } catch (err) {
-                    console.error("❌ Error in passport authentication:", err);
-                    return done(err);
+                } catch (error) {
+                    console.error("❌ Error in Passport Local Strategy:", error.message);
+                    return done(error);
                 }
             }
         )
@@ -84,9 +101,10 @@ module.exports = (passport, models) => {
             const user = await User.findByPk(id);
             done(null, user);
         } catch (error) {
+            console.error("❌ Error in deserializeUser:", error.message);
             done(error);
         }
     });
 
-    console.log("✅ Passport strategies initialized.");
+    console.log("✅ Passport strategies initialized successfully.");
 };

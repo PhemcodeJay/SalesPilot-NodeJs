@@ -1,88 +1,100 @@
-const db = require("../config/db"); // Corrected path to db.js
+const { Sequelize, DataTypes } = require('sequelize');
+const db = require('../config/db'); // Sequelize instance from db.js
 
-class Category {
-  // ✅ Create the categories table if it does not exist
-  static async createCategoriesTable() {
-    const createTableQuery = `
-      CREATE TABLE IF NOT EXISTS categories (
-        category_id INT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        category_name VARCHAR(100) NOT NULL,
-        description TEXT DEFAULT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-    `;
+const Category = db.define('Category', {
+  category_id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  category_name: {
+    type: DataTypes.STRING(100),
+    allowNull: false,
+  },
+  description: {
+    type: DataTypes.TEXT,
+    defaultValue: null,
+  },
+  created_at: {
+    type: DataTypes.TIMESTAMP,
+    allowNull: false,
+    defaultValue: Sequelize.NOW,
+  },
+}, {
+  tableName: 'categories',
+  timestamps: false, // disable automatic timestamp fields (createdAt, updatedAt)
+});
 
-    try {
-      await db.executeQuery(createTableQuery);
-      console.log("✅ Categories table created or already exists.");
-    } catch (error) {
-      console.error("❌ Error creating categories table:", error.message);
-    }
+// Sync the model with the database
+const createCategoriesTable = async () => {
+  try {
+    await Category.sync();
+    console.log("✅ Categories table created or already exists.");
+  } catch (error) {
+    console.error("❌ Error creating categories table:", error.message);
   }
+};
 
-  // ✅ Insert a new category
-  static async createCategory({ category_name, description }) {
-    const insertCategoryQuery = `
-      INSERT INTO categories (category_name, description) VALUES (?, ?)
-    `;
-
-    try {
-      const result = await db.executeQuery(insertCategoryQuery, [category_name, description]);
-      return { category_id: result.insertId };
-    } catch (error) {
-      throw new Error(`❌ Error creating category: ${error.message}`);
-    }
+// Insert a new category
+const createCategory = async ({ category_name, description }) => {
+  try {
+    const category = await Category.create({ category_name, description });
+    return category;
+  } catch (error) {
+    throw new Error(`❌ Error creating category: ${error.message}`);
   }
+};
 
-  // ✅ Get a single category by ID
-  static async getCategoryById(category_id) {
-    const query = `SELECT * FROM categories WHERE category_id = ?`;
-
-    try {
-      const rows = await db.executeQuery(query, [category_id]);
-      if (rows.length === 0) throw new Error("❌ Category not found.");
-      return rows[0];
-    } catch (error) {
-      throw new Error(`❌ Error fetching category: ${error.message}`);
-    }
+// Get a single category by ID
+const getCategoryById = async (category_id) => {
+  try {
+    const category = await Category.findOne({ where: { category_id } });
+    if (!category) throw new Error("❌ Category not found.");
+    return category;
+  } catch (error) {
+    throw new Error(`❌ Error fetching category: ${error.message}`);
   }
+};
 
-  // ✅ Get all categories
-  static async getAllCategories() {
-    const query = `SELECT * FROM categories ORDER BY created_at DESC`;
-
-    try {
-      return await db.executeQuery(query);
-    } catch (error) {
-      throw new Error(`❌ Error fetching categories: ${error.message}`);
-    }
+// Get all categories
+const getAllCategories = async () => {
+  try {
+    return await Category.findAll({
+      order: [['created_at', 'DESC']], // Ordering categories by creation date
+    });
+  } catch (error) {
+    throw new Error(`❌ Error fetching categories: ${error.message}`);
   }
+};
 
-  // ✅ Update a category
-  static async updateCategory(category_id, { category_name, description }) {
-    const updateQuery = `
-      UPDATE categories SET category_name = ?, description = ? WHERE category_id = ?
-    `;
-
-    try {
-      const result = await db.executeQuery(updateQuery, [category_name, description, category_id]);
-      return result.affectedRows > 0;
-    } catch (error) {
-      throw new Error(`❌ Error updating category: ${error.message}`);
-    }
+// Update a category
+const updateCategory = async (category_id, { category_name, description }) => {
+  try {
+    const result = await Category.update(
+      { category_name, description },
+      { where: { category_id } }
+    );
+    return result[0] > 0; // result[0] returns the number of affected rows
+  } catch (error) {
+    throw new Error(`❌ Error updating category: ${error.message}`);
   }
+};
 
-  // ✅ Delete a category
-  static async deleteCategory(category_id) {
-    const deleteQuery = `DELETE FROM categories WHERE category_id = ?`;
-
-    try {
-      const result = await db.executeQuery(deleteQuery, [category_id]);
-      return result.affectedRows > 0;
-    } catch (error) {
-      throw new Error(`❌ Error deleting category: ${error.message}`);
-    }
+// Delete a category
+const deleteCategory = async (category_id) => {
+  try {
+    const result = await Category.destroy({ where: { category_id } });
+    return result > 0; // result returns the number of rows affected
+  } catch (error) {
+    throw new Error(`❌ Error deleting category: ${error.message}`);
   }
-}
+};
 
-module.exports = Category;
+module.exports = {
+  createCategoriesTable,
+  createCategory,
+  getCategoryById,
+  getAllCategories,
+  updateCategory,
+  deleteCategory,
+};

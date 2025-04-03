@@ -86,7 +86,7 @@ const signup = async ({ username, email, password, confirmpassword }) => {
 const login = async (email, password, tenant) => {
   if (!validator.isEmail(email)) throw new Error('Invalid email format');
 
-  const tenantDb = await tenancy.getTenantDatabase(tenant);
+  const tenantDb = await tenancy.getTenantDatabase(tenant); // Fetch tenant DB using tenancy middleware
   const user = await User.findOne({ where: { email }, transaction: tenantDb });
 
   if (!user) throw new Error('Invalid email or password');
@@ -121,9 +121,10 @@ const resetPassword = async (email) => {
 
 // AuthModel for handling JWT tokens with tenancy logic
 class AuthModel {
+  // Verifies user credentials for login
   static async verifyCredentials(email, password, tenant) {
     try {
-      const tenantDb = await tenancy.getTenantDatabase(tenant);
+      const tenantDb = await tenancy.getTenantDatabase(tenant); // Multi-tenancy DB handling
       const user = await User.findOne({ where: { email }, transaction: tenantDb });
 
       if (!user) throw new Error('User not found.');
@@ -138,6 +139,7 @@ class AuthModel {
     }
   }
 
+  // Generates JWT token for the user
   static generateToken(user) {
     try {
       const payload = {
@@ -154,6 +156,7 @@ class AuthModel {
     }
   }
 
+  // Decodes JWT token to extract user information
   static decodeToken(token) {
     try {
       return jwt.verify(token, process.env.JWT_SECRET);
@@ -163,6 +166,7 @@ class AuthModel {
     }
   }
 
+  // Authenticate user, verify credentials, and generate JWT token
   static async authenticate(email, password, tenant) {
     try {
       const user = await this.verifyCredentials(email, password, tenant);

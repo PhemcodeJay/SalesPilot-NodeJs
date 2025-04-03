@@ -1,6 +1,66 @@
 const { Model, DataTypes, Op, QueryTypes } = require('sequelize');
 const { sequelize } = require('../config/db'); // Import Sequelize instance
 
+// **Define RevenueByProduct Model Using Sequelize ORM**
+class RevenueByProduct extends Model {}
+
+RevenueByProduct.init(
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    report_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'product_analytics',
+        key: 'reports_id',
+      },
+    },
+    product_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    product_name: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    total_quantity: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    total_sales: {
+      type: DataTypes.DECIMAL(15, 2),
+      allowNull: false,
+    },
+    total_cost: {
+      type: DataTypes.DECIMAL(15, 2),
+      allowNull: false,
+    },
+    total_profit: {
+      type: DataTypes.DECIMAL(15, 2),
+      allowNull: false,
+    },
+    inventory_turnover_rate: {
+      type: DataTypes.DECIMAL(10, 4),
+      allowNull: false,
+    },
+    sell_through_rate: {
+      type: DataTypes.DECIMAL(10, 4),
+      allowNull: false,
+    },
+  },
+  {
+    sequelize,
+    modelName: 'RevenueByProduct',
+    tableName: 'revenue_by_product',
+    freezeTableName: true, // Prevent Sequelize from pluralizing table names
+    timestamps: false, // Disable timestamps
+  }
+);
+
 // **Define Report Model Using Sequelize ORM**
 class Report extends Model {}
 
@@ -37,9 +97,10 @@ Report.init(
   }
 );
 
-// **Export Report Model**
+// **Export Report and RevenueByProduct Models**
 module.exports = {
   Report,
+  RevenueByProduct,
 
   // **Create a new report using Sequelize ORM**
   createReport: async (date, revenue_by_product) => {
@@ -91,12 +152,17 @@ module.exports = {
 
   // **Get revenue by product data using Sequelize ORM**
   getRevenueByProductData: async (startDate, endDate) => {
-    return await Report.findAll({
-      attributes: ['report_date', 'revenue_by_product'],
-      where: {
-        report_date: { [Op.between]: [startDate, endDate] },
-      },
-      order: [['report_date', 'ASC']],
+    return await RevenueByProduct.findAll({
+      attributes: ['report_id', 'product_id', 'product_name', 'total_quantity', 'total_sales', 'total_cost', 'total_profit', 'inventory_turnover_rate', 'sell_through_rate'],
+      include: [
+        {
+          model: Report,
+          where: {
+            report_date: { [Op.between]: [startDate, endDate] },
+          },
+        },
+      ],
+      order: [['product_name', 'ASC']],
     });
   },
 

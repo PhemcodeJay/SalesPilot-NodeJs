@@ -1,9 +1,9 @@
 const { Sequelize, DataTypes, Model } = require('sequelize');
-const sequelize = require('../db'); // Assuming db.js exports a Sequelize instance
-
-class Payment extends Model {}
+const sequelize = require('../config/db.js'); // Ensure this path is correct
 
 // Define the Payment model
+class Payment extends Model {}
+
 Payment.init(
   {
     id: {
@@ -14,18 +14,49 @@ Payment.init(
     user_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
+      validate: {
+        isInt: {
+          msg: "User ID must be an integer",
+        },
+        notNull: {
+          msg: "User ID is required",
+        },
+      },
     },
     payment_method: {
       type: DataTypes.ENUM('paypal', 'binance', 'mpesa', 'naira'),
       allowNull: false,
+      validate: {
+        notNull: {
+          msg: "Payment method is required",
+        },
+        isIn: {
+          args: [['paypal', 'binance', 'mpesa', 'naira']],
+          msg: "Payment method must be one of 'paypal', 'binance', 'mpesa', 'naira'",
+        },
+      },
     },
     payment_proof: {
       type: DataTypes.STRING,
       allowNull: false,
+      validate: {
+        notEmpty: {
+          msg: "Payment proof is required",
+        },
+      },
     },
     payment_amount: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: false,
+      validate: {
+        isDecimal: {
+          msg: "Payment amount must be a valid decimal number",
+        },
+        notNull: {
+          msg: "Payment amount is required",
+        },
+        min: 0.01, // Prevent 0 or negative amounts
+      },
     },
     payment_status: {
       type: DataTypes.ENUM('pending', 'completed', 'failed'),
@@ -38,6 +69,11 @@ Payment.init(
     subscription_id: {
       type: DataTypes.INTEGER,
       allowNull: true,
+      validate: {
+        isInt: {
+          msg: "Subscription ID must be an integer",
+        },
+      },
     },
   },
   {
@@ -45,16 +81,18 @@ Payment.init(
     modelName: 'Payment',
     tableName: 'payments',
     timestamps: false,
+    underscored: true, // Convert column names to snake_case
   }
 );
 
-// Sync model with database
+// Sync model with the database
 sequelize.sync()
   .then(() => console.log('Payments table created or already exists.'))
   .catch((error) => console.error('Error creating payments table:', error));
 
-// Define class methods
+// Define class methods for CRUD operations
 class PaymentService {
+  // ✅ Create a new payment
   static async createPayment(paymentData) {
     try {
       return await Payment.create(paymentData);
@@ -63,6 +101,7 @@ class PaymentService {
     }
   }
 
+  // ✅ Get payment by ID
   static async getPaymentById(id) {
     try {
       const payment = await Payment.findByPk(id);
@@ -73,6 +112,7 @@ class PaymentService {
     }
   }
 
+  // ✅ Get all payments for a user
   static async getPaymentsByUserId(user_id) {
     try {
       return await Payment.findAll({
@@ -84,6 +124,7 @@ class PaymentService {
     }
   }
 
+  // ✅ Update payment status
   static async updatePaymentStatus(id, payment_status) {
     try {
       const [updated] = await Payment.update(
@@ -96,6 +137,7 @@ class PaymentService {
     }
   }
 
+  // ✅ Delete payment record
   static async deletePayment(id) {
     try {
       const deleted = await Payment.destroy({ where: { id } });

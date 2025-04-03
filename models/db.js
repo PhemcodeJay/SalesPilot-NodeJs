@@ -5,15 +5,15 @@ const path = require("path");
 require("dotenv").config();
 const debug = require("debug")("db");
 
-// ✅ **Load Environment Variables**
+// ✅ Load Environment Variables
 const DB_NAME = process.env.DB_NAME || "salespilot";
 const DB_HOST = process.env.DB_HOST || "localhost";
 const DB_USER = process.env.DB_USER || "root";
 const DB_PASS = process.env.DB_PASS || "1234";
 const DB_PORT = process.env.DB_PORT || 3306;
-const DB_SSL = process.env.DB_SSL === "true"; // Use SSL if enabled
+const DB_SSL = process.env.DB_SSL === "true"; // SSL toggle
 
-// ✅ **MySQL Connection Pool**
+// ✅ MySQL Connection Pool
 const pool = mysql.createPool({
   host: DB_HOST,
   port: DB_PORT,
@@ -24,10 +24,10 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 20,
   queueLimit: 0,
-  ssl: DB_SSL ? { rejectUnauthorized: true } : undefined, // Fix SSL handling
+  ssl: DB_SSL ? { rejectUnauthorized: true } : undefined, // Proper SSL handling
 });
 
-// ✅ **Test MySQL Connection**
+// ✅ Test MySQL Connection
 async function testPoolConnection() {
   try {
     const connection = await pool.getConnection();
@@ -39,7 +39,7 @@ async function testPoolConnection() {
   }
 }
 
-// ✅ **Execute raw SQL queries**
+// ✅ Execute Raw SQL Queries
 async function executeQuery(query, params = []) {
   try {
     const [results] = await pool.execute(query, params);
@@ -50,7 +50,7 @@ async function executeQuery(query, params = []) {
   }
 }
 
-// ✅ **Sequelize Connection**
+// ✅ Sequelize Connection
 const sequelize = new Sequelize(DB_NAME, DB_USER, DB_PASS, {
   host: DB_HOST,
   dialect: "mysql",
@@ -66,11 +66,11 @@ const sequelize = new Sequelize(DB_NAME, DB_USER, DB_PASS, {
     acquire: 20000,
     idle: 5000,
   },
-  retry: { max: 3 }, // Reduce retry attempts to avoid long waits
+  retry: { max: 3 }, // Reduced retries for faster failure detection
   dialectOptions: DB_SSL ? { ssl: { rejectUnauthorized: true } } : {},
 });
 
-// ✅ **Authenticate Sequelize Connection**
+// ✅ Authenticate Sequelize Connection
 async function connectSequelize() {
   try {
     await sequelize.authenticate();
@@ -81,7 +81,7 @@ async function connectSequelize() {
   }
 }
 
-// ✅ **Load Sequelize Models**
+// ✅ Load Sequelize Models
 const models = {};
 fs.readdirSync(__dirname)
   .filter((file) => file.endsWith(".js") && file !== path.basename(__filename))
@@ -97,20 +97,20 @@ fs.readdirSync(__dirname)
     }
   });
 
-// ✅ **Associate models**
+// ✅ Associate Models
 Object.keys(models).forEach((modelName) => {
   if (models[modelName].associate) {
     models[modelName].associate(models);
   }
 });
 
-// ✅ **Sync all models**
+// ✅ Sync all models
 sequelize
   .sync()
   .then(() => debug("✅ All models synchronized successfully"))
   .catch((err) => console.error("❌ Sequelize Sync Error:", err));
 
-// ✅ **Tenant Database Handling**
+// ✅ Tenant Database Handling
 const tenantConnections = new Map();
 
 /**
@@ -134,9 +134,6 @@ async function getTenantDatabase(tenantDbName) {
       await executeQuery(`CREATE DATABASE ${tenantDbName}`);
       debug(`✅ Tenant database created: ${tenantDbName}`);
     }
-
-    // Delay to ensure the database is ready before connecting
-    await new Promise((resolve) => setTimeout(resolve, 500));
 
     const tenantSequelize = new Sequelize(tenantDbName, DB_USER, DB_PASS, {
       host: DB_HOST,
@@ -182,7 +179,7 @@ async function closeTenantConnection(tenantDbName) {
   }
 }
 
-// ✅ **Graceful Shutdown**
+// ✅ Graceful Shutdown
 process.on("SIGINT", async () => {
   console.log("🔄 Gracefully shutting down...");
   try {
@@ -199,13 +196,13 @@ process.on("SIGINT", async () => {
   }
 });
 
-// ✅ **Test connections before exporting**
+// ✅ Test connections before exporting
 (async () => {
   await testPoolConnection();
   await connectSequelize();
 })();
 
-// ✅ **Export Modules**
+// ✅ Export Modules
 module.exports = {
   executeQuery,
   sequelize,

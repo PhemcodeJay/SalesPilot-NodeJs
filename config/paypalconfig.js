@@ -24,12 +24,13 @@ router.post('/create-order', async (req, res) => {
     try {
         const { amount, currency } = req.body;
 
+        // Validate the provided amount
         if (!amount || isNaN(amount) || amount <= 0) {
             return res.status(400).json({ error: "Invalid amount provided." });
         }
 
-        const request = new paypal.orders.OrdersCreateRequest();
-        request.requestBody({
+        const orderRequest = new paypal.orders.OrdersCreateRequest();
+        orderRequest.requestBody({
             intent: 'CAPTURE',
             purchase_units: [{
                 amount: {
@@ -39,7 +40,7 @@ router.post('/create-order', async (req, res) => {
             }],
         });
 
-        const order = await client.execute(request);
+        const order = await client.execute(orderRequest);
         console.log("✅ PayPal Order Created:", order.result.id);
 
         res.json({ id: order.result.id });
@@ -60,8 +61,8 @@ router.post('/capture-order', async (req, res) => {
             return res.status(400).json({ error: "Missing order ID." });
         }
 
-        const request = new paypal.orders.OrdersCaptureRequest(orderId);
-        const capture = await client.execute(request);
+        const captureRequest = new paypal.orders.OrdersCaptureRequest(orderId);
+        const capture = await client.execute(captureRequest);
         console.log("✅ PayPal Order Captured:", capture.result.id);
 
         res.json({
