@@ -46,4 +46,9 @@ async function checkLogin(req, res, next) {
   }
 }
 
-module.exports = { generateToken, verifyToken, checkLogin };
+// ✅ Export the functions correctly
+module.exports = {
+  generateToken,
+  verifyToken,
+  checkLogin
+};
