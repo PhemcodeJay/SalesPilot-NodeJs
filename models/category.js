@@ -1,29 +1,6 @@
-const { Sequelize, DataTypes } = require('sequelize');
-const db = require('../config/db'); // Sequelize instance from db.js
+const { models } = require("../config/db.js"); // Import models
 
-const Category = db.define('Category', {
-  category_id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
-  },
-  category_name: {
-    type: DataTypes.STRING(100),
-    allowNull: false,
-  },
-  description: {
-    type: DataTypes.TEXT,
-    defaultValue: null,
-  },
-  created_at: {
-    type: DataTypes.TIMESTAMP,
-    allowNull: false,
-    defaultValue: Sequelize.NOW,
-  },
-}, {
-  tableName: 'categories',
-  timestamps: false, // disable automatic timestamp fields (createdAt, updatedAt)
-});
+const Category = models.Category; // Use centralized Category model
 
 // Sync the model with the database
 const createCategoriesTable = async () => {
@@ -38,8 +15,7 @@ const createCategoriesTable = async () => {
 // Insert a new category
 const createCategory = async ({ category_name, description }) => {
   try {
-    const category = await Category.create({ category_name, description });
-    return category;
+    return await Category.create({ category_name, description });
   } catch (error) {
     throw new Error(`❌ Error creating category: ${error.message}`);
   }
@@ -59,9 +35,7 @@ const getCategoryById = async (category_id) => {
 // Get all categories
 const getAllCategories = async () => {
   try {
-    return await Category.findAll({
-      order: [['created_at', 'DESC']], // Ordering categories by creation date
-    });
+    return await Category.findAll({ order: [['created_at', 'DESC']] });
   } catch (error) {
     throw new Error(`❌ Error fetching categories: ${error.message}`);
   }
@@ -74,7 +48,7 @@ const updateCategory = async (category_id, { category_name, description }) => {
       { category_name, description },
       { where: { category_id } }
     );
-    return result[0] > 0; // result[0] returns the number of affected rows
+    return result[0] > 0; // Returns true if rows were updated
   } catch (error) {
     throw new Error(`❌ Error updating category: ${error.message}`);
   }
@@ -84,7 +58,7 @@ const updateCategory = async (category_id, { category_name, description }) => {
 const deleteCategory = async (category_id) => {
   try {
     const result = await Category.destroy({ where: { category_id } });
-    return result > 0; // result returns the number of rows affected
+    return result > 0; // Returns true if rows were deleted
   } catch (error) {
     throw new Error(`❌ Error deleting category: ${error.message}`);
   }

@@ -117,7 +117,7 @@ class PaymentService {
     try {
       return await Payment.findAll({
         where: { user_id },
-        order: [['payment_date', 'DESC']],
+        order: [['payment_date', 'DESC']], // Order by payment date (newest first)
       });
     } catch (error) {
       throw new Error(`Error fetching payments for user: ${error.message}`);
@@ -131,7 +131,7 @@ class PaymentService {
         { payment_status },
         { where: { id } }
       );
-      return updated > 0;
+      return updated > 0; // Return true if update was successful
     } catch (error) {
       throw new Error(`Error updating payment status: ${error.message}`);
     }
@@ -141,7 +141,7 @@ class PaymentService {
   static async deletePayment(id) {
     try {
       const deleted = await Payment.destroy({ where: { id } });
-      return deleted > 0;
+      return deleted > 0; // Return true if deletion was successful
     } catch (error) {
       throw new Error(`Error deleting payment record: ${error.message}`);
     }

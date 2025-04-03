@@ -1,73 +1,8 @@
-const { DataTypes } = require("sequelize");
-const sequelize = require("../config/db"); // Import Sequelize instance
+const { models } = require("../config/db.js"); // Import models from centralized db.js
 
-// Expense Model Definition
-const Expense = sequelize.define(
-  "Expense",
-  {
-    expense_id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-      allowNull: false,
-    },
-    description: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-      validate: {
-        notEmpty: {
-          msg: "Description cannot be empty",
-        },
-        len: {
-          args: [1, 500],
-          msg: "Description must be between 1 and 500 characters",
-        },
-      },
-    },
-    amount: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: false,
-      validate: {
-        isDecimal: {
-          msg: "Amount must be a valid decimal number",
-        },
-        min: {
-          args: [0],
-          msg: "Amount cannot be negative",
-        },
-      },
-    },
-    expense_date: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-    },
-    created_by: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
-      validate: {
-        notEmpty: {
-          msg: "Created by cannot be empty",
-        },
-      },
-    },
-    created_at: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW,
-    },
-    updated_at: {
-      type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW,
-    },
-  },
-  {
-    tableName: "expenses",
-    timestamps: true, // Automatically uses createdAt and updatedAt
-    underscored: true, // Uses snake_case for column names
-  }
-);
+const Expense = models.Expense; // Use the centralized Expense model
 
-// ✅ Sync model with database (Creates table if not exists)
+// Sync model with database (Creates table if not exists)
 const syncExpenseTable = async () => {
   try {
     await Expense.sync();
@@ -79,6 +14,8 @@ const syncExpenseTable = async () => {
 };
 
 // CRUD Operations
+
+// Get all expenses
 const getAllExpenses = async () => {
   try {
     return await Expense.findAll();
@@ -88,6 +25,7 @@ const getAllExpenses = async () => {
   }
 };
 
+// Get expense by ID
 const getExpenseById = async (expenseId) => {
   try {
     return await Expense.findOne({ where: { expense_id: expenseId } });
@@ -97,6 +35,7 @@ const getExpenseById = async (expenseId) => {
   }
 };
 
+// Create a new expense
 const createExpense = async (expenseData) => {
   try {
     const expense = await Expense.create(expenseData);
@@ -108,6 +47,7 @@ const createExpense = async (expenseData) => {
   }
 };
 
+// Update an existing expense
 const updateExpense = async (expenseId, updatedData) => {
   try {
     const expense = await Expense.findOne({ where: { expense_id: expenseId } });
@@ -122,6 +62,7 @@ const updateExpense = async (expenseId, updatedData) => {
   }
 };
 
+// Delete an expense
 const deleteExpense = async (expenseId) => {
   try {
     const expense = await Expense.findOne({ where: { expense_id: expenseId } });
@@ -136,13 +77,12 @@ const deleteExpense = async (expenseId) => {
   }
 };
 
-// Exporting methods and sync
-module.exports = { 
-  Expense, 
-  syncExpenseTable, 
-  getAllExpenses, 
-  getExpenseById, 
-  createExpense, 
-  updateExpense, 
-  deleteExpense 
+// Export methods and sync
+module.exports = {
+  syncExpenseTable,
+  getAllExpenses,
+  getExpenseById,
+  createExpense,
+  updateExpense,
+  deleteExpense,
 };

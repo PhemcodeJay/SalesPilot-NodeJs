@@ -1,77 +1,8 @@
-const { DataTypes } = require("sequelize");
-const sequelize = require("../config/db"); // Import Sequelize instance
+const { models } = require("../config/db.js"); // Import models from centralized db.js
 
-// Customer Model Definition
-const Customer = sequelize.define(
-  "Customer",
-  {
-    customer_id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-      allowNull: false,
-    },
-    customer_name: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
-      validate: {
-        notEmpty: {
-          msg: "Customer name cannot be empty",
-        },
-        len: {
-          args: [1, 100],
-          msg: "Customer name must be between 1 and 100 characters",
-        },
-      },
-    },
-    customer_email: {
-      type: DataTypes.STRING(100),
-      allowNull: false,
-      validate: {
-        isEmail: {
-          msg: "Must be a valid email address",
-        },
-        notEmpty: {
-          msg: "Email cannot be empty",
-        },
-      },
-    },
-    customer_phone: {
-      type: DataTypes.STRING(20),
-      allowNull: false,
-      validate: {
-        notEmpty: {
-          msg: "Phone number cannot be empty",
-        },
-        len: {
-          args: [10, 20],
-          msg: "Phone number must be between 10 and 20 characters",
-        },
-      },
-    },
-    customer_location: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-      validate: {
-        notEmpty: {
-          msg: "Location cannot be empty",
-        },
-      },
-    },
-    created_at: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-    },
-  },
-  {
-    tableName: "customers",
-    timestamps: false, // Disable Sequelize's auto timestamps
-    underscored: true, // Use snake_case column names
-  }
-);
+const Customer = models.Customer; // Use the centralized Customer model
 
-// ✅ Sync model with database (Creates table if not exists)
+// Sync model with database (Creates table if not exists)
 const syncCustomerTable = async () => {
   try {
     await Customer.sync();
@@ -83,6 +14,8 @@ const syncCustomerTable = async () => {
 };
 
 // Allow Sequelize queries (CRUD)
+
+// Get all customers
 const getAllCustomers = async () => {
   try {
     return await Customer.findAll();
@@ -92,6 +25,7 @@ const getAllCustomers = async () => {
   }
 };
 
+// Get customer by ID
 const getCustomerById = async (customerId) => {
   try {
     return await Customer.findOne({ where: { customer_id: customerId } });
@@ -101,6 +35,7 @@ const getCustomerById = async (customerId) => {
   }
 };
 
+// Create a new customer
 const createCustomer = async (customerData) => {
   try {
     const customer = await Customer.create(customerData);
@@ -112,6 +47,7 @@ const createCustomer = async (customerData) => {
   }
 };
 
+// Update customer details
 const updateCustomer = async (customerId, updatedData) => {
   try {
     const customer = await Customer.findOne({ where: { customer_id: customerId } });
@@ -126,6 +62,7 @@ const updateCustomer = async (customerId, updatedData) => {
   }
 };
 
+// Delete a customer
 const deleteCustomer = async (customerId) => {
   try {
     const customer = await Customer.findOne({ where: { customer_id: customerId } });
@@ -140,13 +77,12 @@ const deleteCustomer = async (customerId) => {
   }
 };
 
-// Exporting methods and sync
-module.exports = { 
-  Customer, 
+// Export methods and sync
+module.exports = {
   syncCustomerTable,
-  getAllCustomers, 
+  getAllCustomers,
   getCustomerById,
-  createCustomer, 
-  updateCustomer, 
-  deleteCustomer 
+  createCustomer,
+  updateCustomer,
+  deleteCustomer,
 };

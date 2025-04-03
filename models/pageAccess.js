@@ -1,5 +1,5 @@
 const { Sequelize, DataTypes, Model } = require('sequelize');
-const sequelize = require('./db');  // Import sequelize instance from db.js
+const sequelize = require('../config/db');  // Import sequelize instance from db.js
 
 // Define PageAccess Model
 class PageAccess extends Model {}

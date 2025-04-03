@@ -1,95 +1,19 @@
-const { DataTypes } = require("sequelize");
-const sequelize = require("../config/db"); // Import Sequelize instance
+const { models } = require("../config/db.js"); // Import models from centralized db.js
 
-// Inventory Model Definition
-const Inventory = sequelize.define(
-  "Inventory",
-  {
-    inventory_id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-      allowNull: false,
-    },
-    product_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      validate: {
-        isInt: {
-          msg: "Product ID must be an integer",
-        },
-      },
-    },
-    sales_qty: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      validate: {
-        isInt: {
-          msg: "Sales quantity must be an integer",
-        },
-        min: {
-          args: [0],
-          msg: "Sales quantity cannot be negative",
-        },
-      },
-    },
-    last_updated: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-    },
-    stock_qty: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      validate: {
-        isInt: {
-          msg: "Stock quantity must be an integer",
-        },
-        min: {
-          args: [0],
-          msg: "Stock quantity cannot be negative",
-        },
-      },
-    },
-    supply_qty: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      validate: {
-        isInt: {
-          msg: "Supply quantity must be an integer",
-        },
-        min: {
-          args: [0],
-          msg: "Supply quantity cannot be negative",
-        },
-      },
-    },
-    // Using virtual attributes to calculate available stock and inventory quantity
-    available_stock: {
-      type: DataTypes.VIRTUAL,
-      get() {
-        return (this.stock_qty || 0) + (this.supply_qty || 0) - (this.sales_qty || 0);
-      },
-    },
-    inventory_qty: {
-      type: DataTypes.VIRTUAL,
-      get() {
-        return (this.stock_qty || 0) + (this.supply_qty || 0);
-      },
-    },
-    product_name: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
-    },
-  },
-  {
-    tableName: "inventory",
-    timestamps: false, // Prevent Sequelize from auto-generating `createdAt` & `updatedAt`
-    underscored: true, // Uses snake_case for column names
+const Inventory = models.Inventory; // Use the centralized Inventory model
+
+// Sync model with database (Creates table if not exists)
+const syncInventoryTable = async () => {
+  try {
+    await Inventory.sync();
+    console.log("✅ Inventory table created or already exists.");
+  } catch (error) {
+    console.error("❌ Error creating Inventory table:", error.message);
+    throw new Error("Failed to sync Inventory table.");
   }
-);
+};
 
-// CRUD Operations using Sequelize
+// CRUD Operations
 
 // ✅ Create a new inventory entry
 const createInventory = async (inventoryData) => {
@@ -99,10 +23,11 @@ const createInventory = async (inventoryData) => {
     return inventory;
   } catch (error) {
     console.error("❌ Error creating inventory:", error.message);
+    throw new Error("Failed to create inventory.");
   }
 };
 
-// ✅ Read inventory entry by product ID
+// ✅ Get inventory by product ID
 const getInventoryByProductId = async (productId) => {
   try {
     const inventory = await Inventory.findOne({
@@ -110,14 +35,16 @@ const getInventoryByProductId = async (productId) => {
     });
     if (!inventory) {
       console.log("❌ No inventory found for product ID:", productId);
+      return null;
     }
     return inventory;
   } catch (error) {
     console.error("❌ Error retrieving inventory:", error.message);
+    throw new Error("Failed to retrieve inventory.");
   }
 };
 
-// ✅ Update inventory entry by product ID
+// ✅ Update inventory by product ID
 const updateInventoryByProductId = async (productId, updateData) => {
   try {
     const [updatedRows] = await Inventory.update(updateData, {
@@ -130,10 +57,11 @@ const updateInventoryByProductId = async (productId, updateData) => {
     }
   } catch (error) {
     console.error("❌ Error updating inventory:", error.message);
+    throw new Error("Failed to update inventory.");
   }
 };
 
-// ✅ Delete inventory entry by product ID
+// ✅ Delete inventory by product ID
 const deleteInventoryByProductId = async (productId) => {
   try {
     const deletedRows = await Inventory.destroy({
@@ -146,24 +74,15 @@ const deleteInventoryByProductId = async (productId) => {
     }
   } catch (error) {
     console.error("❌ Error deleting inventory:", error.message);
+    throw new Error("Failed to delete inventory.");
   }
 };
 
-// ✅ Sync model with database (Ensures table exists before queries)
-const syncInventoryTable = async () => {
-  try {
-    await Inventory.sync();
-    console.log("✅ Inventory table created or already exists.");
-  } catch (error) {
-    console.error("❌ Error creating Inventory table:", error.message);
-  }
-};
-
+// Export CRUD functions and sync method
 module.exports = {
-  Inventory,
+  syncInventoryTable,
   createInventory,
   getInventoryByProductId,
   updateInventoryByProductId,
   deleteInventoryByProductId,
-  syncInventoryTable,
 };
