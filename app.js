@@ -17,7 +17,7 @@ const rateLimiter = require("./middleware/rateLimiter");
 // ✅ Import PageAccessController
 const PageAccessController = require("./controllers/PageAccessController");
 const passwordResetRoute = require("./routes/PasswordResetRoute");
-app.use("/password-resets", passwordResetRoute);
+
 
 // ✅ Initialize Express App
 const app = express();
@@ -93,7 +93,7 @@ const routes = {
   subscription: require("./routes/subscriptionRoute"),
   pageAccess: require("./routes/pageAccessRoute"), 
 };
-
+app.use("/password-resets", passwordResetRoute);
 // ✅ Apply Routes Dynamically & Handle Errors
 Object.entries(routes).forEach(([name, route]) => {
   try {
