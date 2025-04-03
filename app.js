@@ -8,16 +8,18 @@ const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const morgan = require("morgan");
 const helmet = require("helmet");
-const { sequelize, models } = require("./models"); // ✅ Load Sequelize & Models
+
+// ✅ Corrected the path to db.js
+const { sequelize, models, getTenantDatabase, closeTenantConnection } = require("./config/db.js");
 
 const { authenticateUser } = require("./middleware/auth");
 const tenancyMiddleware = require("./middleware/tenancyMiddleware");
 const { checkAndDeactivateSubscriptions } = require("./controllers/subscriptioncontroller");
 const rateLimiter = require("./middleware/rateLimiter");
+
 // ✅ Import PageAccessController
 const PageAccessController = require("./controllers/PageAccessController");
 const passwordResetRoute = require("./routes/PasswordResetRoute");
-
 
 // ✅ Initialize Express App
 const app = express();
@@ -32,7 +34,7 @@ app.use(morgan("dev"));
 app.use(cors({ credentials: true, origin: process.env.CLIENT_URL || "http://localhost:5000" }));
 app.use(cookieParser());
 
-// ✅ Body Parsers (Removed redundant body-parser)
+// ✅ Body Parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -91,9 +93,10 @@ const routes = {
   customer: require("./routes/customerRoute"),
   inventory: require("./routes/inventoryRoute"),
   subscription: require("./routes/subscriptionRoute"),
-  pageAccess: require("./routes/pageAccessRoute"), 
+  pageAccess: require("./routes/pageAccessRoute"),
 };
 app.use("/password-resets", passwordResetRoute);
+
 // ✅ Apply Routes Dynamically & Handle Errors
 Object.entries(routes).forEach(([name, route]) => {
   try {
@@ -115,11 +118,24 @@ app.use((err, req, res, next) => {
 
 // ✅ Sync Database & Start Server
 sequelize
-  .sync()
+  .authenticate()
   .then(() => {
     console.log("✅ Database connected successfully.");
     app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
   })
   .catch((err) => console.error("❌ Database connection error:", err));
+
+// ✅ Graceful Shutdown: Close connections when the server is stopped
+process.on("SIGINT", async () => {
+  console.log("🔄 Gracefully shutting down...");
+  try {
+    await sequelize.close();
+    console.log("✅ Main Sequelize connection closed.");
+    process.exit(0);
+  } catch (error) {
+    console.error("❌ Shutdown Error:", error.message);
+    process.exit(1);
+  }
+});
 
 module.exports = app;

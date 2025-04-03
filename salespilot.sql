@@ -616,33 +616,7 @@ CREATE TABLE `tenants` (
   `updatedAt` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`),
-  UNIQUE KEY `email_2` (`email`),
-  UNIQUE KEY `email_3` (`email`),
-  UNIQUE KEY `email_4` (`email`),
-  UNIQUE KEY `email_5` (`email`),
-  UNIQUE KEY `email_6` (`email`),
-  UNIQUE KEY `email_7` (`email`),
-  UNIQUE KEY `email_8` (`email`),
-  UNIQUE KEY `email_9` (`email`),
-  UNIQUE KEY `email_10` (`email`),
-  UNIQUE KEY `email_11` (`email`),
-  UNIQUE KEY `email_12` (`email`),
-  UNIQUE KEY `email_13` (`email`),
-  UNIQUE KEY `email_14` (`email`),
-  UNIQUE KEY `email_15` (`email`),
-  UNIQUE KEY `email_16` (`email`),
-  UNIQUE KEY `email_17` (`email`),
-  UNIQUE KEY `email_18` (`email`),
-  UNIQUE KEY `email_19` (`email`),
-  UNIQUE KEY `email_20` (`email`),
-  UNIQUE KEY `email_21` (`email`),
-  UNIQUE KEY `email_22` (`email`),
-  UNIQUE KEY `email_23` (`email`),
-  UNIQUE KEY `email_24` (`email`),
-  UNIQUE KEY `email_25` (`email`),
-  UNIQUE KEY `email_26` (`email`),
-  UNIQUE KEY `email_27` (`email`) /*!80000 INVISIBLE */,
-  UNIQUE KEY `id_UNIQUE` (`id`)
+  UNIQUE KEY `id_UNIQUE` (`id`) /*!80000 INVISIBLE */
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -681,27 +655,7 @@ CREATE TABLE `users` (
   `activation_token_expiry` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_email` (`email`),
-  UNIQUE KEY `email` (`email`),
-  UNIQUE KEY `email_2` (`email`),
-  UNIQUE KEY `email_3` (`email`),
-  UNIQUE KEY `email_4` (`email`),
-  UNIQUE KEY `email_5` (`email`),
-  UNIQUE KEY `email_6` (`email`),
-  UNIQUE KEY `email_7` (`email`),
-  UNIQUE KEY `email_8` (`email`),
-  UNIQUE KEY `email_9` (`email`),
-  UNIQUE KEY `email_10` (`email`),
-  UNIQUE KEY `email_11` (`email`),
-  UNIQUE KEY `email_12` (`email`),
-  UNIQUE KEY `email_13` (`email`),
   UNIQUE KEY `username` (`username`),
-  UNIQUE KEY `email_14` (`email`),
-  UNIQUE KEY `username_2` (`username`),
-  UNIQUE KEY `email_15` (`email`),
-  UNIQUE KEY `username_3` (`username`),
-  UNIQUE KEY `email_16` (`email`),
-  UNIQUE KEY `username_4` (`username`),
-  UNIQUE KEY `email_17` (`email`),
   UNIQUE KEY `tenant_id_UNIQUE` (`tenant_id`),
   UNIQUE KEY `phone_UNIQUE` (`phone`),
   UNIQUE KEY `id_UNIQUE` (`id`),
@@ -727,4 +681,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-03-26 21:32:39
+-- Dump completed on 2025-04-04  0:14:26
