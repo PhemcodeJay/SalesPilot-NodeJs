@@ -1,110 +1,111 @@
 const passport = require("passport");
 const { Strategy: JwtStrategy, ExtractJwt } = require("passport-jwt");
 const LocalStrategy = require("passport-local").Strategy;
-const bcryptUtils = require("../utils/bcryptUtils"); // Assuming bcrypt utility functions are defined
+const bcryptUtils = require("../utils/bcryptUtils");
 const { Op } = require("sequelize");
-const dotenv = require("dotenv");
+require("dotenv").config();
 
-dotenv.config(); // ✅ Load environment variables
+// Ensure JWT secret is defined
+if (!process.env.JWT_SECRET) {
+  throw new Error("Missing JWT_SECRET in environment variables.");
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 /**
  * Initialize Passport authentication strategies
  * @param {object} passport - Passport instance
- * @param {object} models - Database models
+ * @param {object} models - Sequelize models
  */
 module.exports = (passport, models) => {
-    if (!models || !models.User) {
-        console.error("❌ Error: User model not initialized in Passport setup.");
-        return;
-    }
+  if (!models || !models.User) {
+    console.error("❌ Error: User model not initialized in Passport setup.");
+    return;
+  }
 
-    const { User } = models; // ✅ Ensure User model is available
+  const { User } = models;
 
-    // ✅ JWT Authentication Strategy
-    const jwtOpts = {
-        jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-        secretOrKey: process.env.JWT_SECRET,
-    };
+  // ✅ JWT Strategy
+  const jwtOptions = {
+    jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+    secretOrKey: JWT_SECRET,
+  };
 
-    passport.use(
-        new JwtStrategy(jwtOpts, async (payload, done) => {
-            try {
-                const user = await User.findOne({
-                    where: {
-                        [Op.or]: [
-                            { id: payload.id },
-                            { email: payload.email },
-                            { username: payload.username },
-                        ],
-                    },
-                });
+  passport.use(
+    new JwtStrategy(jwtOptions, async (jwtPayload, done) => {
+      try {
+        const user = await User.findOne({
+          where: {
+            [Op.or]: [
+              { id: jwtPayload.id },
+              { email: jwtPayload.email },
+              { username: jwtPayload.username },
+            ],
+          },
+        });
 
-                if (user) {
-                    return done(null, user);
-                } else {
-                    return done(null, false, { message: "Invalid token" });
-                }
-            } catch (error) {
-                console.error("❌ Error in Passport JWT Strategy:", error.message);
-                return done(error, false);
-            }
-        })
-    );
+        if (user) return done(null, user);
+        return done(null, false, { message: "Token invalid or user not found." });
+      } catch (err) {
+        console.error("❌ Passport JWT Strategy error:", err.message);
+        return done(err, false);
+      }
+    })
+  );
 
-    // ✅ Local Authentication Strategy (Accepts Email or Username & Password)
-    passport.use(
-        new LocalStrategy(
-            {
-                usernameField: "identifier", // Can be email or username
-                passwordField: "password",
-            },
-            async (identifier, password, done) => {
-                try {
-                    const user = await User.findOne({
-                        where: {
-                            [Op.or]: [{ email: identifier }, { username: identifier }],
-                        },
-                    });
-
-                    if (!user) {
-                        return done(null, false, { message: "User not found" });
-                    }
-
-                    // ✅ Check if user is active (for login validation)
-                    if (!user.is_active) {
-                        return done(null, false, { message: "Account not activated. Check your email." });
-                    }
-
-                    // ✅ Compare password using bcryptUtils (hash comparison)
-                    const isMatch = await bcryptUtils.comparePassword(password, user.password);
-                    if (!isMatch) {
-                        return done(null, false, { message: "Incorrect password" });
-                    }
-
-                    return done(null, user);
-                } catch (error) {
-                    console.error("❌ Error in Passport Local Strategy:", error.message);
-                    return done(error);
-                }
-            }
-        )
-    );
-
-    // ✅ Serialize user ID into session
-    passport.serializeUser((user, done) => {
-        done(null, user.id);
-    });
-
-    // ✅ Deserialize user from session
-    passport.deserializeUser(async (id, done) => {
+  // ✅ Local Strategy
+  passport.use(
+    new LocalStrategy(
+      {
+        usernameField: "identifier", // Accepts email or username
+        passwordField: "password",
+      },
+      async (identifier, password, done) => {
         try {
-            const user = await User.findByPk(id);
-            done(null, user);
-        } catch (error) {
-            console.error("❌ Error in deserializeUser:", error.message);
-            done(error);
-        }
-    });
+          const user = await User.findOne({
+            where: {
+              [Op.or]: [{ email: identifier }, { username: identifier }],
+            },
+          });
 
-    console.log("✅ Passport strategies initialized successfully.");
+          if (!user) {
+            return done(null, false, { message: "User not found." });
+          }
+
+          if (!user.is_active) {
+            return done(null, false, {
+              message: "Account not activated. Check your email.",
+            });
+          }
+
+          const isMatch = await bcryptUtils.comparePassword(password, user.password);
+          if (!isMatch) {
+            return done(null, false, { message: "Incorrect password." });
+          }
+
+          return done(null, user);
+        } catch (err) {
+          console.error("❌ Passport Local Strategy error:", err.message);
+          return done(err);
+        }
+      }
+    )
+  );
+
+  // ✅ Sessions (optional if using session-based auth)
+  passport.serializeUser((user, done) => {
+    done(null, user.id);
+  });
+
+  passport.deserializeUser(async (id, done) => {
+    try {
+      const user = await User.findByPk(id);
+      done(null, user);
+    } catch (err) {
+      console.error("❌ deserializeUser error:", err.message);
+      done(err);
+    }
+  });
+
+  console.log("✅ Passport strategies initialized successfully.");
 };
