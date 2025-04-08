@@ -7,8 +7,9 @@ const validator = require('validator');
 const jwt = require('jsonwebtoken');
 const tenancy = require('../middleware/tenancyMiddleware'); // Multi-tenancy middleware
 
-// Import Sequelize models
-const { User, Subscription, ActivationCode } = require('../models');
+// Import centralized models from db.js
+const { models } = require('../config/db'); // Import models from centralized db.js
+const { User, Subscription, ActivationCode } = models; // Access models from db.js
 
 // Utility Functions
 const generateRandomCode = () => crypto.randomBytes(20).toString('hex');
@@ -36,7 +37,7 @@ const sendEmail = async (to, subject, text) => {
   }
 };
 
-// Activation Code Model (Using Sequelize)
+// Activation Code Service (Sequelize Model Handling)
 const ActivationCodeService = {
   create: async (userId, activationCode) => 
     await ActivationCode.create({ user_id: userId, activation_code: activationCode }),
@@ -48,7 +49,7 @@ const ActivationCodeService = {
     await ActivationCode.destroy({ where: { activation_code: activationCode } }),
 };
 
-// Subscription Service
+// Subscription Service (Sequelize Model Handling)
 const SubscriptionService = {
   createTrial: async (userId) => 
     await Subscription.createFreeTrial(userId),
@@ -61,6 +62,8 @@ const SubscriptionService = {
 };
 
 // Authentication Logic
+
+// Signup Logic
 const signup = async ({ username, email, password, confirmpassword }) => {
   if (password !== confirmpassword) throw new Error('Passwords do not match');
   if (!validator.isEmail(email)) throw new Error('Invalid email format');
@@ -83,6 +86,7 @@ const signup = async ({ username, email, password, confirmpassword }) => {
   return { id: user.id, username, email };
 };
 
+// Login Logic
 const login = async (email, password, tenant) => {
   if (!validator.isEmail(email)) throw new Error('Invalid email format');
 
@@ -101,6 +105,7 @@ const login = async (email, password, tenant) => {
   return { id: user.id, username: user.username, email: user.email, subscription };
 };
 
+// Password Reset Logic
 const resetPassword = async (email) => {
   if (!validator.isEmail(email)) throw new Error('Invalid email format');
 
@@ -184,7 +189,7 @@ module.exports = {
   signup,
   login,
   resetPassword,
-  ActivationCodeService,
+  ActivationCodeservice,
   SubscriptionService,
   AuthModel,
 };

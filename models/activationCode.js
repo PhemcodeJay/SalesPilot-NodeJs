@@ -1,51 +1,66 @@
 const { Op } = require("sequelize");
-const { sequelize, models } = require("../config/db"); // Import models
 const crypto = require("crypto");
+const { models } = require("../config/db"); // Use dynamically loaded models
 
-const User = models.User; // Use the User model from db.js
+const User = models.User; // Get the User model
 
 /**
- * Generate and store activation token
- * @param {string} userId - ID of the user
- * @returns {Promise<string>} - Generated activation token
+ * ✅ Generate and store an activation token for a user
+ * @param {number} userId - User ID
+ * @returns {Promise<string>} - The generated activation token
  */
 async function generateActivationToken(userId) {
-  const activationToken = crypto.randomBytes(32).toString("hex");
-  const expiryDate = new Date();
-  expiryDate.setHours(expiryDate.getHours() + 1); // Token expires in 1 hour
+  try {
+    const activationToken = crypto.randomBytes(32).toString("hex");
+    const expiryDate = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
 
-  await User.update(
-    { activation_token: activationToken, activation_token_expiry: expiryDate },
-    { where: { id: userId } }
-  );
+    await User.update(
+      {
+        activation_token: activationToken,
+        activation_token_expiry: expiryDate,
+      },
+      {
+        where: { id: userId },
+      }
+    );
 
-  return activationToken;
+    return activationToken;
+  } catch (err) {
+    throw new Error(`Failed to generate activation token: ${err.message}`);
+  }
 }
 
 /**
- * Verify activation token and activate user
+ * ✅ Validate activation token and activate user account
  * @param {string} token - Activation token
- * @returns {Promise<boolean>} - True if activation is successful
+ * @returns {Promise<boolean>} - True if user was activated
  */
 async function activateUser(token) {
-  const user = await User.findOne({
-    where: {
-      activation_token: token,
-      activation_token_expiry: { [Op.gt]: new Date() }, // Token must not be expired
-    },
-  });
+  try {
+    const user = await User.findOne({
+      where: {
+        activation_token: token,
+        activation_token_expiry: { [Op.gt]: new Date() }, // Token must still be valid
+      },
+    });
 
-  if (!user) {
-    throw new Error("Invalid or expired activation token.");
+    if (!user) {
+      throw new Error("Invalid or expired activation token.");
+    }
+
+    await user.update({
+      is_active: true,
+      activation_token: null,
+      activation_token_expiry: null,
+    });
+
+    return true;
+  } catch (err) {
+    throw new Error(`Activation failed: ${err.message}`);
   }
-
-  await user.update({
-    is_active: true,
-    activation_token: null,
-    activation_token_expiry: null,
-  });
-
-  return true;
 }
 
-module.exports = { generateActivationToken, activateUser };
+module.exports = {
+  generateActivationToken,
+  activateUser,
+};

@@ -5,7 +5,7 @@ const Feedback = models.Feedback; // Use the centralized Feedback model
 // Sync model with database (Creates table if not exists)
 const syncFeedbackTable = async () => {
   try {
-    await Feedback.sync();
+    await Feedback.sync(); // Sync the Feedback table
     console.log("✅ Feedbacks table created or already exists.");
   } catch (error) {
     console.error("❌ Error creating Feedbacks table:", error.message);
@@ -18,7 +18,7 @@ const syncFeedbackTable = async () => {
 // Get all feedback
 const getAllFeedbacks = async () => {
   try {
-    return await Feedback.findAll();
+    return await Feedback.findAll(); // Fetch all feedback records
   } catch (error) {
     console.error("❌ Error fetching feedback:", error.message);
     throw new Error("Failed to fetch feedback.");
@@ -28,7 +28,7 @@ const getAllFeedbacks = async () => {
 // Get feedback by ID
 const getFeedbackById = async (feedbackId) => {
   try {
-    return await Feedback.findOne({ where: { id: feedbackId } });
+    return await Feedback.findOne({ where: { id: feedbackId } }); // Fetch feedback by ID
   } catch (error) {
     console.error("❌ Error fetching feedback by ID:", error.message);
     throw new Error("Failed to fetch feedback by ID.");
@@ -38,7 +38,7 @@ const getFeedbackById = async (feedbackId) => {
 // Create a new feedback
 const createFeedback = async (feedbackData) => {
   try {
-    const feedback = await Feedback.create(feedbackData);
+    const feedback = await Feedback.create(feedbackData); // Create new feedback record
     console.log(`✅ Feedback created by: ${feedback.name}`);
     return feedback;
   } catch (error) {
@@ -51,9 +51,9 @@ const createFeedback = async (feedbackData) => {
 const updateFeedback = async (feedbackId, updatedData) => {
   try {
     const feedback = await Feedback.findOne({ where: { id: feedbackId } });
-    if (!feedback) throw new Error("Feedback not found.");
+    if (!feedback) throw new Error("Feedback not found."); // Check if feedback exists
 
-    await feedback.update(updatedData);
+    await feedback.update(updatedData); // Update feedback record
     console.log(`✅ Feedback updated by: ${feedback.name}`);
     return feedback;
   } catch (error) {
@@ -66,9 +66,9 @@ const updateFeedback = async (feedbackId, updatedData) => {
 const deleteFeedback = async (feedbackId) => {
   try {
     const feedback = await Feedback.findOne({ where: { id: feedbackId } });
-    if (!feedback) throw new Error("Feedback not found.");
+    if (!feedback) throw new Error("Feedback not found."); // Check if feedback exists
 
-    await feedback.destroy();
+    await feedback.destroy(); // Delete feedback record
     console.log(`✅ Feedback deleted: ${feedback.name}`);
     return true;
   } catch (error) {

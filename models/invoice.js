@@ -1,156 +1,11 @@
-const { DataTypes } = require("sequelize");
-const sequelize = require("../config/db"); // Import Sequelize instance
+const { models } = require("../config/db.js"); // Import models from centralized db.js
+const { DataTypes, Sequelize } = require("sequelize");
 
-// Define Invoices Table
-const Invoice = sequelize.define(
-  "Invoice",
-  {
-    invoice_id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-      allowNull: false,
-    },
-    invoice_number: {
-      type: DataTypes.STRING(50),
-      allowNull: false,
-      unique: true,
-      validate: {
-        notEmpty: { msg: "Invoice number cannot be empty" },
-      },
-    },
-    customer_name: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
-      validate: {
-        notEmpty: { msg: "Customer name cannot be empty" },
-      },
-    },
-    invoice_description: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-    order_date: {
-      type: DataTypes.DATEONLY,
-      allowNull: false,
-      validate: {
-        isDate: { msg: "Invalid order date format" },
-      },
-    },
-    order_status: {
-      type: DataTypes.ENUM("Paid", "Unpaid"),
-      allowNull: false,
-    },
-    order_id: {
-      type: DataTypes.STRING(50),
-      allowNull: false,
-    },
-    delivery_address: {
-      type: DataTypes.TEXT,
-      allowNull: false,
-    },
-    mode_of_payment: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
-    },
-    due_date: {
-      type: DataTypes.DATEONLY,
-      allowNull: false,
-      validate: {
-        isDate: { msg: "Invalid due date format" },
-      },
-    },
-    subtotal: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: false,
-      validate: {
-        isDecimal: { msg: "Subtotal must be a decimal value" },
-        min: 0,
-      },
-    },
-    discount: {
-      type: DataTypes.DECIMAL(5, 2),
-      allowNull: false,
-      validate: {
-        isDecimal: { msg: "Discount must be a decimal value" },
-        min: 0,
-      },
-    },
-    total_amount: {
-      type: DataTypes.VIRTUAL,
-      get() {
-        return this.subtotal - this.subtotal * (this.discount / 100);
-      },
-    },
-  },
-  {
-    tableName: "invoices",
-    timestamps: false,
-    underscored: true,
-  }
-);
+// Use the centralized Invoice and InvoiceItem models from db.js
+const Invoice = models.Invoice; 
+const InvoiceItem = models.InvoiceItem;
 
-// Define Invoice Items Table
-const InvoiceItem = sequelize.define(
-  "InvoiceItem",
-  {
-    invoice_items_id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-      allowNull: false,
-    },
-    invoice_id: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: Invoice,
-        key: "invoice_id",
-      },
-      onDelete: "CASCADE",
-    },
-    item_name: {
-      type: DataTypes.STRING(255),
-      allowNull: false,
-      validate: {
-        notEmpty: { msg: "Item name cannot be empty" },
-      },
-    },
-    qty: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      validate: {
-        isInt: { msg: "Quantity must be an integer" },
-        min: 1,
-      },
-    },
-    price: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: false,
-      validate: {
-        isDecimal: { msg: "Price must be a decimal value" },
-        min: 0,
-      },
-    },
-    total: {
-      type: DataTypes.VIRTUAL,
-      get() {
-        return this.qty * this.price;
-      },
-    },
-  },
-  {
-    tableName: "invoice_items",
-    timestamps: false,
-    underscored: true,
-  }
-);
-
-// Set Invoice → InvoiceItem Relationship
-Invoice.hasMany(InvoiceItem, { foreignKey: "invoice_id", as: "items" });
-InvoiceItem.belongsTo(Invoice, { foreignKey: "invoice_id" });
-
-// CRUD Operations for Invoices
+// ===== CRUD Operations for Invoices =====
 
 // ✅ Create a new invoice
 const createInvoice = async (invoiceData) => {
@@ -159,7 +14,7 @@ const createInvoice = async (invoiceData) => {
     console.log("✅ Invoice created:", invoice);
     return invoice;
   } catch (error) {
-    console.error("❌ Error creating invoice:", error.message);
+    throw new Error(`❌ Error creating invoice: ${error.message}`);
   }
 };
 
@@ -176,11 +31,11 @@ const getInvoiceById = async (invoiceId) => {
       ],
     });
     if (!invoice) {
-      console.log("❌ No invoice found with ID:", invoiceId);
+      throw new Error(`❌ No invoice found with ID: ${invoiceId}`);
     }
     return invoice;
   } catch (error) {
-    console.error("❌ Error retrieving invoice:", error.message);
+    throw new Error(`❌ Error retrieving invoice: ${error.message}`);
   }
 };
 
@@ -191,12 +46,12 @@ const updateInvoiceById = async (invoiceId, updateData) => {
       where: { invoice_id: invoiceId },
     });
     if (updatedRows === 0) {
-      console.log("❌ No invoice updated with ID:", invoiceId);
-    } else {
-      console.log("✅ Invoice updated with ID:", invoiceId);
+      throw new Error(`❌ No invoice updated with ID: ${invoiceId}`);
     }
+    console.log("✅ Invoice updated with ID:", invoiceId);
+    return updatedRows;
   } catch (error) {
-    console.error("❌ Error updating invoice:", error.message);
+    throw new Error(`❌ Error updating invoice: ${error.message}`);
   }
 };
 
@@ -207,16 +62,16 @@ const deleteInvoiceById = async (invoiceId) => {
       where: { invoice_id: invoiceId },
     });
     if (deletedRows === 0) {
-      console.log("❌ No invoice found to delete with ID:", invoiceId);
-    } else {
-      console.log("✅ Invoice deleted with ID:", invoiceId);
+      throw new Error(`❌ No invoice found to delete with ID: ${invoiceId}`);
     }
+    console.log("✅ Invoice deleted with ID:", invoiceId);
+    return deletedRows;
   } catch (error) {
-    console.error("❌ Error deleting invoice:", error.message);
+    throw new Error(`❌ Error deleting invoice: ${error.message}`);
   }
 };
 
-// Sync Tables
+// Sync Tables (Invoices & Invoice Items)
 const syncInvoiceTables = async () => {
   try {
     await Invoice.sync();
@@ -227,6 +82,7 @@ const syncInvoiceTables = async () => {
   }
 };
 
+// ===== Export Models and Services =====
 module.exports = {
   Invoice,
   InvoiceItem,
@@ -234,5 +90,5 @@ module.exports = {
   getInvoiceById,
   updateInvoiceById,
   deleteInvoiceById,
-  syncInvoiceTables,
+  syncInvoiceTables, // Sync function for manual sync
 };

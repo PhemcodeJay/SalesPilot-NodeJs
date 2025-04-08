@@ -2,10 +2,10 @@ const { models } = require("../config/db.js"); // Import models from centralized
 
 const Inventory = models.Inventory; // Use the centralized Inventory model
 
-// Sync model with database (Creates table if not exists)
+// ===== Sync model with database (Creates table if not exists) =====
 const syncInventoryTable = async () => {
   try {
-    await Inventory.sync();
+    await Inventory.sync(); // Sync the table with the database
     console.log("✅ Inventory table created or already exists.");
   } catch (error) {
     console.error("❌ Error creating Inventory table:", error.message);
@@ -13,12 +13,12 @@ const syncInventoryTable = async () => {
   }
 };
 
-// CRUD Operations
+// ===== CRUD Operations =====
 
 // ✅ Create a new inventory entry
 const createInventory = async (inventoryData) => {
   try {
-    const inventory = await Inventory.create(inventoryData);
+    const inventory = await Inventory.create(inventoryData); // Create new inventory entry
     console.log("✅ Inventory created:", inventory);
     return inventory;
   } catch (error) {
@@ -35,7 +35,7 @@ const getInventoryByProductId = async (productId) => {
     });
     if (!inventory) {
       console.log("❌ No inventory found for product ID:", productId);
-      return null;
+      return null; // Return null if no inventory is found
     }
     return inventory;
   } catch (error) {
@@ -52,9 +52,10 @@ const updateInventoryByProductId = async (productId, updateData) => {
     });
     if (updatedRows === 0) {
       console.log("❌ No inventory updated for product ID:", productId);
-    } else {
-      console.log("✅ Inventory updated for product ID:", productId);
+      return null; // Return null if no rows were updated
     }
+    console.log("✅ Inventory updated for product ID:", productId);
+    return updatedRows;
   } catch (error) {
     console.error("❌ Error updating inventory:", error.message);
     throw new Error("Failed to update inventory.");
@@ -69,16 +70,17 @@ const deleteInventoryByProductId = async (productId) => {
     });
     if (deletedRows === 0) {
       console.log("❌ No inventory found to delete for product ID:", productId);
-    } else {
-      console.log("✅ Inventory deleted for product ID:", productId);
+      return null; // Return null if no rows were deleted
     }
+    console.log("✅ Inventory deleted for product ID:", productId);
+    return deletedRows;
   } catch (error) {
     console.error("❌ Error deleting inventory:", error.message);
     throw new Error("Failed to delete inventory.");
   }
 };
 
-// Export CRUD functions and sync method
+// ===== Export CRUD functions and sync method =====
 module.exports = {
   syncInventoryTable,
   createInventory,

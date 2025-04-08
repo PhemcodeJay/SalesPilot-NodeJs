@@ -13,7 +13,7 @@ const syncCustomerTable = async () => {
   }
 };
 
-// Allow Sequelize queries (CRUD)
+// CRUD Operations
 
 // Get all customers
 const getAllCustomers = async () => {

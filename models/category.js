@@ -1,23 +1,27 @@
-const { models } = require("../config/db.js"); // Import models
+const { models } = require("../config/db.js"); // Import models from centralized db.js
 
 const Category = models.Category; // Use centralized Category model
 
-// Sync the model with the database
+// Sync model with the database (Creates table if not exists)
 const createCategoriesTable = async () => {
   try {
     await Category.sync();
     console.log("✅ Categories table created or already exists.");
   } catch (error) {
     console.error("❌ Error creating categories table:", error.message);
+    throw new Error("Failed to create categories table.");
   }
 };
+
+// CRUD Operations
 
 // Insert a new category
 const createCategory = async ({ category_name, description }) => {
   try {
     return await Category.create({ category_name, description });
   } catch (error) {
-    throw new Error(`❌ Error creating category: ${error.message}`);
+    console.error("❌ Error creating category:", error.message);
+    throw new Error(`Failed to create category: ${error.message}`);
   }
 };
 
@@ -25,10 +29,11 @@ const createCategory = async ({ category_name, description }) => {
 const getCategoryById = async (category_id) => {
   try {
     const category = await Category.findOne({ where: { category_id } });
-    if (!category) throw new Error("❌ Category not found.");
+    if (!category) throw new Error("Category not found.");
     return category;
   } catch (error) {
-    throw new Error(`❌ Error fetching category: ${error.message}`);
+    console.error("❌ Error fetching category:", error.message);
+    throw new Error(`Failed to fetch category: ${error.message}`);
   }
 };
 
@@ -37,7 +42,8 @@ const getAllCategories = async () => {
   try {
     return await Category.findAll({ order: [['created_at', 'DESC']] });
   } catch (error) {
-    throw new Error(`❌ Error fetching categories: ${error.message}`);
+    console.error("❌ Error fetching categories:", error.message);
+    throw new Error(`Failed to fetch categories: ${error.message}`);
   }
 };
 
@@ -50,7 +56,8 @@ const updateCategory = async (category_id, { category_name, description }) => {
     );
     return result[0] > 0; // Returns true if rows were updated
   } catch (error) {
-    throw new Error(`❌ Error updating category: ${error.message}`);
+    console.error("❌ Error updating category:", error.message);
+    throw new Error(`Failed to update category: ${error.message}`);
   }
 };
 
@@ -60,10 +67,12 @@ const deleteCategory = async (category_id) => {
     const result = await Category.destroy({ where: { category_id } });
     return result > 0; // Returns true if rows were deleted
   } catch (error) {
-    throw new Error(`❌ Error deleting category: ${error.message}`);
+    console.error("❌ Error deleting category:", error.message);
+    throw new Error(`Failed to delete category: ${error.message}`);
   }
 };
 
+// Export methods and sync
 module.exports = {
   createCategoriesTable,
   createCategory,

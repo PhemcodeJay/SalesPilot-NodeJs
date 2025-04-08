@@ -5,7 +5,7 @@ const Expense = models.Expense; // Use the centralized Expense model
 // Sync model with database (Creates table if not exists)
 const syncExpenseTable = async () => {
   try {
-    await Expense.sync();
+    await Expense.sync(); // Sync the Expense table
     console.log("✅ Expenses table created or already exists.");
   } catch (error) {
     console.error("❌ Error creating Expenses table:", error.message);
@@ -18,7 +18,7 @@ const syncExpenseTable = async () => {
 // Get all expenses
 const getAllExpenses = async () => {
   try {
-    return await Expense.findAll();
+    return await Expense.findAll(); // Fetch all expense records
   } catch (error) {
     console.error("❌ Error fetching expenses:", error.message);
     throw new Error("Failed to fetch expenses.");
@@ -28,7 +28,7 @@ const getAllExpenses = async () => {
 // Get expense by ID
 const getExpenseById = async (expenseId) => {
   try {
-    return await Expense.findOne({ where: { expense_id: expenseId } });
+    return await Expense.findOne({ where: { expense_id: expenseId } }); // Fetch expense by ID
   } catch (error) {
     console.error("❌ Error fetching expense by ID:", error.message);
     throw new Error("Failed to fetch expense by ID.");
@@ -38,7 +38,7 @@ const getExpenseById = async (expenseId) => {
 // Create a new expense
 const createExpense = async (expenseData) => {
   try {
-    const expense = await Expense.create(expenseData);
+    const expense = await Expense.create(expenseData); // Create new expense record
     console.log(`✅ Expense created: ${expense.description}`);
     return expense;
   } catch (error) {
@@ -51,9 +51,9 @@ const createExpense = async (expenseData) => {
 const updateExpense = async (expenseId, updatedData) => {
   try {
     const expense = await Expense.findOne({ where: { expense_id: expenseId } });
-    if (!expense) throw new Error("Expense not found.");
+    if (!expense) throw new Error("Expense not found."); // Check if expense exists
 
-    await expense.update(updatedData);
+    await expense.update(updatedData); // Update expense record
     console.log(`✅ Expense updated: ${expense.description}`);
     return expense;
   } catch (error) {
@@ -66,9 +66,9 @@ const updateExpense = async (expenseId, updatedData) => {
 const deleteExpense = async (expenseId) => {
   try {
     const expense = await Expense.findOne({ where: { expense_id: expenseId } });
-    if (!expense) throw new Error("Expense not found.");
+    if (!expense) throw new Error("Expense not found."); // Check if expense exists
 
-    await expense.destroy();
+    await expense.destroy(); // Delete expense record
     console.log(`✅ Expense deleted: ${expense.description}`);
     return true;
   } catch (error) {

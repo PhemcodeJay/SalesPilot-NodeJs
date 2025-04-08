@@ -1,10 +1,8 @@
-const { sequelize, models } = require("../config/db.js"); // Import models
+const { models } = require("../config/db.js"); // Import models from centralized db.js
 
-const CategoryAnalytics = models.CategoryAnalytics; // Use centralized model
+const CategoryAnalytics = models.category_analytics; // Use centralized CategoryAnalytics model
 
-/**
- * Sync model with the database (Create table if it doesn't exist)
- */
+// Sync model with the database (Create table if it doesn't exist)
 const syncCategoryAnalyticsTable = async () => {
   try {
     await CategoryAnalytics.sync();
@@ -15,6 +13,7 @@ const syncCategoryAnalyticsTable = async () => {
   }
 };
 
+// Export methods and model
 module.exports = { 
   CategoryAnalytics, 
   syncCategoryAnalyticsTable 

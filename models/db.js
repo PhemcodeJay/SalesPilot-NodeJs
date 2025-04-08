@@ -81,7 +81,7 @@ async function connectSequelize() {
   }
 }
 
-// ✅ Load Sequelize Models
+// ✅ Load Sequelize Models dynamically
 const models = {};
 fs.readdirSync(__dirname)
   .filter((file) => file.endsWith(".js") && file !== path.basename(__filename))
@@ -97,14 +97,14 @@ fs.readdirSync(__dirname)
     }
   });
 
-// ✅ Associate Models
+// ✅ Associate Models if necessary
 Object.keys(models).forEach((modelName) => {
   if (models[modelName].associate) {
     models[modelName].associate(models);
   }
 });
 
-// ✅ Sync all models
+// ✅ Sync all models to ensure they exist in DB
 sequelize
   .sync()
   .then(() => debug("✅ All models synchronized successfully"))
