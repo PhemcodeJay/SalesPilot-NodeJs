@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Logging Out...</title>
+  <link rel="shortcut icon" href="/assets/images/favicon-blue.ico" />
+  <link rel="stylesheet" href="/assets/css/backend.css">
+</head>
+<body>
+  <div class="d-flex justify-content-center align-items-center vh-100">
+    <div class="text-center">
+      <h2>Logging Out...</h2>
+      <p>You are being signed out. Please wait...</p>
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Automatically log out the user by making a request to /auth/logout
+    fetch('/auth/logout', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        window.location.href = '/login'; // Redirect to login page
+      } else {
+        alert("Error logging out. Please try again.");
+      }
+    })
+    .catch(() => alert("An error occurred. Please try again."));
+  </script>
+</body>
+</html>

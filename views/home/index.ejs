@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Google Tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-TXR1WFJ4GP"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-TXR1WFJ4GP');
+  </script>
+
+  <title>Home - Sales Pilot</title>
+
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="Boost your business efficiency with SalesPilot – the ultimate sales management app. Track leads, manage clients, and increase revenue effortlessly with our user-friendly platform.">
+  <meta name="keywords" content="Sales productivity tools, Sales and Client management, Business efficiency tools">
+  <meta name="author" content="SalesPilot Team">
+
+  <!-- Favicons -->
+  <link rel="icon" href="/home_assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="/home_assets/img/apple-touch-icon.png">
+
+  <!-- Preconnect for Faster Loading -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700;800&family=Montserrat:wght@100;200;300;400;500;600;700;800;900&family=Lato:wght@100;300;400;700;900&display=swap" rel="stylesheet">
+
+  <!-- Vendor CSS Files -->
+  <link rel="stylesheet" href="/home_assets/vendor/bootstrap/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/home_assets/vendor/bootstrap-icons/bootstrap-icons.css">
+  <link rel="stylesheet" href="/home_assets/vendor/glightbox/css/glightbox.min.css">
+  <link rel="stylesheet" href="/home_assets/vendor/swiper/swiper-bundle.min.css">
+  <link rel="stylesheet" href="/home_assets/vendor/aos/aos.css">
+
+  <!-- Main CSS File -->
+  <link rel="stylesheet" href="/home_assets/css/main.css">
+</head>
+
+
+<body class="index-page" data-bs-spy="scroll" data-bs-target="#navmenu">
+  
+  <!-- Google Tag Manager (noscript) -->
+  <noscript>
+    <iframe src="https://www.googletagmanager.com/ns.html?id=GTM-W9MSPH2Q"
+            height="0" width="0" style="display:none;visibility:hidden"></iframe>
+  </noscript>
+  <!-- End Google Tag Manager (noscript) -->
+
+  <!-- ======= Header ======= -->
+  <header id="header" class="header fixed-top d-flex align-items-center">
+    <div class="container-fluid d-flex align-items-center justify-content-between">
+
+      <a href="/home" class="logo d-flex align-items-center me-auto me-xl-0">
+        <!-- Uncomment the line below if you also wish to use an image logo -->
+        <!-- <img src="/home_assets/images/logonew.jpg" alt="Sales Pilot Logo"> -->
+        <img class="app-logo" src="/home_assets/images/logonew.jpg" alt="SalesPilot Logo">
+        <h1>SalesPilot</h1><span>.</span>
+      </a>
+
+      <!-- Nav Menu -->
+      <nav id="navmenu" class="navmenu">
+        <ul>
+          <li><a href="#hero" class="active">Home</a></li>
+          <li><a href="#about">About</a></li>
+          <li><a href="#services">Services</a></li>
+          <li><a href="#contact">Contact</a></li>
+        </ul>
+        <i class="mobile-nav-toggle d-xl-none bi bi-list"></i>
+      </nav><!-- End Nav Menu -->
+
+      <a class="btn-getstarted" href="/auth/login">Login</a>
+
+    </div>
+  </header><!-- End Header -->
+  <main id="main">
+
+    <!-- Hero Section - Home Page -->
+    <section id="hero" class="hero">
+
+        <img src="/home_assets/images/salespilotindex.jpg" alt="" data-aos="fade-in">
+
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-10">
+                    <h2 data-aos="fade-up" data-aos-delay="100">SalesPilot</h2>
+                    <p data-aos="fade-up" data-aos-delay="200">Inventory Management & Sales Analytics</p>
+                </div>
+                <div class="col-lg-5">
+                    <div class="sign-up-form d-flex" data-aos="fade-up" data-aos-delay="300">
+                        <span class="form-control">Sign up and Activate Free Trial</span>
+                        <button class="btn btn-danger" onclick="window.location.href='/auth/signup'">Sign up</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </section><!-- End Hero Section -->
+
+    <!-- About Section - Home Page -->
+    <section id="about" class="about">
+
+        <div class="container" data-aos="fade-up" data-aos-delay="100">
+            <div class="row align-items-xl-center gy-5">
+
+                <div class="col-xl-5 content">
+                    <h3>SalesPilot</h3>
+                    <h2>Inventory Management & Sales Analytics</h2>
+                    <p>SalesPilot is a powerful inventory management and sales analytics tool that helps you streamline your business operations,
+                        optimize inventory levels, and make data-driven decisions for increased sales and profitability.</p>
+                </div>
+                <div class="col-xl-7">
+                    <div class="row gy-4 icon-boxes">
+                        <% let services = [
+                            { icon: "bi-briefcase-fill", title: "Inventory Management", description: "Real-time monitoring and updating of product quantities to ensure accurate inventory levels, optimizing supply chain efficiency." },
+                            { icon: "bi-bar-chart-fill", title: "Sales Analytics", description: "Assessing overall revenue, pinpointing top sales for strategic focus, ensuring profitability." },
+                            { icon: "bi-clipboard-pulse", title: "Management Systems", description: "We design and build diverse management systems, including eCommerce platforms, ticketing systems, inventory management, and more." },
+                            { icon: "bi-buildings", title: "About Us", description: "At Phemcode Integrated Services, we specialize in crafting transformative solutions across web development, cybersecurity, and cryptocurrency." }
+                        ]; %>
+
+                        <% services.forEach(service => { %>
+                            <div class="col-md-6" data-aos="fade-up" data-aos-delay="200">
+                                <div class="icon-box">
+                                    <i class="bi <%= service.icon %>"></i>
+                                    <h3><%= service.title %></h3>
+                                    <p><%= service.description %></p>
+                                </div>
+                            </div>
+                        <% }); %>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </section><!-- End About Section -->
+
+    <!-- Services Section - Home Page -->
+    <section id="services" class="services">
+
+        <!--  Section Title -->
+        <div class="container section-title" data-aos="fade-up">
+            <h2>Services</h2>
+            <p>The innovation hub of Phemcode Integrated Services, the visionary force behind SalesPilot.</p>
+        </div><!-- End Section Title -->
+
+        <div class="container">
+            <div class="row gy-4">
+                <% let serviceItems = [
+                    { icon: "bi-database-fill", title: "Web Development", link: "https://phemcode.cybertrendhub.store", description: "Elevate your online presence with tailored, innovative web solutions." },
+                    { icon: "bi-currency-bitcoin", title: "Cryptocurrency Services", link: "https://phemcode.cybertrendhub.store", description: "Navigate the complexities of the digital financial landscape with premium guidance from our experts." },
+                    { icon: "bi-binoculars", title: "Cybersecurity", link: "https://phemcode.cybertrendhub.store", description: "Safeguard your digital realm with proactive cybersecurity solutions." },
+                    { icon: "bi-graph-up", title: "Business Development", link: "https://phemcode.cybertrendhub.store", description: "Ignite growth strategies, foster innovation, and unlock opportunities." }
+                ]; %>
+
+                <% serviceItems.forEach(service => { %>
+                    <div class="col-lg-6" data-aos="fade-up" data-aos-delay="200">
+                        <div class="service-item d-flex">
+                            <div class="icon flex-shrink-0"><i class="bi <%= service.icon %>"></i></div>
+                            <div>
+                                <h4 class="title"><a href="<%= service.link %>" class="stretched-link"><%= service.title %></a></h4>
+                                <p class="description"><%= service.description %></p>
+                            </div>
+                        </div>
+                    </div>
+                <% }); %>
+            </div>
+        </div>
+
+    </section><!-- End Services Section -->
+
+</main>
+
+<!-- ======= Footer ======= -->
+<footer id="footer" class="footer">
+  <div class="container footer-top">
+    <div class="row gy-4">
+      <div class="col-lg-5 col-md-12 footer-about">
+        <a href="/" class="logo d-flex align-items-center">
+          <span>Sales Pilot</span>
+        </a>
+        <p>Phemcode Integrated Services | Innovate. Transform. Excel.</p>
+        <div class="social-links d-flex mt-4">
+          <a href="https://twitter.com/PhemcodeJay"><i class="bi bi-twitter"></i></a>
+          <a href="https://facebook.com/cybertrendstores"><i class="bi bi-facebook"></i></a>
+          <a href="https://instagram.com/cybertrendhub"><i class="bi bi-instagram"></i></a>
+          <a href="https://linkedin.com/in/phemcode"><i class="bi bi-linkedin"></i></a>
+          <a href="https://wa.me/254101674289"><i class="bi bi-whatsapp"></i></a>
+        </div>
+      </div>
+
+      <div class="col-lg-2 col-6 footer-links">
+        <h4>SiteMap</h4>
+        <ul>
+          <li><a href="/#hero">Home</a></li>
+          <li><a href="/#about">About us</a></li>
+          <li><a href="/#services">Services</a></li>
+          <li><a href="/#contact">Contact</a></li>
+          <li><a href="/terms-of-service.php">Terms of service</a></li>
+          <li><a href="/privacy-policy.php">Privacy policy</a></li>
+        </ul>
+      </div>
+
+      <div class="col-lg-2 col-6 footer-links">
+        <h4>Services</h4>
+        <ul>
+          <li><a href="/#services">Cybersecurity</a></li>
+          <li><a href="/#services">Web Development</a></li>
+          <li><a href="/#services">Cryptocurrency</a></li>
+          <li><a href="/#services">ICT Solutions</a></li>
+        </ul>
+      </div>
+
+      <div class="col-lg-3 col-md-12 footer-contact">
+        <h4>Contact</h4>
+        <p>Nairobi CBD, Nairobi County, Kenya</p>
+        <p><strong>Phone:</strong> +254 101 674 289</p>
+        <p><strong>Email:</strong> admin@cybertrendhub.store</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="container text-center mt-4">
+    <p>&copy; <strong>SalesPilot</strong> All Rights Reserved</p>
+    <div class="credits">
+      Designed by <a href="https://phemcode.cybertrendhub.store">Phemcode</a>
+    </div>
+  </div>
+</footer>
+<!-- End Footer -->
+
+<!-- Scroll Top Button -->
+<a href="#" id="scroll-top" class="scroll-top d-flex align-items-center justify-content-center">
+  <i class="bi bi-arrow-up-short"></i>
+</a>
+
+<!-- Vendor JS Files -->
+<script src="/home_assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/home_assets/vendor/glightbox/js/glightbox.min.js"></script>
+<script src="/home_assets/vendor/purecounter/purecounter_vanilla.js"></script>
+<script src="/home_assets/vendor/isotope-layout/isotope.pkgd.min.js"></script>
+<script src="/home_assets/vendor/swiper/swiper-bundle.min.js"></script>
+<script src="/home_assets/vendor/aos/aos.js"></script>
+
+<!-- Template Main JS File -->
+<script src="/home_assets/js/main.js"></script>
+  
+</body>
+
+</html>
