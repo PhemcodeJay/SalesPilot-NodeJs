@@ -1,11 +1,15 @@
 const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db'); // DB connection
+const { sequelize } = require('../config/db');
+const User = require('./user'); // Ensure this is required if you add the association here
 
 const Tenant = sequelize.define('Tenant', {
   id: {
     type: DataTypes.STRING(36),
     primaryKey: true,
     allowNull: false,
+    validate: {
+      isUUID: 4,
+    },
   },
   name: {
     type: DataTypes.STRING,
@@ -15,6 +19,9 @@ const Tenant = sequelize.define('Tenant', {
     type: DataTypes.STRING,
     allowNull: false,
     unique: true,
+    validate: {
+      isEmail: true,
+    },
   },
   phone: {
     type: DataTypes.STRING,
@@ -46,5 +53,7 @@ const Tenant = sequelize.define('Tenant', {
   tableName: 'tenants',
   underscored: true,
 });
+
+
 
 module.exports = Tenant;

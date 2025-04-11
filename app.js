@@ -8,29 +8,27 @@ const morgan = require('morgan');
 const session = require('express-session');
 const passport = require('passport');
 const flash = require('connect-flash');
+
 const { testConnection, syncModels } = require('./config/db');
 const rateLimiter = require('./middleware/rateLimiter');
+const tenantMiddleware = require('./middleware/tenantMiddleware');
+const authenticateUser = require('./middleware/authenticateUser');
+const errorLogger = require('./middleware/errorLogger');
+
 const authRoute = require('./routes/authRoutes');
 const passwordResetRoutes = require('./routes/passwordresetRoute');
-const errorLogger = require('./middleware/errorLogger'); // Custom error logging middleware
-const tenantMiddleware = require('./middleware/tenantMiddleware');
-const authenticateUser = require('./middleware/authenticateUser'); // Custom authentication middleware
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Middlewares
-app.use(express.json()); // For parsing application/json
-app.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
-app.use(cookieParser()); // For parsing cookies
-app.use(cors()); // Enable Cross-Origin Resource Sharing (CORS)
-
 // ✅ Security & Logging Middleware
 app.use(helmet());
-app.use(morgan("dev"));
-app.use(cors({ credentials: true, origin: process.env.CLIENT_URL || "http://localhost:5000" }));
+app.use(morgan('dev'));
+
+// ✅ CORS & Cookie Parsing
+app.use(cors({ credentials: true, origin: process.env.CLIENT_URL || 'http://localhost:5000' }));
 app.use(cookieParser());
 
 // ✅ Body Parsers
@@ -40,72 +38,75 @@ app.use(express.urlencoded({ extended: true }));
 // ✅ Rate Limiting
 app.use(rateLimiter);
 
-// ✅ Session Middleware
+// ✅ Session Management
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "your-secret-key",
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
-      sameSite: "strict",
-      maxAge: 24 * 60 * 60 * 1000,
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
     },
   })
 );
 
-// ✅ Initialize Passport & Flash Messages
+// ✅ Passport Initialization
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(flash());
 
 // ✅ View Engine Setup
-app.set("view engine", "ejs");
-app.set("views", path.join(__dirname, "views"));
-
-// ✅ Serve Static Public Folders
-app.use(express.static(path.join(__dirname, "public")));
-app.use("/assets", express.static(path.join(__dirname, "public/assets")));
-app.use("/home_assets", express.static(path.join(__dirname, "public/home_assets")));
-
-// ✅ Public Routes
-app.get("/", (req, res) => res.render("home/index", { title: "Home" }));
-app.get("/home", (req, res) => res.render("home/index", { title: "Home" }));
-app.get("/login", (req, res) => res.render("auth/login", { title: "Login" }));
-app.get("/signup", (req, res) => res.render("auth/signup", { title: "Signup" }));
-
-// ✅ Apply Authentication Middleware to Protected Routes
-const protectedRoutes = ["/dashboard", "/invoice", "/sales", "/product", "/customer", "/inventory", "/subscription"];
-protectedRoutes.forEach((route) => app.use(route, authenticateUser));
-
-// ✅ Apply Tenancy Middleware
-app.use(tenantMiddleware);
-
-// Static Files (public assets)
-app.use('/public', express.static(path.join(__dirname, 'public')));
-
-// Set the view engine to EJS
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// Routes
-app.use('/auth', authRoute); // Authentication-related routes (login, signup, etc.)
+// ✅ Serve Static Files
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/assets', express.static(path.join(__dirname, 'public/assets')));
+app.use('/home_assets', express.static(path.join(__dirname, 'public/home_assets')));
+app.use('/public', express.static(path.join(__dirname, 'public')));
+
+// ✅ Tenancy Middleware (must come before routes using req.tenantId)
+app.use(tenantMiddleware);
+
+// ✅ Public View Routes
+app.get('/', (req, res) => res.render('home/index', { title: 'Home' }));
+app.get('/home', (req, res) => res.render('home/index', { title: 'Home' }));
+app.get('/login', (req, res) => res.render('auth/login', { title: 'Login' }));
+app.get('/signup', (req, res) => res.render('auth/signup', { title: 'Signup' }));
+
+// ✅ Route Setup
+app.use('/auth', authRoute);
 app.use('/password-reset', passwordResetRoutes);
 
-// Health Check Route (optional)
+// ✅ Protected Routes (apply custom authentication middleware)
+const protectedRoutes = [
+  '/dashboard',
+  '/invoice',
+  '/sales',
+  '/product',
+  '/customer',
+  '/inventory',
+  '/subscription',
+];
+
+protectedRoutes.forEach((route) => app.use(route, authenticateUser));
+
+// ✅ Health Check Route
 app.get('/health', (req, res) => {
   res.status(200).json({ message: 'API is running smoothly' });
 });
 
-// Error handling middleware
-app.use(errorLogger); // Logs errors in the app
+// ✅ Error Logging
+app.use(errorLogger);
 
-// Start the server
+// ✅ Start Server
 app.listen(port, async () => {
-  console.log(`Server is running on http://localhost:${port}`);
+  console.log(`🚀 Server is running at http://localhost:${port}`);
 
-  // Test DB connection and sync models
   await testConnection();
-  await syncModels(); // Sync the DB with the models
+  await syncModels(); // Sync models to DB
 });
+  

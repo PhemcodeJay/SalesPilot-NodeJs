@@ -8,33 +8,53 @@ const crypto = require('crypto');
 const { sendPasswordResetEmail } = require('../utils/emailUtils'); // Assuming you have an email utility function for sending emails
 
 // SignUp Controller
+const Tenant = require('../models/tenants'); // import this too
+
 const signUp = async (req, res) => {
   const { username, email, password, phone, location } = req.body;
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create new tenant
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setMonth(endDate.getMonth() + 3);
+
+    const tenant = await Tenant.create({
+      name: `${username}'s Business`, // Or customize this
+      email: email, // required
+      subscription_start_date: startDate,
+      subscription_end_date: endDate,
+    });
+
+    // Create user with tenant ID
     const user = await User.create({
       username,
       email,
       password: hashedPassword,
       phone,
       location,
+      tenant_id: tenant.id, // important!
     });
 
-    // Create a subscription with free trial
+    // Create a subscription linked to this user (optional if tenant handles that)
     const subscription = await Subscription.create({
       user_id: user.id,
       subscription_plan: 'trial',
-      start_date: new Date(),
-      end_date: new Date(new Date().setMonth(new Date().getMonth() + 3)), // 3 months trial
+      start_date: startDate,
+      end_date: endDate,
     });
 
     const token = generateToken(user);
     res.status(201).json({ message: 'User registered', token });
+
   } catch (err) {
+    console.error('Signup error:', err);
     res.status(500).json({ error: 'Error registering user' });
   }
 };
+
 
 // Login Controller
 const login = async (req, res) => {

@@ -8,6 +8,10 @@ const User = sequelize.define('User', {
     primaryKey: true,
     autoIncrement: true,
   },
+  tenant_id: {
+    type: DataTypes.UUID,
+    allowNull: false,
+  },
   username: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -16,6 +20,9 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: false,
     unique: true,
+    validate: {
+      isEmail: true,
+    },
   },
   password: {
     type: DataTypes.STRING,
@@ -23,33 +30,34 @@ const User = sequelize.define('User', {
   },
   role: {
     type: DataTypes.ENUM('sales', 'admin', 'manager'),
-    defaultValue: 'sales',
     allowNull: false,
+    defaultValue: 'sales',
   },
   phone: {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  
   location: {
     type: DataTypes.STRING,
     allowNull: false,
   },
   activation_token: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(512),
     allowNull: true,
   },
   reset_token: {
-    type: DataTypes.STRING,
+    type: DataTypes.STRING(512),
     allowNull: true,
   },
+  reset_token_expiry: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  }
 }, {
   timestamps: true,
   tableName: 'users',
   underscored: true,
 });
 
-// Associate User with Tenant
-User.belongsTo(Tenant, { foreignKey: 'tenant_id' });
 
 module.exports = User;

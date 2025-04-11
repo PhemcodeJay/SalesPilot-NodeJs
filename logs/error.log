@@ -1,0 +1,51 @@
+
+    [2025-04-11T12:03:27.036Z] - Error occurred:
+    Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    Stack: Error: Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at tenantMiddleware (E:\Repositories\salespilot\middleware\tenantMiddleware.js:53:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+  
+
+    [2025-04-11T12:04:16.387Z] - Error occurred:
+    Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    Stack: Error: Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at tenantMiddleware (E:\Repositories\salespilot\middleware\tenantMiddleware.js:53:30)
+  
+
+    [2025-04-11T16:19:53.566Z] - Error occurred:
+    Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    Stack: Error: Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at tenantMiddleware (E:\Repositories\salespilot\middleware\tenantMiddleware.js:53:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+  
+
+    [2025-04-11T16:20:12.972Z] - Error occurred:
+    Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    Stack: Error: Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at tenantMiddleware (E:\Repositories\salespilot\middleware\tenantMiddleware.js:53:30)
+  
+
+    [2025-04-11T16:21:59.499Z] - Error occurred:
+    Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    Stack: Error: Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at tenantMiddleware (E:\Repositories\salespilot\middleware\tenantMiddleware.js:53:30)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+  
+
+    [2025-04-11T16:22:02.238Z] - Error occurred:
+    Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    Stack: Error: Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at tenantMiddleware (E:\Repositories\salespilot\middleware\tenantMiddleware.js:53:30)
+  

@@ -6,35 +6,45 @@ const tenantMiddleware = async (req, res, next) => {
     req.headers['x-tenant-id'] ||
     req.body.tenantId ||
     req.query.tenantId ||
-    req.cookies?.tenantId || // Check if cookie exists
-    req.session?.tenantId;   // Or from session
+    req.cookies?.tenantId ||
+    req.session?.tenantId;
 
   try {
-    let tenant;
+    let tenant = null;
 
-    // If tenantId is not provided, create a new tenant
-    if (!tenantId) {
-      tenantId = uuidv4();
-      tenant = await Tenant.create({
-        id: tenantId,
-        name: `Tenant-${tenantId.slice(0, 6)}`
+    // Helper function to create new tenant
+    const createTenant = async (customId = null) => {
+      const now = new Date();
+      const end = new Date();
+      end.setMonth(now.getMonth() + 3); // 3-month trial
+
+      const id = customId || uuidv4();
+
+      const newTenant = await Tenant.create({
+        id,
+        name: `Tenant-${id.slice(0, 6)}`,
+        email: `auto-${id}@salespilot.app`,
+        subscription_start_date: now,
+        subscription_end_date: end
       });
+
       req.newTenantCreated = true;
+      return newTenant;
+    };
+
+    // Try to find existing tenant or create a new one
+    if (!tenantId) {
+      tenant = await createTenant(); // No ID provided, create new
+      tenantId = tenant.id;
     } else {
-      // Try to find the tenant
       tenant = await Tenant.findOne({ where: { id: tenantId } });
 
-      // If not found, create it
       if (!tenant) {
-        tenant = await Tenant.create({
-          id: tenantId,
-          name: `Tenant-${tenantId.slice(0, 6)}`
-        });
-        req.newTenantCreated = true;
+        tenant = await createTenant(tenantId); // Provided ID, but not found
       }
     }
 
-    // Store tenant ID in session and cookie
+    // Save to session & cookies for future requests
     req.session.tenantId = tenantId;
     res.cookie('tenantId', tenantId, {
       maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
@@ -42,6 +52,7 @@ const tenantMiddleware = async (req, res, next) => {
       sameSite: 'lax',
     });
 
+    // Attach tenant to request
     req.tenant = tenant;
     req.tenantId = tenantId;
 
