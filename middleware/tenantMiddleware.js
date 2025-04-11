@@ -1,25 +1,61 @@
 const Tenant = require('../models/tenants');
+const { v4: uuidv4 } = require('uuid');
 
 const tenantMiddleware = async (req, res, next) => {
-  const tenantId = req.headers['x-tenant-id']; // Tenant ID passed in the request header
-
-  if (!tenantId) {
-    return res.status(400).json({ error: 'Tenant ID is required' });
-  }
+  let tenantId =
+    req.headers['x-tenant-id'] ||
+    req.body.tenantId ||
+    req.query.tenantId ||
+    req.cookies?.tenantId || // Check if cookie exists
+    req.session?.tenantId;   // Or from session
 
   try {
-    // Fetch tenant information based on the tenant ID
-    const tenant = await Tenant.findOne({ where: { id: tenantId } });
-    
-    if (!tenant) {
-      return res.status(404).json({ error: 'Tenant not found' });
+    let tenant;
+
+    // If tenantId is not provided, create a new tenant
+    if (!tenantId) {
+      tenantId = uuidv4();
+      tenant = await Tenant.create({
+        id: tenantId,
+        name: `Tenant-${tenantId.slice(0, 6)}`
+      });
+      req.newTenantCreated = true;
+    } else {
+      // Try to find the tenant
+      tenant = await Tenant.findOne({ where: { id: tenantId } });
+
+      // If not found, create it
+      if (!tenant) {
+        tenant = await Tenant.create({
+          id: tenantId,
+          name: `Tenant-${tenantId.slice(0, 6)}`
+        });
+        req.newTenantCreated = true;
+      }
     }
 
-    // Attach tenant data to the request object
+    // Store tenant ID in session and cookie
+    req.session.tenantId = tenantId;
+    res.cookie('tenantId', tenantId, {
+      maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
+      httpOnly: true,
+      sameSite: 'lax',
+    });
+
     req.tenant = tenant;
+    req.tenantId = tenantId;
+
     next();
   } catch (err) {
     console.error('Tenant middleware error:', err);
+
+    if (res.render) {
+      return res.status(500).render('error', {
+        message: 'An error occurred while processing tenant information.',
+        error: err
+      });
+    }
+
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
