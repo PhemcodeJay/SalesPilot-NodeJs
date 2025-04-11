@@ -5,15 +5,12 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const rateLimiter = require('./middleware/rateLimiter');
 const session = require('express-session');
 const passport = require('passport');
 const flash = require('connect-flash');
-const { testConnection, syncModels } = require('./models/db');
-const authRoute = require('./routes/authRoute');
-const userRoute = require('./routes/userRoute');
-const subscriptionRoute = require('./routes/subscriptionRoute');
-const pageAccessRoute = require('./routes/PageAccessRoute');
+const { testConnection, syncModels } = require('./config/db');
+const rateLimiter = require('./middleware/rateLimiter');
+const authRoute = require('./routes/authRoutes');
 const passwordResetRoutes = require('./routes/passwordresetRoute');
 const errorLogger = require('./middleware/errorLogger'); // Custom error logging middleware
 const tenantMiddleware = require('./middleware/tenantMiddleware');
@@ -94,9 +91,6 @@ app.set('views', path.join(__dirname, 'views'));
 
 // Routes
 app.use('/auth', authRoute); // Authentication-related routes (login, signup, etc.)
-app.use('/users', userRoute); // User-specific routes (profile, settings, etc.)
-app.use('/subscriptions', subscriptionRoute); // Subscription routes (upgrade, plan change)
-app.use('/page-access', pageAccessRoute); // Routes for page access (admin, user)
 app.use('/password-reset', passwordResetRoutes);
 
 // Health Check Route (optional)

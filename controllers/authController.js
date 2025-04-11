@@ -5,7 +5,7 @@ const Subscription = require('../models/subscription');
 const { generateToken } = require('../config/auth');
 const { JWT_SECRET, PASSWORD_RESET_EXPIRATION } = process.env;
 const crypto = require('crypto');
-const { sendPasswordResetEmail } = require('../utils/email'); // Assuming you have an email utility function for sending emails
+const { sendPasswordResetEmail } = require('../utils/emailUtils'); // Assuming you have an email utility function for sending emails
 
 // SignUp Controller
 const signUp = async (req, res) => {

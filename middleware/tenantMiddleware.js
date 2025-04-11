@@ -1,4 +1,4 @@
-const Tenant = require('../models/tenant');
+const Tenant = require('../models/tenants');
 
 const tenantMiddleware = async (req, res, next) => {
   const tenantId = req.headers['x-tenant-id']; // Tenant ID passed in the request header

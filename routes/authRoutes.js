@@ -1,9 +1,7 @@
 const express = require('express');
 const passport = require('passport');
-const bcrypt = require('bcryptjs');
-const { User } = require('../models');
 const tenantMiddleware = require('../middleware/tenantMiddleware');
-const { passwordResetRequest, passwordResetConfirm, signUp, login, logout } = require('../controllers/authController');
+const { passwordResetRequest, passwordResetConfirm, signUp, logout } = require('../controllers/authController');
 const router = express.Router();
 
 // Login Route (with tenant middleware)

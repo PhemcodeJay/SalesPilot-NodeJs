@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const sequelize = require('../db');
+const { sequelize } = require('../config/db'); // 👈 correct destructure
 const User = require('./user');
 
 const Subscription = sequelize.define('Subscription', {
