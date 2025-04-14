@@ -1,4 +1,6 @@
-const Tenant = require('../models/tenants');
+const { models } = require('../models');
+const Tenant = models.Tenant;
+
 const { v4: uuidv4 } = require('uuid');
 
 const tenantMiddleware = async (req, res, next) => {

@@ -1,12 +1,10 @@
 module.exports = (sequelize, DataTypes) => {
   const Tenant = sequelize.define('Tenant', {
     id: {
-      type: DataTypes.STRING(36),
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
       allowNull: false,
-      validate: {
-        isUUID: 4,
-      },
     },
     name: {
       type: DataTypes.STRING,
@@ -20,14 +18,8 @@ module.exports = (sequelize, DataTypes) => {
         isEmail: true,
       },
     },
-    phone: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
-    address: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
+    phone: DataTypes.STRING,
+    address: DataTypes.STRING,
     status: {
       type: DataTypes.ENUM('active', 'inactive'),
       defaultValue: 'inactive',
@@ -50,6 +42,14 @@ module.exports = (sequelize, DataTypes) => {
     tableName: 'tenants',
     underscored: true,
   });
+
+  Tenant.associate = (models) => {
+    Tenant.hasMany(models.User, {
+      foreignKey: 'tenant_id',
+      as: 'users',
+      onDelete: 'CASCADE',
+    });
+  };
 
   return Tenant;
 };

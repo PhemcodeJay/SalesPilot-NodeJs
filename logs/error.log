@@ -184,3 +184,63 @@
     at SendStream.error (E:\Repositories\salespilot\node_modules\serve-static\index.js:121:7)
     at SendStream.emit (node:events:513:28)
   
+
+    [2025-04-14T15:50:34.386Z] - Error occurred:
+    Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    Stack: Error: Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at tenantMiddleware (E:\Repositories\salespilot\middleware\tenantMiddleware.js:64:30)
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:328:13)
+    at E:\Repositories\salespilot\node_modules\express\lib\router\index.js:286:9
+    at Function.process_params (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:346:12)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:280:10)
+    at SendStream.error (E:\Repositories\salespilot\node_modules\serve-static\index.js:121:7)
+    at SendStream.emit (node:events:513:28)
+  
+
+    [2025-04-14T15:50:43.504Z] - Error occurred:
+    Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    Stack: Error: Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at tenantMiddleware (E:\Repositories\salespilot\middleware\tenantMiddleware.js:64:30)
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:328:13)
+    at E:\Repositories\salespilot\node_modules\express\lib\router\index.js:286:9
+    at Function.process_params (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:346:12)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:280:10)
+    at SendStream.error (E:\Repositories\salespilot\node_modules\serve-static\index.js:121:7)
+    at SendStream.emit (node:events:513:28)
+  
+
+    [2025-04-14T15:51:57.180Z] - Error occurred:
+    Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    Stack: Error: Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at tenantMiddleware (E:\Repositories\salespilot\middleware\tenantMiddleware.js:64:30)
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:328:13)
+    at E:\Repositories\salespilot\node_modules\express\lib\router\index.js:286:9
+    at Function.process_params (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:346:12)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:280:10)
+    at SendStream.error (E:\Repositories\salespilot\node_modules\serve-static\index.js:121:7)
+    at SendStream.emit (node:events:513:28)
+  
+
+    [2025-04-14T15:52:00.717Z] - Error occurred:
+    Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    Stack: Error: Failed to lookup view "error" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at tenantMiddleware (E:\Repositories\salespilot\middleware\tenantMiddleware.js:64:30)
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:328:13)
+    at E:\Repositories\salespilot\node_modules\express\lib\router\index.js:286:9
+    at Function.process_params (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:346:12)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:280:10)
+    at SendStream.error (E:\Repositories\salespilot\node_modules\serve-static\index.js:121:7)
+    at SendStream.emit (node:events:513:28)
+  

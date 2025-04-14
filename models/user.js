@@ -56,5 +56,13 @@ module.exports = (sequelize, DataTypes) => {
     underscored: true,
   });
 
+  User.associate = (models) => {
+    User.belongsTo(models.Tenant, {
+      foreignKey: 'tenant_id',
+      as: 'tenant',
+      onDelete: 'CASCADE',
+    });
+  };
+
   return User;
 };
