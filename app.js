@@ -86,6 +86,7 @@ const protectedRoutes = [
   '/dashboard',
   '/invoice',
   '/sales',
+  '/expenses',
   '/product',
   '/customer',
   '/inventory',

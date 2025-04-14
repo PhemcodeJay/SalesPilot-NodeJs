@@ -20,9 +20,9 @@ const sequelize = new Sequelize({
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
-    console.log('Database connection established successfully');
+    console.log('✅ Database connection established successfully');
   } catch (error) {
-    console.error('Unable to connect to the database:', error);
+    console.error('❌ Unable to connect to the database:', error);
   }
 };
 
@@ -30,9 +30,9 @@ const testConnection = async () => {
 const syncModels = async () => {
   try {
     await sequelize.sync({ alter: true }); // Alter = auto update schema
-    console.log('Database synced successfully');
+    console.log('✅ Database synced successfully');
   } catch (error) {
-    console.error('Error syncing database:', error);
+    console.error('❌ Error syncing database:', error);
   }
 };
 

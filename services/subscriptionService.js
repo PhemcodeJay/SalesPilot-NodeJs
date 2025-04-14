@@ -1,5 +1,5 @@
 const Subscription = require('../models/subscription');
-const Tenant = require('../models/tenant');
+const Tenant = require('../models/tenants');
 
 const createSubscription = async (tenantId, plan = 'trial') => {
   const tenant = await Tenant.findByPk(tenantId);
