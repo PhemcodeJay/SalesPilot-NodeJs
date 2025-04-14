@@ -1,20 +1,20 @@
 const express = require('express');
 const passport = require('passport');
 const tenantMiddleware = require('../middleware/tenantMiddleware');
-const { passwordResetRequest, passwordResetConfirm, signUp, logout } = require('../controllers/authController');
+const {
+  signUpController,
+  loginController,
+  logoutController,
+  passwordResetRequestController,
+  passwordResetConfirmController
+} = require('../controllers/authController'); // Updated with new controller imports
 const router = express.Router();
 
 // Login Route (with tenant middleware)
-router.post('/login', tenantMiddleware, 
-  passport.authenticate('local', {
-    successRedirect: '/dashboard',
-    failureRedirect: '/login',
-    failureFlash: true
-  })
-);
+router.post('/login', tenantMiddleware, loginController);
 
 // Signup Route (Handle user registration)
-router.post('/signup', signUp);
+router.post('/signup', signUpController);
 
 // JWT Authentication Route (for token-based authentication)
 router.post('/token-login', passport.authenticate('jwt', { session: false }), (req, res) => {
@@ -22,12 +22,12 @@ router.post('/token-login', passport.authenticate('jwt', { session: false }), (r
 });
 
 // Password Reset Request Route
-router.post('/password-reset-request', passwordResetRequest);
+router.post('/password-reset-request', passwordResetRequestController);
 
 // Password Reset Confirmation Route
-router.post('/password-reset-confirm', passwordResetConfirm);
+router.post('/password-reset-confirm', passwordResetConfirmController);
 
 // Logout Route
-router.post('/logout', logout);
+router.post('/logout', logoutController);
 
 module.exports = router;
