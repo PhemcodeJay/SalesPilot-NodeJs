@@ -1,9 +1,8 @@
-// passport.js
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const jwt = require('jsonwebtoken');
-const { User } = require('../models'); // Assuming you have a `User` model
 const bcrypt = require('bcryptjs');
+const { Op } = require('sequelize');
 
 // Setup Passport local strategy for login (username or email)
 passport.use(
@@ -14,6 +13,9 @@ passport.use(
     },
     async (usernameOrEmail, password, done) => {
       try {
+        // Dynamically load the User model after Sequelize is initialized
+        const { User } = require('../models'); // Dynamically load the User model
+
         // Find user by either email or username
         const user = await User.findOne({
           where: {
@@ -48,6 +50,9 @@ passport.serializeUser((user, done) => {
 // Deserialize user from session
 passport.deserializeUser(async (userId, done) => {
   try {
+    // Dynamically load the User model after Sequelize is initialized
+    const { User } = require('../models'); // Dynamically load the User model
+
     // Find the user by ID and return user object
     const user = await User.findByPk(userId);
     if (!user) {
@@ -69,6 +74,9 @@ passport.use(
     },
     async (jwtPayload, done) => {
       try {
+        // Dynamically load the User model after Sequelize is initialized
+        const { User } = require('../models'); // Dynamically load the User model
+
         // Find user by ID from JWT payload
         const user = await User.findByPk(jwtPayload.id);
         if (!user) {

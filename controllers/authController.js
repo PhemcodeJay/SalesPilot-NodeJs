@@ -1,14 +1,29 @@
 const { signUp, login, logout, passwordResetRequest, passwordResetConfirm } = require('../services/authService');
+const { sendActivationEmail } = require('../services/activationCodeService');
+const { createSubscription } = require('../services/subscriptionService');
+const { rateLimitActivationRequests } = require('../middleware/rateLimiter');
 
 // SignUp Controller (now using authService)
 const signUpController = async (req, res) => {
   const { username, email, password, phone, location } = req.body;
 
   try {
+    // Check if activation email has been sent recently (rate-limiting)
+    const isRateLimited = await rateLimitActivationRequests(email);
+    if (isRateLimited) {
+      return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+    }
+
     // Call the service method to handle the signup
     const { user, token } = await signUp({ username, email, password, phone, location });
 
-    res.status(201).json({ message: 'User registered', token });
+    // Send activation email after signup
+    await sendActivationEmail(user);
+
+    // Create the default subscription (e.g., trial plan)
+    await createSubscription(user.tenant_id, 'trial');
+
+    res.status(201).json({ message: 'User registered, please check your email for activation', token });
   } catch (err) {
     console.error('Signup error:', err);
     res.status(500).json({ error: 'Error registering user' });

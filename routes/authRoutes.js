@@ -8,12 +8,13 @@ const {
   passwordResetRequestController,
   passwordResetConfirmController
 } = require('../controllers/authController'); // Updated with new controller imports
+
 const router = express.Router();
 
 // Login Route (with tenant middleware)
 router.post('/login', tenantMiddleware, loginController);
 
-// Signup Route (Handle user registration)
+// Signup Route (Handle user registration, with rate limiting)
 router.post('/signup', signUpController);
 
 // JWT Authentication Route (for token-based authentication)

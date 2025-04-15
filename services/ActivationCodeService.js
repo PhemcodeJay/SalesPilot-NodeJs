@@ -1,31 +1,28 @@
-const crypto = require('crypto');
-const nodemailer = require('nodemailer');
-const User = require('../models/user');
+const bcrypt = require('bcryptjs');
 const ActivationCode = require('../models/activationCode');
-const { generateToken } = require('../config/auth');
 
-const sendActivationEmail = async (user) => {
-  const activationCode = crypto.randomBytes(16).toString('hex');
-  await ActivationCode.create({
-    user_id: user.id,
-    activation_code: activationCode,
-    expires_at: new Date(Date.now() + 3600000), // 1 hour expiry
+const verifyActivationCode = async (submittedCode, userId) => {
+  const now = new Date();
+
+  const record = await ActivationCode.findOne({
+    where: {
+      user_id: userId,
+      expires_at: { [Op.gt]: now }
+    }
   });
 
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL,
-      pass: process.env.EMAIL_PASSWORD,
-    },
-  });
+  if (!record) {
+    throw new Error('No valid activation code found.');
+  }
 
-  const activationLink = `${process.env.APP_URL}/activate/${activationCode}`;
-  await transporter.sendMail({
-    to: user.email,
-    subject: 'Account Activation',
-    text: `Please activate your account using this link: ${activationLink}`,
-  });
+  const isMatch = await bcrypt.compare(submittedCode, record.activation_code);
+  if (!isMatch) {
+    throw new Error('Invalid activation code.');
+  }
+
+  // Optionally activate user and clean up
+  await record.destroy(); // Invalidate after use
+  return true;
 };
 
-module.exports = { sendActivationEmail };
+module.exports = { verifyActivationCode };

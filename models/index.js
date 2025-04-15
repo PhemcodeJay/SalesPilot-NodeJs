@@ -2,76 +2,82 @@ const { DataTypes } = require("sequelize");
 const fs = require("fs");
 const path = require("path");
 const debug = require("debug")("models");
-const { sequelize, getTenantDatabase } = require("../config/db.js"); // Import from db.js
+const { sequelize, getTenantDatabase } = require("../config/db");
 
-// ✅ Ensure Sequelize instance is available
 if (!sequelize) {
   throw new Error("❌ Sequelize instance not initialized in db.js");
 }
 
 const models = {};
+const modelsDirectory = __dirname;
+const baseFilename = path.basename(__filename);
 
-// ✅ Dynamically load all models from the current directory
-fs.readdirSync(__dirname)
-  .filter((file) => file.endsWith(".js") && file !== path.basename(__filename))
+// ✅ Load all model files (except this one)
+fs.readdirSync(modelsDirectory)
+  .filter((file) => file.endsWith(".js") && file !== baseFilename)
   .forEach((file) => {
     try {
-      const model = require(path.join(__dirname, file));
-      if (typeof model === "function") {
-        const initializedModel = model(sequelize, DataTypes);
-        models[initializedModel.name] = initializedModel;
-        debug(`✅ Model ${initializedModel.name} loaded successfully.`);
+      const modelFn = require(path.join(modelsDirectory, file));
+      if (typeof modelFn === "function") {
+        const model = modelFn(sequelize, DataTypes);
+        models[model.name] = model;
+        debug(`✅ Model ${model.name} loaded.`);
       }
-    } catch (error) {
-      console.error(`❌ Error loading model ${file}:`, error.message);
+    } catch (err) {
+      console.error(`❌ Error loading model ${file}:`, err.message);
     }
   });
 
-// ✅ Establish associations if defined
+// ✅ Establish global associations
 Object.values(models).forEach((model) => {
-  if (model.associate && typeof model.associate === "function") {
+  if (typeof model.associate === "function") {
     model.associate(models);
-    debug(`✅ Associations established for model: ${model.name}`);
+    debug(`🔗 Associations established for model: ${model.name}`);
   }
 });
 
-// ✅ Initialize models for a tenant database
-/**
- * @param {string} tenantDbName - The tenant's database name.
- * @returns {Promise<{sequelize: Sequelize, models: object}>}
- */
+// ✅ Initialize models and associations for a specific tenant DB
 async function initializeTenantModels(tenantDbName) {
   try {
-    if (!tenantDbName) {
-      throw new Error("❌ Tenant database name is required.");
-    }
+    if (!tenantDbName) throw new Error("❌ Tenant DB name is required.");
 
-    const tenantSequelize = await getTenantDatabase(tenantDbName); // Use db.js for tenant DB connection
+    const tenantSequelize = await getTenantDatabase(tenantDbName);
     const tenantModels = {};
 
-    // Initialize all models for the tenant
-    Object.keys(models).forEach((modelName) => {
-      if (typeof models[modelName] === "function") {
-        tenantModels[modelName] = models[modelName](tenantSequelize, DataTypes);
-        debug(`✅ Model ${modelName} initialized for tenant.`);
-      }
-    });
+    // Load models using tenant DB instance
+    fs.readdirSync(modelsDirectory)
+      .filter((file) => file.endsWith(".js") && file !== baseFilename)
+      .forEach((file) => {
+        try {
+          const modelFn = require(path.join(modelsDirectory, file));
+          if (typeof modelFn === "function") {
+            const model = modelFn(tenantSequelize, DataTypes);
+            tenantModels[model.name] = model;
+            debug(`✅ Tenant model ${model.name} initialized.`);
+          }
+        } catch (err) {
+          console.error(`❌ Error initializing tenant model ${file}:`, err.message);
+        }
+      });
 
-    // Setup associations for the tenant models
+    // Apply associations for tenant models
     Object.values(tenantModels).forEach((model) => {
-      if (model.associate && typeof model.associate === "function") {
+      if (typeof model.associate === "function") {
         model.associate(tenantModels);
-        debug(`✅ Associations established for tenant model: ${model.name}`);
+        debug(`🔗 Associations set for tenant model: ${model.name}`);
       }
     });
 
-    debug(`✅ Models initialized successfully for tenant: ${tenantDbName}`);
+    debug(`🚀 Tenant models initialized for DB: ${tenantDbName}`);
     return { sequelize: tenantSequelize, models: tenantModels };
-  } catch (error) {
-    console.error(`❌ Tenant Model Initialization Error:`, error.message);
-    throw error;
+  } catch (err) {
+    console.error(`❌ Failed to initialize tenant models for ${tenantDbName}:`, err.message);
+    throw err;
   }
 }
 
-// ✅ Export models and Sequelize instance from db.js
-module.exports = { sequelize, models, initializeTenantModels };
+module.exports = {
+  sequelize,
+  models,
+  initializeTenantModels,
+};

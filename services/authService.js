@@ -9,43 +9,52 @@ const Tenant = require('../models/tenants');
 const Subscription = require('../models/subscription');
 const { generateToken } = require('../config/auth');
 
-module.exports = {
-  // SignUp
+const { sendActivationEmail } = require('../services/activationCodeService');
+const { createSubscription } = require('../services/subscriptionService');
+
+const authService = {
+  // ✅ Sign Up
   async signUp({ username, email, password, phone, location }) {
-    const hashedPassword = await bcrypt.hash(password, 10);
+    try {
+      const hashedPassword = await bcrypt.hash(password, 10);
 
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setMonth(endDate.getMonth() + 3);
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setMonth(endDate.getMonth() + 3);
 
-    const tenant = await Tenant.create({
-      name: `${username}'s Business`,
-      email,
-      subscription_start_date: startDate,
-      subscription_end_date: endDate,
-    });
+      // Step 1: Create Tenant
+      const tenant = await Tenant.create({
+        name: `${username}'s Business`,
+        email,
+        subscription_start_date: startDate,
+        subscription_end_date: endDate,
+      });
 
-    const user = await User.create({
-      username,
-      email,
-      password: hashedPassword,
-      phone,
-      location,
-      tenant_id: tenant.id,
-    });
+      // Step 2: Create User
+      const user = await User.create({
+        username,
+        email,
+        password: hashedPassword,
+        phone,
+        location,
+        tenant_id: tenant.id,
+      });
 
-    const subscription = await Subscription.create({
-      user_id: user.id,
-      subscription_plan: 'trial',
-      start_date: startDate,
-      end_date: endDate,
-    });
+      // Step 3: Create Subscription
+      await createSubscription(tenant.id, 'trial');
 
-    const token = generateToken(user);
-    return { user, token };
+      // Step 4: Send Activation Email
+      await sendActivationEmail(user);
+
+      const token = generateToken(user);
+      return { user, token };
+    } catch (err) {
+      console.error('❌ Sign-up error:', err.message);
+      throw new Error('Sign-up failed');
+    }
   },
 
-  // Login
+  // ✅ Login
   async login({ email, password, tenant_id }) {
     const tenant = await Tenant.findOne({ where: { id: tenant_id } });
     if (!tenant) throw new Error('Tenant not found');
@@ -65,7 +74,7 @@ module.exports = {
     return { user, token };
   },
 
-  // Password Reset Request
+  // ✅ Password Reset Request
   async passwordResetRequest(email) {
     const user = await User.findOne({ where: { email } });
     if (!user) throw new Error('User with this email does not exist');
@@ -81,7 +90,7 @@ module.exports = {
     await sendPasswordResetEmail(user.email, resetLink);
   },
 
-  // Password Reset Confirm
+  // ✅ Password Reset Confirm
   async passwordResetConfirm(token, newPassword) {
     const user = await User.findOne({ where: { reset_token: token } });
     if (!user) throw new Error('Invalid or expired reset token');
@@ -97,132 +106,90 @@ module.exports = {
     await user.save();
   },
 
-  // Create User (CRUD)
+  // ✅ CRUD: User
   async createUser({ username, email, password, phone, location, tenant_id }) {
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = await User.create({
-      username,
-      email,
-      password: hashedPassword,
-      phone,
-      location,
-      tenant_id,
-    });
-
-    return user;
+    return await User.create({ username, email, password: hashedPassword, phone, location, tenant_id });
   },
 
-  // Get User (CRUD)
   async getUser(id) {
     const user = await User.findOne({ where: { id } });
     if (!user) throw new Error('User not found');
     return user;
   },
 
-  // Update User (CRUD)
-  async updateUser(id, { username, email, phone, location }) {
-    const user = await User.findOne({ where: { id } });
+  async updateUser(id, updates) {
+    const user = await User.findByPk(id);
     if (!user) throw new Error('User not found');
 
-    user.username = username || user.username;
-    user.email = email || user.email;
-    user.phone = phone || user.phone;
-    user.location = location || user.location;
-
+    Object.assign(user, updates);
     await user.save();
     return user;
   },
 
-  // Delete User (CRUD)
   async deleteUser(id) {
-    const user = await User.findOne({ where: { id } });
+    const user = await User.findByPk(id);
     if (!user) throw new Error('User not found');
 
     await user.destroy();
     return { message: 'User deleted successfully' };
   },
 
-  // Create Tenant (CRUD)
+  // ✅ CRUD: Tenant
   async createTenant({ name, email, subscription_start_date, subscription_end_date }) {
-    const tenant = await Tenant.create({
-      name,
-      email,
-      subscription_start_date,
-      subscription_end_date,
-    });
-
-    return tenant;
+    return await Tenant.create({ name, email, subscription_start_date, subscription_end_date });
   },
 
-  // Get Tenant (CRUD)
   async getTenant(id) {
-    const tenant = await Tenant.findOne({ where: { id } });
+    const tenant = await Tenant.findByPk(id);
     if (!tenant) throw new Error('Tenant not found');
     return tenant;
   },
 
-  // Update Tenant (CRUD)
-  async updateTenant(id, { name, email, subscription_start_date, subscription_end_date }) {
-    const tenant = await Tenant.findOne({ where: { id } });
+  async updateTenant(id, updates) {
+    const tenant = await Tenant.findByPk(id);
     if (!tenant) throw new Error('Tenant not found');
 
-    tenant.name = name || tenant.name;
-    tenant.email = email || tenant.email;
-    tenant.subscription_start_date = subscription_start_date || tenant.subscription_start_date;
-    tenant.subscription_end_date = subscription_end_date || tenant.subscription_end_date;
-
+    Object.assign(tenant, updates);
     await tenant.save();
     return tenant;
   },
 
-  // Delete Tenant (CRUD)
   async deleteTenant(id) {
-    const tenant = await Tenant.findOne({ where: { id } });
+    const tenant = await Tenant.findByPk(id);
     if (!tenant) throw new Error('Tenant not found');
 
     await tenant.destroy();
     return { message: 'Tenant deleted successfully' };
   },
 
-  // Create Subscription (CRUD)
+  // ✅ CRUD: Subscription
   async createSubscription({ user_id, subscription_plan, start_date, end_date }) {
-    const subscription = await Subscription.create({
-      user_id,
-      subscription_plan,
-      start_date,
-      end_date,
-    });
-
-    return subscription;
+    return await Subscription.create({ user_id, subscription_plan, start_date, end_date });
   },
 
-  // Get Subscription (CRUD)
   async getSubscription(id) {
-    const subscription = await Subscription.findOne({ where: { id } });
+    const subscription = await Subscription.findByPk(id);
     if (!subscription) throw new Error('Subscription not found');
     return subscription;
   },
 
-  // Update Subscription (CRUD)
-  async updateSubscription(id, { subscription_plan, start_date, end_date }) {
-    const subscription = await Subscription.findOne({ where: { id } });
+  async updateSubscription(id, updates) {
+    const subscription = await Subscription.findByPk(id);
     if (!subscription) throw new Error('Subscription not found');
 
-    subscription.subscription_plan = subscription_plan || subscription.subscription_plan;
-    subscription.start_date = start_date || subscription.start_date;
-    subscription.end_date = end_date || subscription.end_date;
-
+    Object.assign(subscription, updates);
     await subscription.save();
     return subscription;
   },
 
-  // Delete Subscription (CRUD)
   async deleteSubscription(id) {
-    const subscription = await Subscription.findOne({ where: { id } });
+    const subscription = await Subscription.findByPk(id);
     if (!subscription) throw new Error('Subscription not found');
 
     await subscription.destroy();
     return { message: 'Subscription deleted successfully' };
   }
 };
+
+module.exports = authService;
