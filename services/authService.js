@@ -3,59 +3,50 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { sendPasswordResetEmail } = require('../utils/emailUtils');
 const { JWT_SECRET } = process.env;
-
+const { sendActivationEmail } = require('./activationCodeService');
+const { createSubscription } = require('./subscriptionService');
 const User = require('../models/user');
 const Tenant = require('../models/tenants');
 const Subscription = require('../models/subscription');
-const { generateToken } = require('../config/auth');
-
-const { sendActivationEmail } = require('../services/activationCodeService');
-const { createSubscription } = require('../services/subscriptionService');
+const { Op } = require('sequelize'); // Added Sequelize operator import
 
 const authService = {
   // ✅ Sign Up
-  async signUp({ username, email, password, phone, location }) {
-    try {
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      const startDate = new Date();
-      const endDate = new Date();
-      endDate.setMonth(endDate.getMonth() + 3);
-
-      // Step 1: Create Tenant
-      const tenant = await Tenant.create({
-        name: `${username}'s Business`,
-        email,
-        subscription_start_date: startDate,
-        subscription_end_date: endDate,
-      });
-
-      // Step 2: Create User
-      const user = await User.create({
-        username,
-        email,
-        password: hashedPassword,
-        phone,
-        location,
-        tenant_id: tenant.id,
-      });
-
-      // Step 3: Create Subscription
-      await createSubscription(tenant.id, 'trial');
-
-      // Step 4: Send Activation Email
-      await sendActivationEmail(user);
-
-      const token = generateToken(user);
-      return { user, token };
-    } catch (err) {
-      console.error('❌ Sign-up error:', err.message);
-      throw new Error('Sign-up failed');
-    }
+  signUp: async (userData, tenantData) => {
+    // Create Tenant
+    const tenant = await Tenant.create({
+      name: tenantData.name,
+      email: tenantData.email,
+      phone: tenantData.phone,
+      address: tenantData.address,
+      status: 'inactive',  // Start as inactive
+      subscription_start_date: new Date(),
+      subscription_end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),  // Default 1-year subscription
+    });
+  
+    // Create User
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
+    const user = await User.create({
+      tenant_id: tenant.id,
+      username: userData.username,
+      email: userData.email,
+      password: hashedPassword,
+      role: userData.role || 'sales',  // Default to 'sales' role
+      phone: userData.phone,
+      location: userData.location,
+    });
+  
+    // Create Subscription (Trial by default)
+    await createSubscription(tenant.id, 'trial');  // Default to trial plan
+  
+    // Send Activation Email
+    await sendActivationEmail(user);
+  
+    return { user, tenant };
   },
 
   // ✅ Login
-  async login({ email, password, tenant_id }) {
+  login: async ({ email, password, tenant_id }) => {
     const tenant = await Tenant.findOne({ where: { id: tenant_id } });
     if (!tenant) throw new Error('Tenant not found');
 
@@ -75,7 +66,7 @@ const authService = {
   },
 
   // ✅ Password Reset Request
-  async passwordResetRequest(email) {
+  passwordResetRequest: async (email) => {
     const user = await User.findOne({ where: { email } });
     if (!user) throw new Error('User with this email does not exist');
 
@@ -91,7 +82,7 @@ const authService = {
   },
 
   // ✅ Password Reset Confirm
-  async passwordResetConfirm(token, newPassword) {
+  passwordResetConfirm: async (token, newPassword) => {
     const user = await User.findOne({ where: { reset_token: token } });
     if (!user) throw new Error('Invalid or expired reset token');
 
@@ -107,18 +98,18 @@ const authService = {
   },
 
   // ✅ CRUD: User
-  async createUser({ username, email, password, phone, location, tenant_id }) {
+  createUser: async ({ username, email, password, phone, location, tenant_id }) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     return await User.create({ username, email, password: hashedPassword, phone, location, tenant_id });
   },
 
-  async getUser(id) {
+  getUser: async (id) => {
     const user = await User.findOne({ where: { id } });
     if (!user) throw new Error('User not found');
     return user;
   },
 
-  async updateUser(id, updates) {
+  updateUser: async (id, updates) => {
     const user = await User.findByPk(id);
     if (!user) throw new Error('User not found');
 
@@ -127,7 +118,7 @@ const authService = {
     return user;
   },
 
-  async deleteUser(id) {
+  deleteUser: async (id) => {
     const user = await User.findByPk(id);
     if (!user) throw new Error('User not found');
 
@@ -136,17 +127,17 @@ const authService = {
   },
 
   // ✅ CRUD: Tenant
-  async createTenant({ name, email, subscription_start_date, subscription_end_date }) {
+  createTenant: async ({ name, email, subscription_start_date, subscription_end_date }) => {
     return await Tenant.create({ name, email, subscription_start_date, subscription_end_date });
   },
 
-  async getTenant(id) {
+  getTenant: async (id) => {
     const tenant = await Tenant.findByPk(id);
     if (!tenant) throw new Error('Tenant not found');
     return tenant;
   },
 
-  async updateTenant(id, updates) {
+  updateTenant: async (id, updates) => {
     const tenant = await Tenant.findByPk(id);
     if (!tenant) throw new Error('Tenant not found');
 
@@ -155,7 +146,7 @@ const authService = {
     return tenant;
   },
 
-  async deleteTenant(id) {
+  deleteTenant: async (id) => {
     const tenant = await Tenant.findByPk(id);
     if (!tenant) throw new Error('Tenant not found');
 
@@ -164,17 +155,17 @@ const authService = {
   },
 
   // ✅ CRUD: Subscription
-  async createSubscription({ user_id, subscription_plan, start_date, end_date }) {
+  createSubscription: async ({ user_id, subscription_plan, start_date, end_date }) => {
     return await Subscription.create({ user_id, subscription_plan, start_date, end_date });
   },
 
-  async getSubscription(id) {
+  getSubscription: async (id) => {
     const subscription = await Subscription.findByPk(id);
     if (!subscription) throw new Error('Subscription not found');
     return subscription;
   },
 
-  async updateSubscription(id, updates) {
+  updateSubscription: async (id, updates) => {
     const subscription = await Subscription.findByPk(id);
     if (!subscription) throw new Error('Subscription not found');
 
@@ -183,7 +174,7 @@ const authService = {
     return subscription;
   },
 
-  async deleteSubscription(id) {
+  deleteSubscription: async (id) => {
     const subscription = await Subscription.findByPk(id);
     if (!subscription) throw new Error('Subscription not found');
 
