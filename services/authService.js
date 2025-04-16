@@ -1,19 +1,22 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { Op } = require('sequelize');
+
 const { sendPasswordResetEmail } = require('../utils/emailUtils');
-const { JWT_SECRET } = process.env;
 const { sendActivationEmail } = require('./activationCodeService');
-const User = require('../models/user');
-const Tenant = require('../models/tenants');
-const Subscription = require('../models/subscription');
-const { Op } = require('sequelize'); // Added Sequelize operator import
+const { models, sequelize } = require('../config/db');
+
+const { User, Tenant, Subscription } = models;
+const { JWT_SECRET, CLIENT_URL } = process.env;
 
 const authService = {
   // ✅ SignUp: Create Tenant, User, Subscription, and send Activation Email
   signUp: async (userData, tenantData) => {
+    const transaction = await sequelize.transaction();
+
     try {
-      // Create Tenant (in Main DB)
+      // Create Tenant (Main DB)
       const tenant = await Tenant.create({
         name: tenantData.name,
         email: tenantData.email,
@@ -21,38 +24,42 @@ const authService = {
         address: tenantData.address,
         status: 'inactive',
         subscription_start_date: new Date(),
-        subscription_end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),  // 1-year default
-      });
+        subscription_end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+      }, { transaction });
 
       // Hash Password
       const hashedPassword = await bcrypt.hash(userData.password, 10);
 
-      // Create User (in Main DB)
+      // Create User
       const user = await User.create({
         tenant_id: tenant.id,
         username: userData.username,
         email: userData.email,
         password: hashedPassword,
-        role: userData.role || 'sales',  // default role
+        role: userData.role || 'sales',
         phone: userData.phone,
         location: userData.location,
-      });
+      }, { transaction });
 
-      // Create Subscription (ensure it's for Main DB)
+      // Create Subscription
       await Subscription.create({
-        user_id: user.id, // Associating subscription with the user directly
-        subscription_plan: 'trial', // Default plan
+        user_id: user.id,
+        subscription_plan: 'trial',
         start_date: new Date(),
-        end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),  // 1-year default subscription
-      });
+        end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+      }, { transaction });
 
-      // Send Activation Email (creates activation code record)
-      await sendActivationEmail(user);  // Handles saving to ActivationCode model + sends email
+      // Commit transaction
+      await transaction.commit();
+
+      // Send Activation Email (outside transaction)
+      await sendActivationEmail(user);
 
       return { tenant, user };
     } catch (err) {
-      console.error('Error during sign-up:', err);
-      throw new Error('Error during sign-up. Please try again.');
+      await transaction.rollback();
+      console.error('❌ Error during sign-up:', err);
+      throw new Error('Sign-up failed. Please try again.');
     }
   },
 
@@ -82,23 +89,21 @@ const authService = {
     if (!user) throw new Error('User with this email does not exist');
 
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     user.reset_token = resetToken;
     user.reset_token_expiry = resetTokenExpiry;
     await user.save();
 
-    const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
+    const resetLink = `${CLIENT_URL}/reset-password?token=${resetToken}`;
     await sendPasswordResetEmail(user.email, resetLink);
   },
 
   // ✅ Password Reset Confirm
   passwordResetConfirm: async (token, newPassword) => {
     const user = await User.findOne({ where: { reset_token: token } });
-    if (!user) throw new Error('Invalid or expired reset token');
-
-    if (new Date() > user.reset_token_expiry) {
-      throw new Error('Reset token has expired');
+    if (!user || new Date() > user.reset_token_expiry) {
+      throw new Error('Invalid or expired reset token');
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -109,13 +114,13 @@ const authService = {
   },
 
   // ✅ CRUD: User
-  createUser: async ({ username, email, password, phone, location, tenant_id }) => {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    return await User.create({ username, email, password: hashedPassword, phone, location, tenant_id });
+  createUser: async (data) => {
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+    return await User.create({ ...data, password: hashedPassword });
   },
 
   getUser: async (id) => {
-    const user = await User.findOne({ where: { id } });
+    const user = await User.findByPk(id);
     if (!user) throw new Error('User not found');
     return user;
   },
@@ -123,7 +128,6 @@ const authService = {
   updateUser: async (id, updates) => {
     const user = await User.findByPk(id);
     if (!user) throw new Error('User not found');
-
     Object.assign(user, updates);
     await user.save();
     return user;
@@ -132,14 +136,13 @@ const authService = {
   deleteUser: async (id) => {
     const user = await User.findByPk(id);
     if (!user) throw new Error('User not found');
-
     await user.destroy();
     return { message: 'User deleted successfully' };
   },
 
   // ✅ CRUD: Tenant
-  createTenant: async ({ name, email, subscription_start_date, subscription_end_date }) => {
-    return await Tenant.create({ name, email, subscription_start_date, subscription_end_date });
+  createTenant: async (data) => {
+    return await Tenant.create(data);
   },
 
   getTenant: async (id) => {
@@ -151,7 +154,6 @@ const authService = {
   updateTenant: async (id, updates) => {
     const tenant = await Tenant.findByPk(id);
     if (!tenant) throw new Error('Tenant not found');
-
     Object.assign(tenant, updates);
     await tenant.save();
     return tenant;
@@ -160,14 +162,13 @@ const authService = {
   deleteTenant: async (id) => {
     const tenant = await Tenant.findByPk(id);
     if (!tenant) throw new Error('Tenant not found');
-
     await tenant.destroy();
     return { message: 'Tenant deleted successfully' };
   },
 
   // ✅ CRUD: Subscription
-  createSubscription: async ({ user_id, subscription_plan, start_date, end_date }) => {
-    return await Subscription.create({ user_id, subscription_plan, start_date, end_date });
+  createSubscription: async (data) => {
+    return await Subscription.create(data);
   },
 
   getSubscription: async (id) => {
@@ -179,7 +180,6 @@ const authService = {
   updateSubscription: async (id, updates) => {
     const subscription = await Subscription.findByPk(id);
     if (!subscription) throw new Error('Subscription not found');
-
     Object.assign(subscription, updates);
     await subscription.save();
     return subscription;
@@ -188,7 +188,6 @@ const authService = {
   deleteSubscription: async (id) => {
     const subscription = await Subscription.findByPk(id);
     if (!subscription) throw new Error('Subscription not found');
-
     await subscription.destroy();
     return { message: 'Subscription deleted successfully' };
   }
