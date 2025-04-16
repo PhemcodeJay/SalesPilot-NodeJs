@@ -9,7 +9,7 @@ const {
 const { sendActivationEmail, verifyActivationCode } = require('../services/activationCodeService');
 const { rateLimitActivationRequests } = require('../middleware/rateLimiter');
 
-// ✅ Simplified SignUp Controller using signUp service
+// ✅ SignUp Controller
 const signUpController = async (req, res) => {
   const {
     username,
@@ -24,11 +24,13 @@ const signUpController = async (req, res) => {
   } = req.body;
 
   try {
+    // Check rate limiting for activation requests
     const isRateLimited = await rateLimitActivationRequests(email);
     if (isRateLimited) {
       return res.status(429).json({ error: 'Too many requests. Please try again later.' });
     }
 
+    // Prepare user and tenant data
     const userData = {
       username,
       email,
@@ -45,8 +47,10 @@ const signUpController = async (req, res) => {
       address: tenantAddress
     };
 
+    // Sign up user and create tenant, subscription
     const { user, tenant } = await signUp(userData, tenantData);
 
+    // Return successful response
     res.status(201).json({
       message: 'User and tenant registered successfully. Please check your email to activate your account.',
       user: {
@@ -67,7 +71,7 @@ const signUpController = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('Signup error:', err);
+    console.error('SignUp error:', err);
     res.status(500).json({ error: err.message || 'Error registering user. Please try again.' });
   }
 };

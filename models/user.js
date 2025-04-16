@@ -54,6 +54,7 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: true,
     tableName: 'users',
     underscored: true,
+    sequelize, // Make sure the correct instance of sequelize (main DB) is used
   });
 
   User.associate = (models) => {

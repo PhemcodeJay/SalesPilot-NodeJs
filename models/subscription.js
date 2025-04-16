@@ -37,15 +37,16 @@ module.exports = (sequelize, DataTypes) => {
     },
   }, {
     timestamps: true,
-    tableName: 'subscriptions',
+    tableName: 'subscriptions',  // Specify the table name
     underscored: true,  // Use snake_case for column names
+    sequelize,  // Make sure the correct instance of sequelize (main DB) is used
   });
 
   // Associations
   Subscription.associate = (models) => {
     // A Subscription belongs to a User
     Subscription.belongsTo(models.User, {
-      foreignKey: 'user_id', // Foreign key
+      foreignKey: 'user_id',  // Foreign key
       as: 'user',  // Alias for the association
       onDelete: 'CASCADE',  // When a user is deleted, the subscription is also deleted
     });

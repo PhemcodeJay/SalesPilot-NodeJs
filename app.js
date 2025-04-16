@@ -10,11 +10,7 @@ const session = require('express-session');
 const passport = require('passport');
 const flash = require('connect-flash');
 
-const {
-  testConnection,
-  syncModels,
-  initializeTenantModels
-} = require('./config/db');
+const {testConnection,syncModels,initializeTenantModels} = require('./config/db');
 
 const rateLimiter = require('./middleware/rateLimiter');
 const tenantMiddleware = require('./middleware/tenantMiddleware');
@@ -112,27 +108,21 @@ app.use(errorLogger);
 // ✅ 404 Handler
 
 
+
 // ✅ Start the server and initialize DBs
 app.listen(port, async () => {
   console.log(`🚀 Server is running at http://localhost:${port}`);
 
   try {
     // 🔗 Test connection and sync main (admin) DB
-    await testConnection();
-    await syncModels();
+    await testConnection(); // Test connection to admin DB
+    await syncModels(); // Sync Sequelize models with DB
 
-    // 🎯 Initialize default tenant models (optional)
-    const defaultTenantDb = process.env.TENANT_DB_NAME || 'TENANT1';
-    const { sequelize: tenantSequelize, models: tenantModels } =
-      await initializeTenantModels(defaultTenantDb);
-
-    console.log(`✅DB Connected & Default tenant models initialized for DB: ${defaultTenantDb}`);
-
-    // 🌍 Store tenant models globally for routes/controllers
-    app.locals.tenantModels = tenantModels;
+    console.log(`✅ DB Connected & Sequelize models synced`);
 
   } catch (err) {
     console.error(`❌ Error during server startup: ${err.message}`);
     process.exit(1); // Exit if startup fails
   }
 });
+

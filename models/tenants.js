@@ -41,6 +41,7 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: true, // Timestamps for createdAt and updatedAt
     tableName: 'tenants', // Specify the table name
     underscored: true, // Use snake_case for column names
+    sequelize, // Make sure the correct instance of sequelize (main DB) is used
   });
 
   // Associations

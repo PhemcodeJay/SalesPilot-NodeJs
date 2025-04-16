@@ -50,7 +50,7 @@ const createSubscription = async (tenantId, plan = 'trial') => {
 
   // Create the subscription record
   const subscription = await models.Subscription.create({
-    tenant_id: tenant.id,
+    tenant_id: tenant.id,  // Use tenant's ID for association
     subscription_plan: plan,
     start_date: now,
     end_date: endDate,

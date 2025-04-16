@@ -1,11 +1,10 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { Op } = require('sequelize');
-
 const { sendPasswordResetEmail } = require('../utils/emailUtils');
 const { sendActivationEmail } = require('./activationCodeService');
 const { models, sequelize } = require('../config/db');
+const subscriptionService = require('./subscriptionService'); // Import subscriptionService
 
 const { User, Tenant, Subscription } = models;
 const { JWT_SECRET, CLIENT_URL } = process.env;
@@ -41,13 +40,8 @@ const authService = {
         location: userData.location,
       }, { transaction });
 
-      // Create Subscription
-      await Subscription.create({
-        user_id: user.id,
-        subscription_plan: 'trial',
-        start_date: new Date(),
-        end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
-      }, { transaction });
+      // Create Subscription using the subscription service
+      await subscriptionService.createSubscription(tenant.id, 'trial'); // Invoke the subscription service to create a subscription for the tenant
 
       // Commit transaction
       await transaction.commit();

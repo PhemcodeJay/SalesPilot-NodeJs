@@ -6,7 +6,8 @@ const {
   loginController,
   logoutController,
   passwordResetRequestController,
-  passwordResetConfirmController
+  passwordResetConfirmController,
+  activateUser // Imported for account activation
 } = require('../controllers/authController'); // Updated with new controller imports
 
 const router = express.Router();
@@ -31,4 +32,8 @@ router.post('/password-reset-confirm', passwordResetConfirmController);
 // Logout Route
 router.post('/logout', logoutController);
 
+// Account Activation Route (Handle user account activation)
+router.get('/activate', activateUser);  // New route for account activation
+
 module.exports = router;
+
