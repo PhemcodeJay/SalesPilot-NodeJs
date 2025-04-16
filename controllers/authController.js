@@ -1,7 +1,6 @@
 const {
   signUp,
   login,
-  logout,
   passwordResetRequest,
   passwordResetConfirm
 } = require('../services/authService');
@@ -48,7 +47,7 @@ const signUpController = async (req, res) => {
     };
 
     // Sign up user and create tenant, subscription
-    const { user, tenant } = await signUp(userData, tenantData);
+    const { user, tenant, subscription, activationCode } = await signUp(userData, tenantData);
 
     // Return successful response
     res.status(201).json({
@@ -69,6 +68,12 @@ const signUpController = async (req, res) => {
         address: tenant.address,
         status: tenant.status,
       },
+      subscription: {
+        id: subscription.id,
+        plan: subscription.plan,
+        status: subscription.status,
+      },
+      activationCode: activationCode.code, // Include activation code in response
     });
   } catch (err) {
     console.error('SignUp error:', err);
@@ -121,21 +126,6 @@ const passwordResetConfirmController = async (req, res) => {
   }
 };
 
-// ✅ Optional: registerUser (redundant if using signUpController)
-const registerUser = async (req, res) => {
-  try {
-    const { userData, tenantData } = req.body;
-    const { user, tenant } = await signUp(userData, tenantData);
-    res.status(201).json({
-      message: 'User registered successfully. Please check your email for activation instructions.',
-      user,
-      tenant,
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
 // ✅ Account Activation Controller
 const activateUser = async (req, res) => {
   try {
@@ -153,6 +143,5 @@ module.exports = {
   logoutController,
   passwordResetRequestController,
   passwordResetConfirmController,
-  registerUser,
   activateUser,
 };
