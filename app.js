@@ -10,8 +10,13 @@ const session = require('express-session');
 const passport = require('passport');
 const flash = require('connect-flash');
 
-const {testConnection,syncModels,initializeTenantModels} = require('./config/db');
-
+const {
+  testConnection,
+  syncModels,
+  tenantDBs,
+  createTenantDatabase,
+  closeAllConnections
+} = require('./config/db');
 const rateLimiter = require('./middleware/rateLimiter');
 const tenantMiddleware = require('./middleware/tenantMiddleware');
 const authenticateUser = require('./middleware/authenticateUser');
@@ -105,24 +110,69 @@ app.get('/health', (req, res) => {
 // ✅ Error Logger
 app.use(errorLogger);
 
-// ✅ 404 Handler
+// 🔍 404 Not Found Handler
+app.use((req, res, next) => {
+  res.status(404).json({
+    error: 'Not Found',
+    message: `The requested route ${req.originalUrl} was not found on this server.`,
+  });
+});
+
+// ❗ Global Error Handler
+app.use((err, req, res, next) => {
+  console.error('💥 Unexpected Error:', err.stack || err.message);
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: err.message || 'Something went wrong',
+  });
+});
 
 
+// ✅ Health-check route
+app.get('/ping', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // ✅ Start the server and initialize DBs
 app.listen(port, async () => {
   console.log(`🚀 Server is running at http://localhost:${port}`);
 
   try {
-    // 🔗 Test connection and sync main (admin) DB
-    await testConnection(); // Test connection to admin DB
-    await syncModels(); // Sync Sequelize models with DB
+    // 🔗 Test and sync admin DB
+    await testConnection();
+    await syncModels();
+    console.log('✅ Admin DB connected & models synced');
 
-    console.log(`✅ DB Connected & Sequelize models synced`);
+    // 📦 Optionally load default tenant DBs from config or list
+    const defaultTenants = process.env.DEFAULT_TENANTS
+      ? process.env.DEFAULT_TENANTS.split(',') // e.g., "tenant_alpha,tenant_beta"
+      : [];
+
+    for (const tenantName of defaultTenants) {
+      if (!tenantDBs[tenantName]) {
+        await createTenantDatabase(tenantName.trim());
+        console.log(`🛠️ Tenant DB '${tenantName}' initialized.`);
+      }
+    }
 
   } catch (err) {
-    console.error(`❌ Error during server startup: ${err.message}`);
-    process.exit(1); // Exit if startup fails
+    console.error(`❌ Startup error: ${err.message}`);
+    process.exit(1);
   }
 });
 
+// 🧹 Graceful shutdown
+const shutdown = async () => {
+  console.log('\n👋 Shutting down...');
+  try {
+    await closeAllConnections();
+    console.log('✅ All DB connections closed.');
+    process.exit(0);
+  } catch (err) {
+    console.error('❌ Error during shutdown:', err.message);
+    process.exit(1);
+  }
+};
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
