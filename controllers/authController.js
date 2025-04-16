@@ -36,7 +36,7 @@ const signUpController = async (req, res) => {
       password,
       phone,
       location,
-      role: 'sales'
+      role: 'sales'  // Default role for user
     };
 
     const tenantData = {

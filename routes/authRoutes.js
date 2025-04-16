@@ -36,4 +36,3 @@ router.post('/logout', logoutController);
 router.get('/activate', activateUser);  // New route for account activation
 
 module.exports = router;
-

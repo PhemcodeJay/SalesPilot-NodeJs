@@ -38,15 +38,9 @@ const authService = {
         location: userData.location,
       }, { transaction });
 
-      // Create Subscription (Main DB)
-      const subscription = await Subscription.create({
-        tenant_id: tenant.id,  // Link subscription with tenant
-        plan: 'trial',  // Set trial plan by default
-        start_date: new Date(),
-        end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),  // Default subscription for 1 year
-        status: 'active',  // Set initial status as active
-      }, { transaction });
-
+      // Create Subscription using subscriptionService (instead of internal Subscription logic)
+      const subscription = await subscriptionService.createSubscription(tenant.id, 'trial'); // Using 'trial' by default
+     
       // Generate Activation Code (Main DB)
       const activationCode = crypto.randomBytes(20).toString('hex');
       const activationCodeRecord = await ActivationCode.create({
