@@ -33,11 +33,7 @@
                       <h2 class="mb-2 text-center font-weight-bold">Activate Account</h2>
                       <p class="text-center">Enter your activation code below to activate your account.</p>
 
-                  
-
                       <form id="activation-form" action="/auth/activate" method="POST">
-                       
-
                         <div class="form-group">
                           <label for="activation-code" class="font-weight-bold">Activation Code</label>
                           <input type="text" id="activation-code" name="activationCode" class="form-control" placeholder="Enter your activation code" required>
@@ -62,6 +58,25 @@
         </div>
       </div>
     </section>
+  </div>
+
+  <!-- Success Modal -->
+  <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="successModalLabel">Account Activation Successful</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p>Your account has been successfully activated. Please check your email for further instructions and login to your account.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <a href="/login" class="btn btn-primary">Go to Login</a>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Backend Bundle JavaScript -->
@@ -99,7 +114,8 @@
           const data = await response.json();
 
           if (response.ok) {
-            window.location.href = '/login'; // Redirect on success
+            // Show the success modal if activation is successful
+            $('#successModal').modal('show');
           } else {
             errorElement.textContent = data.error || 'Invalid activation code. Please try again.';
           }

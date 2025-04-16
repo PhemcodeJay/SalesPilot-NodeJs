@@ -4,45 +4,56 @@ const crypto = require('crypto');
 const { sendPasswordResetEmail } = require('../utils/emailUtils');
 const { JWT_SECRET } = process.env;
 const { sendActivationEmail } = require('./activationCodeService');
-const { createSubscription } = require('./subscriptionService');
 const User = require('../models/user');
 const Tenant = require('../models/tenants');
 const Subscription = require('../models/subscription');
 const { Op } = require('sequelize'); // Added Sequelize operator import
 
 const authService = {
-  // ✅ Sign Up
+  // ✅ SignUp: Create Tenant, User, Subscription, and send Activation Email
   signUp: async (userData, tenantData) => {
-    // Create Tenant
-    const tenant = await Tenant.create({
-      name: tenantData.name,
-      email: tenantData.email,
-      phone: tenantData.phone,
-      address: tenantData.address,
-      status: 'inactive',  // Start as inactive
-      subscription_start_date: new Date(),
-      subscription_end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),  // Default 1-year subscription
-    });
-  
-    // Create User
-    const hashedPassword = await bcrypt.hash(userData.password, 10);
-    const user = await User.create({
-      tenant_id: tenant.id,
-      username: userData.username,
-      email: userData.email,
-      password: hashedPassword,
-      role: userData.role || 'sales',  // Default to 'sales' role
-      phone: userData.phone,
-      location: userData.location,
-    });
-  
-    // Create Subscription (Trial by default)
-    await createSubscription(tenant.id, 'trial');  // Default to trial plan
-  
-    // Send Activation Email
-    await sendActivationEmail(user);
-  
-    return { user, tenant };
+    try {
+      // Create Tenant (in Main DB)
+      const tenant = await Tenant.create({
+        name: tenantData.name,
+        email: tenantData.email,
+        phone: tenantData.phone,
+        address: tenantData.address,
+        status: 'inactive',
+        subscription_start_date: new Date(),
+        subscription_end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),  // 1-year default
+      });
+
+      // Hash Password
+      const hashedPassword = await bcrypt.hash(userData.password, 10);
+
+      // Create User (in Main DB)
+      const user = await User.create({
+        tenant_id: tenant.id,
+        username: userData.username,
+        email: userData.email,
+        password: hashedPassword,
+        role: userData.role || 'sales',  // default role
+        phone: userData.phone,
+        location: userData.location,
+      });
+
+      // Create Subscription (ensure it's for Main DB)
+      await Subscription.create({
+        user_id: user.id, // Associating subscription with the user directly
+        subscription_plan: 'trial', // Default plan
+        start_date: new Date(),
+        end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),  // 1-year default subscription
+      });
+
+      // Send Activation Email (creates activation code record)
+      await sendActivationEmail(user);  // Handles saving to ActivationCode model + sends email
+
+      return { tenant, user };
+    } catch (err) {
+      console.error('Error during sign-up:', err);
+      throw new Error('Error during sign-up. Please try again.');
+    }
   },
 
   // ✅ Login

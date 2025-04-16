@@ -72,6 +72,25 @@
         </section>
     </div>
 
+    <!-- Success Modal -->
+    <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="successModalLabel">Password Recovery Successful</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>We've sent you an email with instructions to reset your password. Please check your inbox and follow the link in the email to complete the password reset process.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <a href="/login" class="btn btn-primary">Go to Login</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Backend Bundle JavaScript -->
     <script src="/assets/js/backend-bundle.min.js"></script>
     <script src="/assets/js/app.js"></script>
@@ -104,6 +123,8 @@
                         if (response.success) {
                             $("#successMessage").text(response.message).show();
                             $("#recover-password-form")[0].reset(); // Reset form
+                            // Show the success modal
+                            $('#successModal').modal('show');
                         } else {
                             $("#errorMessage").text(response.message).show();
                         }

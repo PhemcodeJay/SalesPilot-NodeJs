@@ -5,30 +5,124 @@ const { rateLimitActivationRequests } = require('../middleware/rateLimiter');
 
 // SignUp Controller (using authService for sign up and sending activation email)
 const signUpController = async (req, res) => {
-  const { username, email, password, phone, location } = req.body;
+  const { 
+    username, 
+    email, 
+    password, 
+    phone, 
+    location, 
+    tenantName, 
+    tenantEmail, 
+    tenantPhone, 
+    tenantAddress 
+  } = req.body;
 
   try {
-    // Check if activation email has been sent recently (rate-limiting)
+    // Rate-limit activation email requests
     const isRateLimited = await rateLimitActivationRequests(email);
     if (isRateLimited) {
       return res.status(429).json({ error: 'Too many requests. Please try again later.' });
     }
 
-    // Call the service method to handle the signup
-    const { user, token } = await signUp({ username, email, password, phone, location });
+    // Check if the tenant already exists by email or name (optional validation)
+    const existingTenant = await Tenant.findOne({ where: { email: tenantEmail } });
+    if (existingTenant) {
+      return res.status(400).json({ error: 'Tenant with this email already exists.' });
+    }
 
-    // Send activation email after signup
-    await sendActivationEmail(user);
+    // Check if the user already exists by email
+    const existingUser = await User.findOne({ where: { email: email } });
+    if (existingUser) {
+      return res.status(400).json({ error: 'User with this email already exists.' });
+    }
 
-    // Create the default subscription (e.g., trial plan)
-    await createSubscription(user.tenant_id, 'trial');
+    // Start a transaction for ensuring both user, tenant, subscription, and activation code creation
+    const transaction = await sequelize.transaction();
 
-    res.status(201).json({ message: 'User registered, please check your email for activation', token });
+    try {
+      // Create Tenant
+      const tenant = await Tenant.create({
+        name: tenantName,
+        email: tenantEmail,
+        phone: tenantPhone,
+        address: tenantAddress,
+        status: 'inactive',  // Start as inactive
+        subscription_start_date: new Date(),
+        subscription_end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),  // 1-year default
+      }, { transaction });
+
+      // Hash Password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create User (associated with the created tenant)
+      const user = await User.create({
+        tenant_id: tenant.id,  // Ensure the user is associated with the tenant
+        username,
+        email,
+        password: hashedPassword,
+        role: 'sales',  // Default role
+        phone,
+        location,
+      }, { transaction });
+
+      // Create Subscription (linked to the user now)
+      await Subscription.create({
+        user_id: user.id,  // Associate the subscription with the user
+        type: 'trial',  // Default subscription type
+        start_date: new Date(),
+        end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),  // 1-year duration
+      }, { transaction });
+
+      // Generate Activation Code
+      const activationCode = crypto.randomBytes(3).toString('hex').toUpperCase(); // 6-character code
+      const hashedActivationCode = await bcrypt.hash(activationCode, 10); // Hash the activation code for storage
+
+      // Create Activation Code (associated with the created user)
+      await ActivationCode.create({
+        user_id: user.id,
+        activation_code: hashedActivationCode,
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),  // 24 hours expiration
+      }, { transaction });
+
+      // Send Activation Email (handles saving to ActivationCode model + sends email)
+      await sendActivationEmail(user, activationCode);
+
+      // Commit the transaction
+      await transaction.commit();
+
+      // Send success response
+      res.status(201).json({
+        message: 'User and tenant registered successfully. Please check your email to activate your account.',
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          phone: user.phone,
+          location: user.location,
+          role: user.role,
+        },
+        tenant: {
+          id: tenant.id,
+          name: tenant.name,
+          email: tenant.email,
+          phone: tenant.phone,
+          address: tenant.address,
+          status: tenant.status,
+        },
+      });
+    } catch (err) {
+      // Rollback transaction if an error occurs
+      await transaction.rollback();
+      console.error('Error during sign up transaction:', err);
+      res.status(500).json({ error: 'Error registering user, tenant, subscription, or activation code. Please try again.' });
+    }
+
   } catch (err) {
     console.error('Signup error:', err);
-    res.status(500).json({ error: 'Error registering user' });
+    res.status(500).json({ error: 'Error registering user. Please try again.' });
   }
 };
+
 
 // Login Controller (using authService for login)
 const loginController = async (req, res) => {

@@ -6,6 +6,7 @@
   <title>Logging Out...</title>
   <link rel="shortcut icon" href="/assets/images/favicon-blue.ico" />
   <link rel="stylesheet" href="/assets/css/backend.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
 </head>
 <body>
   <div class="d-flex justify-content-center align-items-center vh-100">
@@ -18,6 +19,27 @@
     </div>
   </div>
 
+  <!-- Modal for successful logout -->
+  <div class="modal fade" id="logoutModal" tabindex="-1" aria-labelledby="logoutModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="logoutModalLabel">Logout Successful</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p>You have successfully logged out. Click below to go to the login page.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <a href="/login" class="btn btn-primary">Go to Login</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
   <script>
     // Automatically log out the user by making a request to /auth/logout
     fetch('/auth/logout', {
@@ -28,7 +50,8 @@
     .then(response => response.json())
     .then(data => {
       if (data.success) {
-        window.location.href = '/login'; // Redirect to login page
+        // Show the logout success modal
+        $('#logoutModal').modal('show');
       } else {
         alert("Error logging out. Please try again.");
       }
