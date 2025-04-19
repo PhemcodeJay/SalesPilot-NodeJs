@@ -1,11 +1,9 @@
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const PasswordReset = require('../models/passwordreset');
+const { generateResetToken, verifyResetToken } = require('../services/passwordresetService'); // Correct imports
 const User = require('../models/user');
 const { sendPasswordResetEmail } = require('../utils/emailUtils');
-const { JWT_SECRET } = process.env;
 
-// Generate a password reset token and send it via email
+// Request Password Reset
 const requestPasswordReset = async (req, res) => {
   const { email } = req.body;
 
@@ -16,18 +14,11 @@ const requestPasswordReset = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Create a password reset token
-    const resetCode = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1h' });
+    // Generate reset token using the service
+    const { code } = await generateResetToken(user.id);
 
-    // Save password reset entry in the database
-    const resetEntry = await PasswordReset.create({
-      user_id: user.id,
-      reset_code: resetCode,
-      expires_at: new Date(Date.now() + 60 * 60 * 1000), // Expires in 1 hour
-    });
-
-    // Send reset email (you can use a utility function to send the email)
-    await sendPasswordResetEmail(user.email, resetCode);
+    // Send reset email with the generated token
+    await sendPasswordResetEmail(user.email, code);
 
     return res.status(200).json({ message: 'Password reset email sent' });
   } catch (error) {
@@ -36,36 +27,27 @@ const requestPasswordReset = async (req, res) => {
   }
 };
 
-// Handle password reset (with token verification)
+// Handle Password Reset with Token
 const resetPassword = async (req, res) => {
   const { resetCode, newPassword } = req.body;
 
   try {
-    // Verify reset token
-    const decoded = jwt.verify(resetCode, JWT_SECRET);
-    const user = await User.findByPk(decoded.userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Find the password reset entry
-    const resetEntry = await PasswordReset.findOne({
-      where: { user_id: user.id, reset_code: resetCode },
-    });
+    // Verify the reset token using the service
+    const resetEntry = await verifyResetToken(resetCode);
 
     if (!resetEntry) {
       return res.status(400).json({ error: 'Invalid or expired reset token' });
     }
 
-    // Check if the reset token has expired
-    if (new Date() > resetEntry.expires_at) {
-      return res.status(400).json({ error: 'Reset token has expired' });
+    const user = await User.findByPk(resetEntry.userId);  // Make sure you're using `userId` as in the schema
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    // Hash new password
+    // Hash the new password
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-    // Update user password
+    // Update the user's password
     user.password = hashedPassword;
     await user.save();
 

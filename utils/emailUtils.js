@@ -1,4 +1,6 @@
 const nodemailer = require('nodemailer');
+const crypto = require('crypto'); // Make sure to import the crypto module
+const { User } = require('../models'); // Import User model
 
 // Configure Nodemailer (use your email provider settings)
 const transporter = nodemailer.createTransport({
@@ -10,7 +12,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // Function to send the activation email
-exports.sendActivationEmail = async (email, code) => {
+async function sendActivationEmail(email, code) {
   const link = `${process.env.BASE_URL}/api/auth/activate/${code}`;
 
   const mailOptions = {
@@ -22,25 +24,46 @@ exports.sendActivationEmail = async (email, code) => {
 
   try {
     await transporter.sendMail(mailOptions);
+    console.log('Activation email sent to:', email);
   } catch (error) {
     console.error('Error sending activation email:', error);
   }
-};
+}
 
 // Function to send the password reset email
-exports.sendPasswordResetEmail = async (email, resetCode) => {
-  const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${resetCode}`;
+async function sendPasswordResetEmail(user) {
+  // Generate a reset token
+  const token = crypto.randomBytes(20).toString('hex');
+
+  // Set the token to the user's record in the database with an expiration time (e.g., 1 hour)
+  user.resetPasswordToken = token;
+  user.resetPasswordExpires = Date.now() + 3600000; // 1 hour in milliseconds
+  await user.save();
+
+  // Construct the reset link
+  const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+
+  // Email subject and message
+  const subject = 'Password Reset Request';
+  const message = `Hello ${user.name},\n\nYou requested a password reset. Click the link below to reset your password:\n\n${resetLink}\n\nIf you did not request this, please ignore this email.\n\nThanks, The YourApp Team`;
 
   const mailOptions = {
     from: process.env.EMAIL_USER,
-    to: email,
-    subject: 'Password Reset Request',
-    text: `Click the following link to reset your password: ${resetLink}`,
+    to: user.email,
+    subject: subject,
+    text: message,
   };
 
   try {
     await transporter.sendMail(mailOptions);
+    console.log('Password reset email sent to:', user.email);
   } catch (error) {
     console.error('Error sending password reset email:', error);
   }
+}
+
+// Export the functions for use in other parts of your application
+module.exports = {
+  sendActivationEmail,  // Exported function
+  sendPasswordResetEmail,  // Exported function
 };

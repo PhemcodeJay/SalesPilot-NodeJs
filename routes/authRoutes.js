@@ -5,34 +5,54 @@ const {
   signUpController,
   loginController,
   logoutController,
-  passwordResetRequestController,
-  passwordResetConfirmController,
-  activateUser // Imported for account activation
-} = require('../controllers/authController'); // Updated with new controller imports
+  activateUser,
+  resendActivationCode // Ensure this function is implemented or remove this route
+} = require('../controllers/authController');
 
+const passwordResetRouter = require('./passwordresetRoute');
 const router = express.Router();
 
-// Login Route (with tenant middleware)
+// Route for account activation
+router.post('/activate', activateUser);
+
+
+// Serve login page
+router.get('/login', (req, res) => {
+  res.render('auth/login'); // Ensure auth/login.ejs exists
+});
+
+// Serve signup page
+router.get('/signup', (req, res) => {
+  res.render('auth/signup'); // Ensure auth/signup.ejs exists
+});
+
+// Serve logout page (optional if using button + JS on frontend)
+router.get('/logout', (req, res) => {
+  res.render('auth/logout'); // Ensure auth/logout.ejs exists
+});
+
+// Serve account activation success/failure page
+router.get('/activate', (req, res, next) => {
+  // Calls controller that might render or redirect internally
+  activateUser(req, res, next); // Optional: Render or redirect based on outcome
+  // OR: res.render('auth/activate'); // Static view if preferred
+});
+
+// Login logic (with tenant middleware)
 router.post('/login', tenantMiddleware, loginController);
 
-// Signup Route (Handle user registration, with rate limiting)
+// Signup logic
 router.post('/signup', signUpController);
 
-// JWT Authentication Route (for token-based authentication)
+// Token-based login
 router.post('/token-login', passport.authenticate('jwt', { session: false }), (req, res) => {
   res.status(200).json({ message: 'Authenticated', user: req.user });
 });
 
-// Password Reset Request Route
-router.post('/password-reset-request', passwordResetRequestController);
-
-// Password Reset Confirmation Route
-router.post('/password-reset-confirm', passwordResetConfirmController);
-
-// Logout Route
+// Logout logic
 router.post('/logout', logoutController);
 
-// Account Activation Route (Handle user account activation)
-router.get('/activate', activateUser);  // New route for account activation
+// Mount password reset routes
+router.use('/password-reset', passwordResetRouter);
 
 module.exports = router;

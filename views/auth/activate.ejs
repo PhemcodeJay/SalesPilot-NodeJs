@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Activate Account</title>
 
   <!-- Favicon -->
   <link rel="shortcut icon" href="/assets/images/favicon-blue.ico" />
+  <!-- Stylesheets -->
   <link rel="stylesheet" href="/assets/css/backend-plugin.min.css">
   <link rel="stylesheet" href="/assets/css/backend.css?v=1.0.0">
   <link rel="stylesheet" href="/assets/vendor/@fortawesome/fontawesome-free/css/all.min.css">
@@ -15,9 +16,7 @@
 </head>
 <body>
   <!-- Loader Start -->
-  <div id="loading">
-    <div id="loading-center"></div>
-  </div>
+  <div id="loading"><div id="loading-center"></div></div>
   <!-- Loader End -->
 
   <div class="wrapper">
@@ -28,28 +27,31 @@
             <div class="card auth-card">
               <div class="card-body p-0">
                 <div class="d-flex align-items-center auth-content">
+                  <!-- Form Column -->
                   <div class="col-lg-7 align-self-center">
-                    <div class="p-3">
-                      <h2 class="mb-2 text-center font-weight-bold">Activate Account</h2>
-                      <p class="text-center">Enter your activation code below to activate your account.</p>
+                    <div class="p-4">
+                      <h2 class="mb-2 text-center font-weight-bold">Activate Your Account</h2>
+                      <p class="text-center mb-4">Enter your activation code to complete account setup.</p>
 
                       <form id="activation-form" action="/auth/activate" method="POST">
-                        <div class="form-group">
+                        <div class="form-group mb-3">
                           <label for="activation-code" class="font-weight-bold">Activation Code</label>
-                          <input type="text" id="activation-code" name="activationCode" class="form-control" placeholder="Enter your activation code" required>
+                          <input type="text" id="activation-code" name="activationCode" class="form-control" placeholder="Enter activation code" required>
                           <small id="activation-code-error" class="text-danger"></small>
                         </div>
 
-                        <button type="submit" class="btn btn-primary w-100">Activate</button>
+                        <button type="submit" class="btn btn-primary w-100">Activate Account</button>
                       </form>
 
                       <div class="text-center mt-3">
-                        <button type="button" id="resendButton" class="btn btn-outline-primary w-100">Resend Code</button>
+                        <button type="button" id="resendButton" class="btn btn-outline-primary w-100">Resend Activation Code</button>
                       </div>
                     </div>
                   </div>
+
+                  <!-- Image Column -->
                   <div class="col-lg-5 content-right">
-                    <img src="/assets/images/login/01.png" class="img-fluid image-right" alt="Activate Account Image"/>
+                    <img src="/assets/images/login/01.png" class="img-fluid image-right" alt="Activation Illustration" />
                   </div>
                 </div>
               </div>
@@ -65,41 +67,37 @@
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="successModalLabel">Account Activation Successful</h5>
+          <h5 class="modal-title" id="successModalLabel">Account Activated</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <p>Your account has been successfully activated. Please check your email for further instructions and login to your account.</p>
+          <p>Your account has been successfully activated. You can now log in to access your dashboard.</p>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
           <a href="/login" class="btn btn-primary">Go to Login</a>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Backend Bundle JavaScript -->
+  <!-- Scripts -->
   <script src="/assets/js/backend-bundle.min.js"></script>
   <script src="/assets/js/table-treeview.js"></script>
   <script src="/assets/js/app.js"></script>
 
   <script>
-    document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', () => {
       const activationForm = document.getElementById('activation-form');
       const activationCodeInput = document.getElementById('activation-code');
       const errorElement = document.getElementById('activation-code-error');
       const resendButton = document.getElementById('resendButton');
 
-      // Client-side validation
-      activationForm.addEventListener('submit', async function (e) {
+      activationForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         errorElement.textContent = '';
-
         const activationCode = activationCodeInput.value.trim();
-        const csrfToken = document.querySelector('input[name="_csrf"]').value;
 
-        if (activationCode === '') {
+        if (!activationCode) {
           errorElement.textContent = 'Activation code is required.';
           return;
         }
@@ -108,34 +106,37 @@
           const response = await fetch('/auth/activate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ activationCode, _csrf: csrfToken }),
+            body: JSON.stringify({ activationCode })
           });
 
           const data = await response.json();
 
           if (response.ok) {
-            // Show the success modal if activation is successful
             $('#successModal').modal('show');
           } else {
-            errorElement.textContent = data.error || 'Invalid activation code. Please try again.';
+            errorElement.textContent = data.error || 'Invalid or expired activation code.';
           }
-        } catch (error) {
-          errorElement.textContent = 'An error occurred. Please try again.';
+        } catch (err) {
+          errorElement.textContent = 'An error occurred. Please try again later.';
         }
       });
 
-      // Resend activation code functionality
-      resendButton.addEventListener('click', function () {
-        fetch('/resend-activation', { method: 'POST', headers: { 'Content-Type': 'application/json' } })
-          .then(response => response.json())
-          .then(data => {
-            if (data.success) {
-              alert('A new activation code has been sent to your email.');
-            } else {
-              alert('Failed to resend activation code. Please try again.');
-            }
-          })
-          .catch(() => alert('An error occurred. Please try again.'));
+      resendButton.addEventListener('click', async () => {
+        try {
+          const response = await fetch('/auth/resend-activation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+
+          const data = await response.json();
+          if (data.success) {
+            alert('A new activation code has been sent to your email.');
+          } else {
+            alert(data.error || 'Failed to resend activation code.');
+          }
+        } catch {
+          alert('An error occurred while resending the activation code.');
+        }
       });
     });
   </script>

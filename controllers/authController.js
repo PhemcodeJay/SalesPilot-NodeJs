@@ -1,10 +1,8 @@
-const {
-  signUp,
-  login,
-  passwordResetRequest,
-  passwordResetConfirm
-} = require('../services/authService');
-
+const bcrypt = require('bcryptjs');
+const { User } = require('../models');
+const PasswordResetService = require('../services/passwordresetService'); // Import password reset service
+const { sendPasswordResetEmail } = require('../utils/emailUtils');
+const { signUp, login } = require('../services/authService');
 const { sendActivationEmail, verifyActivationCode } = require('../services/activationCodeService');
 const { rateLimitActivationRequests } = require('../middleware/rateLimiter');
 
@@ -47,7 +45,10 @@ const signUpController = async (req, res) => {
     };
 
     // Sign up user and create tenant, subscription
-    const { user, tenant, subscription, activationCode } = await signUp(userData, tenantData);
+    const { user, tenant, subscription } = await signUp(userData, tenantData);
+
+    // Send the activation email with the generated activation code
+    await sendActivationEmail(user); // Send activation email with the activation code
 
     // Return successful response
     res.status(201).json({
@@ -73,7 +74,6 @@ const signUpController = async (req, res) => {
         plan: subscription.plan,
         status: subscription.status,
       },
-      activationCode: activationCode.code, // Include activation code in response
     });
   } catch (err) {
     console.error('SignUp error:', err);
@@ -100,29 +100,64 @@ const logoutController = (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 };
 
-// ✅ Password Reset Request Controller
+// Controller for password reset request
 const passwordResetRequestController = async (req, res) => {
   const { email } = req.body;
 
   try {
-    await passwordResetRequest(email);
-    res.status(200).json({ message: 'Password reset link sent to your email' });
+    // Find user by email
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Generate reset token using the service
+    const { code } = await PasswordResetService.generateResetToken(user.id);
+
+    // Construct the reset link
+    const resetLink = `${process.env.FRONTEND_URL}/recoverpwd?token=${code}`;
+
+    // Send reset email (this will create a token, etc.)
+    await sendPasswordResetEmail(user.email, resetLink);
+
+    return res.status(200).json({ message: 'We have sent a password reset link to your email.' });
   } catch (err) {
-    console.error('Password reset request error:', err);
-    res.status(500).json({ error: err.message || 'Error processing password reset request' });
+    console.error('Error sending password reset email:', err);
+    return res.status(500).json({ message: 'An error occurred while processing your request.' });
   }
 };
 
-// ✅ Password Reset Confirmation Controller
+// Controller for password reset confirmation
 const passwordResetConfirmController = async (req, res) => {
   const { token, newPassword } = req.body;
 
   try {
-    await passwordResetConfirm(token, newPassword);
-    res.status(200).json({ message: 'Password reset successful' });
+    // Verify reset token
+    const reset = await PasswordResetService.verifyResetToken(token);
+    if (!reset) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // Find the user by the associated ID
+    const user = await User.findOne({ where: { id: reset.userId } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update user's password
+    user.password = hashedPassword;
+    await user.save();
+
+    // Delete the password reset entry (used once)
+    await reset.destroy();
+
+    return res.status(200).json({ message: 'Password successfully reset' });
   } catch (err) {
-    console.error('Password reset confirmation error:', err);
-    res.status(500).json({ error: err.message || 'Error resetting password' });
+    console.error('Error resetting password:', err);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 

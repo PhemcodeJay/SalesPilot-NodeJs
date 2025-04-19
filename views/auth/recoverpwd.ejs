@@ -44,20 +44,22 @@
                                             <div id="errorMessage" class="alert alert-danger" style="display: none;"></div>
 
                                             <!-- Form -->
-                                            <form action="/password-reset-request" id="recover-password-form" class="needs-validation" novalidate>
+                                            <form action="/password-reset/recoverpwd" id="recover-password-form" class="needs-validation" novalidate>
                                                 <div class="mb-3">
-                                                    <label for="email" class="form-label">Email Address:</label>
-                                                    <div class="input-group">
-                                                        <span class="input-group-text"><i class="fas fa-envelope"></i></span>
-                                                        <input type="email" name="email" id="email" class="form-control" placeholder="Enter Your Email Address" required>
-                                                        <div class="invalid-feedback">Please enter a valid email address.</div>
-                                                    </div>
+                                                  <label for="email" class="form-label">Email Address:</label>
+                                                  <div class="input-group">
+                                                    <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                                    <input type="email" name="email" id="email" class="form-control" placeholder="Enter Your Email Address" required>
+                                                    <div class="invalid-feedback">Please enter a valid email address.</div>
+                                                  </div>
                                                 </div>
-
+                                              
                                                 <div class="text-center">
-                                                    <button id="resetButton" type="submit" class="btn btn-primary w-100">Reset Password</button>
+                                                  <button id="resetButton" type="submit" class="btn btn-primary w-100">Reset Password</button>
                                                 </div>
-                                            </form>
+                                              </form>
+                                              
+                                            
                                         </div>
                                     </div>
                                     <div class="col-lg-5 content-right">

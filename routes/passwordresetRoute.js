@@ -3,10 +3,21 @@ const { requestPasswordReset, resetPassword } = require('../controllers/password
 
 const router = express.Router();
 
-// Route to request password reset (send email)
-router.post('/request-password-reset', requestPasswordReset);
+// Serve the password recovery page (form to enter email)
+router.get('/recoverpwd', (req, res) => {
+  res.render('recoverpwd'); // Make sure recoverpwd.ejs is in your views folder
+});
 
-// Route to reset password (with token)
-router.post('/reset-password', resetPassword);
+// Serve the password reset page (form to enter new password)
+router.get('/passwordreset', (req, res) => {
+  const { token } = req.query; // optional: pass token to the view
+  res.render('passwordreset', { token }); // passwordreset.ejs should accept `token` if needed
+});
+
+// Handle password reset request (send email)
+router.post('/recoverpwd', requestPasswordReset);
+
+// Handle password reset form submission (update password)
+router.post('/passwordreset', resetPassword);
 
 module.exports = router;
