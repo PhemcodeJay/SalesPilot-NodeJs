@@ -70,7 +70,7 @@ const signUpController = async (req, res) => {
       },
       subscription: {
         id: subscription.id,
-        plan: subscription.subscription_plan, // 🔧 fixed reference
+        plan: subscription.plan, // 🔧 fixed reference
         status: subscription.status,
       },
     });
@@ -154,6 +154,7 @@ const activateUser = async (req, res) => {
     await verifyActivationCode(activationCode, userId);
     res.status(200).json({ message: 'Account activated successfully.' });
   } catch (error) {
+    console.error('Activation error:', error);
     res.status(400).json({ error: error.message });
   }
 };

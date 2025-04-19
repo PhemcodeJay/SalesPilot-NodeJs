@@ -68,6 +68,12 @@ module.exports = (sequelize, DataTypes) => {
       as: 'subscription',
       onDelete: 'CASCADE',
     });
+
+    User.hasMany(models.ActivationCode, {
+      foreignKey: 'user_id',
+      as: 'activationCodes',
+      onDelete: 'CASCADE',
+    });
   };
 
   return User;

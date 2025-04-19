@@ -17,7 +17,6 @@ module.exports = (sequelize, DataTypes) => {
     expires_at: {
       type: DataTypes.DATE,
       allowNull: false,
-      defaultValue: sequelize.literal('CURRENT_TIMESTAMP'),
     },
     created_at: {
       type: DataTypes.DATE,
@@ -27,7 +26,9 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     tableName: 'activation_codes',
     underscored: true,
-    timestamps: false, // Manual timestamp management
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: false, // No need for 'updated_at'
   });
 
   ActivationCode.associate = (models) => {
@@ -37,6 +38,13 @@ module.exports = (sequelize, DataTypes) => {
       onDelete: 'CASCADE',
     });
   };
+
+  // Add expiration logic if needed
+  ActivationCode.beforeCreate((activationCode, options) => {
+    const expirationTime = new Date();
+    expirationTime.setHours(expirationTime.getHours() + 24); // Example: 24 hours expiration
+    activationCode.expires_at = expirationTime;
+  });
 
   return ActivationCode;
 };

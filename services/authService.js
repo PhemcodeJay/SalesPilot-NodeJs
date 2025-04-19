@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { sendPasswordResetEmail } = require('../utils/emailUtils');
 const { sendActivationEmail } = require('./activationCodeService');
 const { models, sequelize } = require('../config/db');
+const subscriptionService = require('./subscriptionService'); // Import the subscription service
 
 const { User, Tenant, Subscription, ActivationCode } = models;
 const { JWT_SECRET, CLIENT_URL } = process.env;
@@ -37,21 +38,15 @@ const authService = {
         location: userData.location,
       }, { transaction });
 
-      // Create Subscription using transaction-aware service
-      const subscription = await Subscription.create({
-        tenant_id: tenant.id,
-        plan: 'trial',
-        status: 'active',
-        start_date: new Date(),
-        end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
-      }, { transaction });
+      // Create Subscription using subscription service
+      const subscription = await subscriptionService.createSubscription(tenant.id, 'trial', transaction);
 
       // Generate Activation Code
       const activationCode = crypto.randomBytes(20).toString('hex');
       const activationCodeRecord = await ActivationCode.create({
         user_id: user.id,
         activation_code: activationCode,
-        expires_at: new Date(Date.now() + 60 * 60 * 1000),
+        expires_at: new Date(Date.now() + 60 * 60 * 1000), // 1 hour expiration
         created_at: new Date(),
       }, { transaction });
 

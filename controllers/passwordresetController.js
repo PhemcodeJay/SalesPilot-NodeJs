@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const { generateResetToken, verifyResetToken } = require('../services/passwordresetService'); // Correct imports
+const { generateResetToken, verifyResetToken } = require('../services/passwordresetService');  // Correct imports
 const User = require('../models/user');
 const { sendPasswordResetEmail } = require('../utils/emailUtils');
 
@@ -39,7 +39,7 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired reset token' });
     }
 
-    const user = await User.findByPk(resetEntry.userId);  // Make sure you're using `userId` as in the schema
+    const user = await User.findByPk(resetEntry.user_id);  // Ensure you're using `user_id` from PasswordReset model
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
