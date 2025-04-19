@@ -54,13 +54,18 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: true,
     tableName: 'users',
     underscored: true,
-    sequelize, // Make sure the correct instance of sequelize (main DB) is used
   });
 
   User.associate = (models) => {
     User.belongsTo(models.Tenant, {
       foreignKey: 'tenant_id',
       as: 'tenant',
+      onDelete: 'CASCADE',
+    });
+
+    User.hasOne(models.Subscription, {
+      foreignKey: 'user_id',
+      as: 'subscription',
       onDelete: 'CASCADE',
     });
   };

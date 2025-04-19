@@ -4,7 +4,6 @@ const crypto = require('crypto');
 const { sendPasswordResetEmail } = require('../utils/emailUtils');
 const { sendActivationEmail } = require('./activationCodeService');
 const { models, sequelize } = require('../config/db');
-const subscriptionService = require('./subscriptionService');
 
 const { User, Tenant, Subscription, ActivationCode } = models;
 const { JWT_SECRET, CLIENT_URL } = process.env;
@@ -15,47 +14,54 @@ const authService = {
     const transaction = await sequelize.transaction();
 
     try {
-      // Create Tenant (Main DB)
+      // Create Tenant
       const tenant = await Tenant.create({
         name: tenantData.name,
         email: tenantData.email,
         phone: tenantData.phone,
         address: tenantData.address,
-        status: 'inactive',  // Initial status inactive
+        status: 'inactive',
         subscription_start_date: new Date(),
         subscription_end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
       }, { transaction });
 
-      // Create User (Main DB)
+      // Create User
       const hashedPassword = await bcrypt.hash(userData.password, 10);
       const user = await User.create({
         tenant_id: tenant.id,
         username: userData.username,
         email: userData.email,
         password: hashedPassword,
-        role: userData.role || 'sales',  // Default role can be 'sales'
+        role: userData.role || 'sales',
         phone: userData.phone,
         location: userData.location,
       }, { transaction });
 
-      // Create Subscription using subscriptionService (instead of internal Subscription logic)
-      const subscription = await subscriptionService.createSubscription(tenant.id, 'trial'); // Using 'trial' by default
-     
-      // Generate Activation Code (Main DB)
+      // Create Subscription using transaction-aware service
+      const subscription = await Subscription.create({
+        tenant_id: tenant.id,
+        plan: 'trial',
+        status: 'active',
+        start_date: new Date(),
+        end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+      }, { transaction });
+
+      // Generate Activation Code
       const activationCode = crypto.randomBytes(20).toString('hex');
       const activationCodeRecord = await ActivationCode.create({
         user_id: user.id,
-        code: activationCode,
-        expiry_date: new Date(Date.now() + 60 * 60 * 1000),  // 1 hour expiry
+        activation_code: activationCode,
+        expires_at: new Date(Date.now() + 60 * 60 * 1000),
+        created_at: new Date(),
       }, { transaction });
 
       // Commit transaction
       await transaction.commit();
 
-      // Send Activation Email (outside transaction)
+      // Send Activation Email (after transaction)
       await sendActivationEmail(user, activationCode);
 
-      return { tenant, user, subscription, activationCode: activationCodeRecord };  // Return tenant, user, subscription, and activation code
+      return { tenant, user, subscription, activationCode: activationCodeRecord };
     } catch (err) {
       await transaction.rollback();
       console.error('❌ Error during sign-up:', err);

@@ -12,13 +12,12 @@ module.exports = (sequelize, DataTypes) => {
     activation_code: {
       type: DataTypes.STRING(100),
       allowNull: false,
-      unique: true, // Make the activation code unique
+      unique: true,
     },
     expires_at: {
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: sequelize.literal('CURRENT_TIMESTAMP'),
-      onUpdate: sequelize.literal('CURRENT_TIMESTAMP'),
     },
     created_at: {
       type: DataTypes.DATE,
@@ -26,19 +25,16 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: sequelize.literal('CURRENT_TIMESTAMP'),
     },
   }, {
-    timestamps: false, // Disable automatic timestamp fields (we manage them manually)
     tableName: 'activation_codes',
-    underscored: true, // Follow snake_case for column names
-    sequelize,  // Ensure we are using the correct instance of sequelize (main DB)
+    underscored: true,
+    timestamps: false, // Manual timestamp management
   });
 
-  // Associations
   ActivationCode.associate = (models) => {
-    // Assuming `User` model exists
     ActivationCode.belongsTo(models.User, {
       foreignKey: 'user_id',
       as: 'user',
-      onDelete: 'CASCADE', // Optional: Ensure activation codes are deleted when a user is deleted
+      onDelete: 'CASCADE',
     });
   };
 
