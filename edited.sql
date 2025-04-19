@@ -1,27 +1,4 @@
--- MySQL dump 10.13  Distrib 8.0.41, for Win64 (x86_64)
---
--- Host: localhost    Database: salespilot
--- ------------------------------------------------------
--- Server version	9.2.0
 
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!50503 SET NAMES utf8 */;
-/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
-/*!40103 SET TIME_ZONE='+00:00' */;
-/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
-/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
-/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
-
---
--- Table structure for table `activation_codes`
---
-
-DROP TABLE IF EXISTS `activation_codes`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `activation_codes` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
@@ -32,22 +9,6 @@ CREATE TABLE `activation_codes` (
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `activation_codes`
---
-
-LOCK TABLES `activation_codes` WRITE;
-/*!40000 ALTER TABLE `activation_codes` DISABLE KEYS */;
-/*!40000 ALTER TABLE `activation_codes` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `categories`
---
-
-DROP TABLE IF EXISTS `categories`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `categories` (
   `category_id` int NOT NULL AUTO_INCREMENT,
   `category_name` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
@@ -57,22 +18,6 @@ CREATE TABLE `categories` (
 ) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `categories`
---
-
-LOCK TABLES `categories` WRITE;
-/*!40000 ALTER TABLE `categories` DISABLE KEYS */;
-/*!40000 ALTER TABLE `categories` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `category_analytics`
---
-
-DROP TABLE IF EXISTS `category_analytics`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `category_analytics` (
   `id` int NOT NULL AUTO_INCREMENT,
   `date` date NOT NULL,
@@ -99,22 +44,6 @@ CREATE TABLE `category_analytics` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `category_analytics`
---
-
-LOCK TABLES `category_analytics` WRITE;
-/*!40000 ALTER TABLE `category_analytics` DISABLE KEYS */;
-/*!40000 ALTER TABLE `category_analytics` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `customers`
---
-
-DROP TABLE IF EXISTS `customers`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `customers` (
   `customer_id` int NOT NULL AUTO_INCREMENT,
   `customer_name` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
@@ -126,22 +55,6 @@ CREATE TABLE `customers` (
 ) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `customers`
---
-
-LOCK TABLES `customers` WRITE;
-/*!40000 ALTER TABLE `customers` DISABLE KEYS */;
-/*!40000 ALTER TABLE `customers` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `expenses`
---
-
-DROP TABLE IF EXISTS `expenses`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `expenses` (
   `expense_id` int NOT NULL AUTO_INCREMENT,
   `description` text COLLATE utf8mb4_general_ci NOT NULL,
@@ -152,22 +65,6 @@ CREATE TABLE `expenses` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `expenses`
---
-
-LOCK TABLES `expenses` WRITE;
-/*!40000 ALTER TABLE `expenses` DISABLE KEYS */;
-/*!40000 ALTER TABLE `expenses` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `feedback`
---
-
-DROP TABLE IF EXISTS `feedback`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `feedback` (
   `id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
@@ -179,22 +76,6 @@ CREATE TABLE `feedback` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `feedback`
---
-
-LOCK TABLES `feedback` WRITE;
-/*!40000 ALTER TABLE `feedback` DISABLE KEYS */;
-/*!40000 ALTER TABLE `feedback` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `inventory`
---
-
-DROP TABLE IF EXISTS `inventory`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `inventory` (
   `inventory_id` int NOT NULL AUTO_INCREMENT,
   `product_id` int NOT NULL,
@@ -209,22 +90,7 @@ CREATE TABLE `inventory` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `inventory`
---
 
-LOCK TABLES `inventory` WRITE;
-/*!40000 ALTER TABLE `inventory` DISABLE KEYS */;
-/*!40000 ALTER TABLE `inventory` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `invoice_items`
---
-
-DROP TABLE IF EXISTS `invoice_items`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `invoice_items` (
   `invoice_items_id` int NOT NULL AUTO_INCREMENT,
   `invoice_id` int NOT NULL,
@@ -236,18 +102,6 @@ CREATE TABLE `invoice_items` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `invoice_items`
---
-
-LOCK TABLES `invoice_items` WRITE;
-/*!40000 ALTER TABLE `invoice_items` DISABLE KEYS */;
-/*!40000 ALTER TABLE `invoice_items` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `invoices`
---
 
 DROP TABLE IF EXISTS `invoices`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -270,22 +124,6 @@ CREATE TABLE `invoices` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `invoices`
---
-
-LOCK TABLES `invoices` WRITE;
-/*!40000 ALTER TABLE `invoices` DISABLE KEYS */;
-/*!40000 ALTER TABLE `invoices` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `page_access`
---
-
-DROP TABLE IF EXISTS `page_access`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `page_access` (
   `id` int NOT NULL,
   `page` varchar(255) NOT NULL,
@@ -296,22 +134,6 @@ CREATE TABLE `page_access` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `page_access`
---
-
-LOCK TABLES `page_access` WRITE;
-/*!40000 ALTER TABLE `page_access` DISABLE KEYS */;
-/*!40000 ALTER TABLE `page_access` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `password_resets`
---
-
-DROP TABLE IF EXISTS `password_resets`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `password_resets` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
@@ -325,22 +147,7 @@ CREATE TABLE `password_resets` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `password_resets`
---
 
-LOCK TABLES `password_resets` WRITE;
-/*!40000 ALTER TABLE `password_resets` DISABLE KEYS */;
-/*!40000 ALTER TABLE `password_resets` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `payments`
---
-
-DROP TABLE IF EXISTS `payments`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `payments` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
@@ -355,22 +162,6 @@ CREATE TABLE `payments` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `payments`
---
-
-LOCK TABLES `payments` WRITE;
-/*!40000 ALTER TABLE `payments` DISABLE KEYS */;
-/*!40000 ALTER TABLE `payments` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `product_analytics`
---
-
-DROP TABLE IF EXISTS `product_analytics`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `product_analytics` (
   `reports_id` int NOT NULL AUTO_INCREMENT,
   `report_date` date NOT NULL,
@@ -397,22 +188,7 @@ CREATE TABLE `product_analytics` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `product_analytics`
---
 
-LOCK TABLES `product_analytics` WRITE;
-/*!40000 ALTER TABLE `product_analytics` DISABLE KEYS */;
-/*!40000 ALTER TABLE `product_analytics` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `products`
---
-
-DROP TABLE IF EXISTS `products`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `products` (
   `id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
@@ -433,22 +209,7 @@ CREATE TABLE `products` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `products`
---
 
-LOCK TABLES `products` WRITE;
-/*!40000 ALTER TABLE `products` DISABLE KEYS */;
-/*!40000 ALTER TABLE `products` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `revenue_by_product`
---
-
-DROP TABLE IF EXISTS `revenue_by_product`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `revenue_by_product` (
   `id` int NOT NULL AUTO_INCREMENT,
   `report_id` int NOT NULL,
@@ -464,22 +225,7 @@ CREATE TABLE `revenue_by_product` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `revenue_by_product`
---
 
-LOCK TABLES `revenue_by_product` WRITE;
-/*!40000 ALTER TABLE `revenue_by_product` DISABLE KEYS */;
-/*!40000 ALTER TABLE `revenue_by_product` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `sales`
---
-
-DROP TABLE IF EXISTS `sales`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sales` (
   `sales_id` int NOT NULL AUTO_INCREMENT,
   `product_id` int NOT NULL,
@@ -496,22 +242,7 @@ CREATE TABLE `sales` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `sales`
---
 
-LOCK TABLES `sales` WRITE;
-/*!40000 ALTER TABLE `sales` DISABLE KEYS */;
-/*!40000 ALTER TABLE `sales` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `staffs`
---
-
-DROP TABLE IF EXISTS `staffs`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `staffs` (
   `staff_id` int NOT NULL AUTO_INCREMENT,
   `staff_name` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
@@ -523,22 +254,6 @@ CREATE TABLE `staffs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `staffs`
---
-
-LOCK TABLES `staffs` WRITE;
-/*!40000 ALTER TABLE `staffs` DISABLE KEYS */;
-/*!40000 ALTER TABLE `staffs` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `subscriptions`
---
-
-DROP TABLE IF EXISTS `subscriptions`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `subscriptions` (
   `id` int NOT NULL AUTO_INCREMENT,
   `subscription_plan` enum('trial','starter','business','enterprise') DEFAULT 'trial',
@@ -551,22 +266,6 @@ CREATE TABLE `subscriptions` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `subscriptions`
---
-
-LOCK TABLES `subscriptions` WRITE;
-/*!40000 ALTER TABLE `subscriptions` DISABLE KEYS */;
-/*!40000 ALTER TABLE `subscriptions` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `suppliers`
---
-
-DROP TABLE IF EXISTS `suppliers`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `suppliers` (
   `supplier_id` int NOT NULL AUTO_INCREMENT,
   `supplier_name` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
@@ -581,22 +280,6 @@ CREATE TABLE `suppliers` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `suppliers`
---
-
-LOCK TABLES `suppliers` WRITE;
-/*!40000 ALTER TABLE `suppliers` DISABLE KEYS */;
-/*!40000 ALTER TABLE `suppliers` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `tenants`
---
-
-DROP TABLE IF EXISTS `tenants`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `tenants` (
   `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `name` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
@@ -615,22 +298,6 @@ CREATE TABLE `tenants` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping data for table `tenants`
---
-
-LOCK TABLES `tenants` WRITE;
-/*!40000 ALTER TABLE `tenants` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tenants` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
--- Table structure for table `users`
---
-
-DROP TABLE IF EXISTS `users`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `users` (
   `id` int NOT NULL AUTO_INCREMENT,
   `username` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
@@ -655,23 +322,3 @@ CREATE TABLE `users` (
   CONSTRAINT `users_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `users`
---
-
-LOCK TABLES `users` WRITE;
-/*!40000 ALTER TABLE `users` DISABLE KEYS */;
-/*!40000 ALTER TABLE `users` ENABLE KEYS */;
-UNLOCK TABLES;
-/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
-
-/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
-/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
-/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
-
--- Dump completed on 2025-04-19 21:53:34
