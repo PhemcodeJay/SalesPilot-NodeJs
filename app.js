@@ -135,13 +135,13 @@ app.get('/ping', (req, res) => {
 
 // ✅ Start the server and initialize DBs
 app.listen(port, async () => {
-  console.log(`🚀 Server is running at http://localhost:${port}`);
+  console.log(`🚀 SalesPILOT Server is running at http://localhost:${port}`);
 
   try {
     // 🔗 Test and sync admin DB
     await testConnection();
     await syncModels();
-    console.log('✅ Admin DB connected & models synced');
+    console.log('✅ Main (Admin) DB Connected & Models Synced Successfully');
 
     // 📦 Optionally load default tenant DBs from config or list
     const defaultTenants = process.env.DEFAULT_TENANTS
@@ -163,10 +163,10 @@ app.listen(port, async () => {
 
 // 🧹 Graceful shutdown
 const shutdown = async () => {
-  console.log('\n👋 Shutting down...');
+  console.log('\n👋 DB Shutting down...');
   try {
     await closeAllConnections();
-    console.log('✅ All DB connections closed.');
+    console.log('✅ Main (Admin) DB Disconnected and Closed.');
     process.exit(0);
   } catch (err) {
     console.error('❌ Error during shutdown:', err.message);
