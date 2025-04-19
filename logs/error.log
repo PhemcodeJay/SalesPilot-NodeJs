@@ -1,0 +1,15 @@
+
+    [2025-04-19T18:46:35.833Z] - Error occurred:
+    Failed to lookup view "recoverpwd" in views directory "E:\Repositories\salespilot\views"
+    Stack: Error: Failed to lookup view "recoverpwd" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at E:\Repositories\salespilot\routes\passwordresetRoute.js:8:7
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (E:\Repositories\salespilot\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at E:\Repositories\salespilot\node_modules\express\lib\router\index.js:284:15
+    at Function.process_params (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:346:12)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:280:10)
+  
