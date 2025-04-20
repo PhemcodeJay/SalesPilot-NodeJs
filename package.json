@@ -34,6 +34,7 @@
     "lodash.throttle": "^4.1.1",
     "masonry-layout": "^4.2.2",
     "morgan": "^1.10.0",
+    "mysql2": "^3.14.0",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.16",
     "outlayer": "^2.1.1",
