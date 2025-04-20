@@ -9,7 +9,7 @@ CREATE TABLE `tenants` (
   `subscription_start_date` TIMESTAMP NOT NULL,
   `subscription_end_date` TIMESTAMP NOT NULL,
   `created_at` TIMESTAMP NOT NULL,
-  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` TIMESTAMP NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`)
@@ -34,7 +34,7 @@ CREATE TABLE `activation_codes` (
   `user_id` INT NOT NULL,
   `activation_code` VARCHAR(100) COLLATE utf8mb4_general_ci NOT NULL,
   `expires_at` TIMESTAMP NOT NULL,
-  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
   CONSTRAINT `activation_codes_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
@@ -47,12 +47,12 @@ CREATE TABLE `password_resets` (
   `reset_code` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
   `expires_at` TIMESTAMP NOT NULL,
   `email` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
-  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
   CONSTRAINT `password_resets_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
 CREATE TABLE `subscriptions` (
@@ -162,7 +162,7 @@ CREATE TABLE `inventory` (
   `product_name` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
   PRIMARY KEY (`inventory_id`),
   CONSTRAINT `inventory_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE `invoices` (
   `invoice_id` INT NOT NULL AUTO_INCREMENT,
@@ -244,7 +244,7 @@ CREATE TABLE `product_analytics` (
   `total_profit` DECIMAL(10,2) NOT NULL,
   `total_expenses` DECIMAL(10,2) NOT NULL,
   `net_profit` DECIMAL(10,2) NOT NULL,
-  `most_sold_product_id` INT NOT NULL,
+  `most_sold_product_id` INT NULL,
   `previous_year_sales` DECIMAL(10,2) NOT NULL,
   `cost_of_goods_sold` DECIMAL(10,2) NOT NULL,
   `average_inventory` DECIMAL(10,2) NOT NULL,
