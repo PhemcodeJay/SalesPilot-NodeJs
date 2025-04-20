@@ -17,29 +17,51 @@
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
   <style>
-      body {
-          background-color: #f4f7f6;
-      }
-      .container {
-          max-width: 1000px;
-          margin-top: 50px;
-          background: #fff;
-          padding: 20px;
-          border-radius: 8px;
-          box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-      }
-      .error-message {
-          color: red;
-          font-size: 14px;
-      }
-      #successMessage {
-          display: none;
-      }
+      /* General background color for the body */
+body {
+    background-color: #f4f7f6;
+    font-family: Arial, sans-serif; /* You can change the font if needed */
+}
+
+/* Container styling */
+.container {
+    max-width: 1000px;
+    margin-top: 50px;
+    background: #fff;
+    padding: 30px;  /* Added more padding for better spacing */
+    border-radius: 10px;  /* Increased border-radius for a smoother edge */
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);  /* Slightly stronger shadow */
+    margin-left: auto;
+    margin-right: auto;  /* Center the container */
+    height: 700px;  /* Set a fixed height for the container (adjust as needed) */
+    overflow-y: auto;  /* Allows scrolling if content exceeds the set height */
+}
+
+/* Error message styling */
+.error-message {
+    color: red;
+    font-size: 14px;
+    margin-top: 10px;  /* Added top margin to space out error messages */
+}
+
+/* Success message (hidden by default) */
+#successMessage {
+    display: none;
+    color: green;  /* Success message color */
+    font-size: 16px;
+    margin-top: 20px;  /* Spacing above the success message */
+}
+
+/* Optional: Add transition for smoother hiding/showing of success messages */
+#successMessage {
+    transition: opacity 0.3s ease-in-out;
+}
+
   </style>
 </head>
 <body>
 
-    <div class="wrapper">
+    <div class=" wrapper col-lg-12">
         <section class="login-content">
             <div class="container">
                 <div class="row align-items-center justify-content-center height-self-center">
@@ -108,7 +130,7 @@
                                     </div>
 
                                     <div class="col-lg-5 content-right">
-                                        <img src="/assets/images/login/01.png" class="img-fluid image-right" alt="Sign Up Illustration">
+                                        <img src="/assets/images/login/side-bkg.png" class="img-fluid image-right" alt="Sign Up Illustration">
                                     </div>
                                 </div>
                             </div>

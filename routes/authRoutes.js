@@ -35,7 +35,7 @@ router.get('/logout', (req, res) => {
 router.get('/activate', (req, res, next) => {
   // Calls controller that might render or redirect internally
   activateUser(req, res, next); // Optional: Render or redirect based on outcome
-  // OR: res.render('auth/activate'); // Static view if preferred
+  OR: res.render('auth/activate'); // Static view if preferred
 });
 
 // Login logic (with tenant middleware)

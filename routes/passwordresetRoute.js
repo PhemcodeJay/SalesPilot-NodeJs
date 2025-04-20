@@ -5,13 +5,13 @@ const router = express.Router();
 
 // Serve the password recovery page (form to enter email)
 router.get('/recoverpwd', (req, res) => {
-  res.render('recoverpwd'); // Make sure recoverpwd.ejs is in your views folder
+  res.render('auth/recoverpwd'); // Make sure recoverpwd.ejs is in your views folder
 });
 
 // Serve the password reset page (form to enter new password)
 router.get('/passwordreset', (req, res) => {
   const { token } = req.query; // optional: pass token to the view
-  res.render('passwordreset', { token }); // passwordreset.ejs should accept `token` if needed
+  res.render('auth/passwordreset', { token }); // passwordreset.ejs should accept `token` if needed
 });
 
 // Handle password reset request (send email)

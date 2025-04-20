@@ -288,12 +288,12 @@ DROP TABLE IF EXISTS `page_access`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `page_access` (
   `id` int NOT NULL,
-  `page` varchar(255) NOT NULL,
-  `required_access_level` enum('trial','starter','business','enterprise') NOT NULL,
+  `page` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `required_access_level` enum('trial','starter','business','enterprise') COLLATE utf8mb4_general_ci NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -344,15 +344,15 @@ DROP TABLE IF EXISTS `payments`;
 CREATE TABLE `payments` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
-  `payment_method` enum('paypal','binance','mpesa','naira') NOT NULL,
-  `payment_proof` varchar(255) NOT NULL,
+  `payment_method` enum('paypal','binance','mpesa','naira') COLLATE utf8mb4_general_ci NOT NULL,
+  `payment_proof` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `payment_amount` decimal(10,2) NOT NULL,
-  `payment_status` enum('pending','completed','failed') DEFAULT 'pending',
+  `payment_status` enum('pending','completed','failed') COLLATE utf8mb4_general_ci DEFAULT 'pending',
   `payment_date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `subscription_id` int DEFAULT NULL,
   `tenant_id` int NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -641,7 +641,7 @@ CREATE TABLE `users` (
   `location` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `activation_token` varchar(512) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `reset_token` varchar(512) COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `tenant_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `tenant_id` char(36) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `updated_at` datetime NOT NULL,
   `created_at` datetime NOT NULL,
   `reset_token_expiry` datetime DEFAULT NULL,
@@ -649,9 +649,6 @@ CREATE TABLE `users` (
   UNIQUE KEY `unique_email` (`email`),
   UNIQUE KEY `username` (`username`),
   UNIQUE KEY `phone_UNIQUE` (`phone`),
-  UNIQUE KEY `id_UNIQUE` (`id`),
-  UNIQUE KEY `email` (`email`),
-  UNIQUE KEY `tenant_id_UNIQUE` (`tenant_id`),
   CONSTRAINT `users_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
