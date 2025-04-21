@@ -27,7 +27,7 @@ const requestPasswordReset = async (req, res) => {
       data: { email: user.email }
     });
   } catch (error) {
-    console.error(error);
+    console.error('Error in requestPasswordReset:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -66,7 +66,7 @@ const resetPassword = async (req, res) => {
       data: { userId: user.id, email: user.email }
     });
   } catch (error) {
-    console.error(error);
+    console.error('Error in resetPassword:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

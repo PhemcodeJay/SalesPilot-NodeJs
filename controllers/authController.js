@@ -16,7 +16,7 @@ const signUpController = async (req, res) => {
     tenantName,
     tenantEmail,
     tenantPhone,
-    tenantAddress
+    tenantAddress,
   } = req.body;
 
   try {
@@ -84,7 +84,7 @@ const loginController = async (req, res) => {
 
   try {
     // Perform login and generate JWT token
-    const { user, token } = await login({ email, password });
+    const { user, token } = await login(email, password);
 
     res.status(200).json({
       message: 'Login successful',
@@ -168,19 +168,18 @@ const passwordResetConfirmController = async (req, res) => {
 // ✅ Account Activation Controller
 const activateUserController = async (req, res) => {
   try {
-    const { userId, activationCode } = req.query;
+    const { activationCode } = req.query;
 
-    // Ensure required query parameters
-    if (!userId || !activationCode) {
-      return res.status(400).json({ error: 'Missing activation parameters' });
+    // Ensure required query parameter
+    if (!activationCode) {
+      return res.status(400).json({ error: 'Missing activation code' });
     }
 
     // Activate the user
     await activateUser(activationCode);
 
     res.status(200).json({
-      message: 'Account activated successfully.',
-      data: { userId }
+      message: 'Account activated successfully.'
     });
   } catch (error) {
     console.error('Activation error:', error);

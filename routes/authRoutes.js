@@ -5,15 +5,14 @@ const {
   signUpController,
   loginController,
   logoutController,
-  activateUser,
-  resendActivationCode // Ensure this function is implemented or remove this route
+  activateUserController
 } = require('../controllers/authController');
 
 const passwordResetRouter = require('./passwordresetRoute');
 const router = express.Router();
 
 // Route for account activation (POST to ensure safe handling)
-router.post('/activate', activateUser);  // Use POST for account activation
+router.post('/activate', activateUserController);  // Use POST for account activation
 
 // Serve login page (render the login form)
 router.get('/login', (req, res) => {
@@ -33,9 +32,7 @@ router.get('/logout', (req, res) => {
 // Route for account activation status (success/failure)
 router.get('/activation-status', (req, res, next) => {
   // Calls controller that might render or redirect based on activation status
-  activateUser(req, res, next);  // Optionally render or redirect based on activation outcome
-  // Alternatively, you can render a static view or redirect
-  // res.render('auth/activation-status');  // Static view for showing activation status
+  res.render('auth/activation-status');  // Render the activation-status view
 });
 
 // Login logic (with tenant middleware)
@@ -55,4 +52,10 @@ router.post('/logout', logoutController);
 // Mount password reset routes (grouping them together under /password-reset)
 router.use('/password-reset', passwordResetRouter);
 
+// Render the activation page (for GET requests to /activate)
+router.get('/activate', (req, res) => {
+  res.render('auth/activate');  // Ensure that auth/activate.ejs exists for the activation page
+});
+
 module.exports = router;
+router;

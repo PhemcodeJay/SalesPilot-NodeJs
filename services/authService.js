@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { sendActivationEmail, sendPasswordResetEmail } = require('./emailUtils');
+const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
 const { models, sequelize } = require('../config/db');
 const subscriptionService = require('./subscriptionService');
 
@@ -72,6 +72,38 @@ const authService = {
       await transaction.rollback();
       console.error('❌ Error during sign-up:', err);
       throw new Error('Sign-up failed. Please try again.');
+    }
+  },
+
+  // ✅ Activate User (called when user clicks on activation link)
+  activateUser: async (activationCode) => {
+    try {
+      // Find activation code record
+      const codeRecord = await ActivationCode.findOne({ where: { activation_code: activationCode } });
+
+      if (!codeRecord || codeRecord.expires_at < new Date()) {
+        throw new Error('Invalid or expired activation code');
+      }
+
+      // Find the associated user
+      const user = await User.findByPk(codeRecord.user_id);
+
+      // If user is already active, no further action is required
+      if (user.status === 'active') {
+        throw new Error('Account is already activated');
+      }
+
+      // Update user status to active
+      user.status = 'active';
+      await user.save();
+
+      // Optionally, remove the activation code after successful activation
+      await codeRecord.destroy();
+
+      return { message: 'User activated successfully' };
+    } catch (err) {
+      console.error('❌ Activation Error:', err);
+      throw new Error('User activation failed');
     }
   },
 
@@ -147,28 +179,6 @@ const authService = {
     } catch (err) {
       console.error('❌ Password Reset Error:', err);
       throw new Error('Failed to reset password');
-    }
-  },
-
-  // ✅ Activate User (called when user clicks on activation link)
-  activateUser: async (activationCode) => {
-    try {
-      const codeRecord = await ActivationCode.findOne({ where: { activation_code: activationCode } });
-      if (!codeRecord || codeRecord.expires_at < new Date()) {
-        throw new Error('Invalid or expired activation code');
-      }
-
-      const user = await User.findByPk(codeRecord.user_id);
-      user.status = 'active';
-      await user.save();
-
-      // Optionally, you can remove the activation code after successful activation
-      await codeRecord.destroy();
-
-      return { message: 'User activated successfully' };
-    } catch (err) {
-      console.error('❌ Activation Error:', err);
-      throw new Error('User activation failed');
     }
   },
 
