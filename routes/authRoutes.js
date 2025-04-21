@@ -30,8 +30,7 @@ router.get('/logout', (req, res) => {
 });
 
 // Route for account activation status (success/failure)
-router.get('/activation-status', (req, res, next) => {
-  // Calls controller that might render or redirect based on activation status
+router.get('/activation-status', (req, res) => {
   res.render('auth/activation-status');  // Render the activation-status view
 });
 
@@ -58,4 +57,3 @@ router.get('/activate', (req, res) => {
 });
 
 module.exports = router;
-router;

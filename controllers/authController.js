@@ -67,8 +67,12 @@ const signUpController = async (req, res) => {
         },
         subscription: {
           id: subscription.id,
-          plan: subscription.plan,
+          plan: subscription.subscription_plan,  // Corrected field name based on the original code
           status: subscription.status,
+          startDate: subscription.start_date,
+          endDate: subscription.end_date,
+          features: JSON.parse(subscription.features),  // Make sure to parse the features if they are stored as JSON
+          price: subscription.price,
         },
       }
     });

@@ -5,7 +5,7 @@ const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailU
 const { models, sequelize } = require('../config/db');
 const subscriptionService = require('./subscriptionService');
 
-const { User, Tenant, Subscription, ActivationCode } = models;
+const { User, Tenant, ActivationCode } = models;
 const { EMAIL_ENABLED, JWT_SECRET, CLIENT_URL, BASE_URL } = process.env;
 
 const authService = {
@@ -67,6 +67,7 @@ const authService = {
 
       await transaction.commit();
 
+      // Return the subscription data along with tenant and user
       return { tenant, user, subscription, activationCode: activationCodeRecord ? activationCodeRecord.activation_code : null };
     } catch (err) {
       await transaction.rollback();
@@ -74,7 +75,6 @@ const authService = {
       throw new Error('Sign-up failed. Please try again.');
     }
   },
-
   
   // ✅ Login
   login: async (email, password) => {
