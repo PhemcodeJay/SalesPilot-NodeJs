@@ -202,7 +202,6 @@ const authService = {
       throw new Error('Failed to delete user');
     }
   },
-
 };
 
 module.exports = authService;
