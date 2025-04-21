@@ -4,26 +4,31 @@ const crypto = require('crypto');
 const { sendPasswordResetEmail } = require('../utils/emailUtils');
 const { sendActivationEmail } = require('./activationCodeService');
 const { models, sequelize } = require('../config/db');
-const subscriptionService = require('./subscriptionService'); // Import the subscription service
+const subscriptionService = require('./subscriptionService');
 
 const { User, Tenant, Subscription, ActivationCode } = models;
 const { JWT_SECRET, CLIENT_URL } = process.env;
 
+// Email flag
+const EMAIL_ENABLED = process.env.EMAIL_ENABLED === 'true';
+
 const authService = {
-  // ✅ SignUp: Create Tenant, User, Subscription, and send Activation Email
+  // ✅ Sign Up
   signUp: async (userData, tenantData) => {
     const transaction = await sequelize.transaction();
 
     try {
+      const now = new Date();
+
       // Create Tenant
       const tenant = await Tenant.create({
         name: tenantData.name,
         email: tenantData.email,
         phone: tenantData.phone,
         address: tenantData.address,
-        status: 'inactive',
-        subscription_start_date: new Date(),
-        subscription_end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+        status: EMAIL_ENABLED ? 'inactive' : 'active',
+        subscription_start_date: now,
+        subscription_end_date: new Date(now.setFullYear(now.getFullYear() + 1)),
       }, { transaction });
 
       // Create User
@@ -36,25 +41,29 @@ const authService = {
         role: userData.role || 'sales',
         phone: userData.phone,
         location: userData.location,
+        status: EMAIL_ENABLED ? 'inactive' : 'active',
       }, { transaction });
 
-      // Create Subscription using subscription service
+      // Create Subscription
       const subscription = await subscriptionService.createSubscription(tenant.id, 'trial', transaction);
 
-      // Generate Activation Code
-      const activationCode = crypto.randomBytes(20).toString('hex');
-      const activationCodeRecord = await ActivationCode.create({
-        user_id: user.id,
-        activation_code: activationCode,
-        expires_at: new Date(Date.now() + 60 * 60 * 1000), // 1 hour expiration
-        created_at: new Date(),
-      }, { transaction });
+      let activationCodeRecord = null;
 
-      // Commit transaction
+      if (EMAIL_ENABLED) {
+        const activationCode = crypto.randomBytes(20).toString('hex');
+        activationCodeRecord = await ActivationCode.create({
+          user_id: user.id,
+          activation_code: activationCode,
+          expires_at: new Date(Date.now() + 60 * 60 * 1000),
+          created_at: new Date(),
+        }, { transaction });
+      }
+
       await transaction.commit();
 
-      // Send Activation Email (after transaction)
-      await sendActivationEmail(user, activationCode);
+      if (EMAIL_ENABLED && activationCodeRecord) {
+        await sendActivationEmail(user, activationCodeRecord.activation_code);
+      }
 
       return { tenant, user, subscription, activationCode: activationCodeRecord };
     } catch (err) {
@@ -90,7 +99,7 @@ const authService = {
     if (!user) throw new Error('User with this email does not exist');
 
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
 
     user.reset_token = resetToken;
     user.reset_token_expiry = resetTokenExpiry;
@@ -195,3 +204,4 @@ const authService = {
 };
 
 module.exports = authService;
+// Add a session token cookie, verify JWT in a middleware, or auto-login after activation!

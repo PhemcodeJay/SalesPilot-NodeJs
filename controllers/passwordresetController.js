@@ -1,9 +1,9 @@
 const bcrypt = require('bcryptjs');
-const { generateResetToken, verifyResetToken } = require('../services/passwordresetService');  // Correct imports
+const { generateResetToken, verifyResetToken } = require('../services/passwordresetService');
 const User = require('../models/user');
 const { sendPasswordResetEmail } = require('../utils/emailUtils');
 
-// Request Password Reset
+// ✅ Request Password Reset
 const requestPasswordReset = async (req, res) => {
   const { email } = req.body;
 
@@ -20,14 +20,18 @@ const requestPasswordReset = async (req, res) => {
     // Send reset email with the generated token
     await sendPasswordResetEmail(user.email, code);
 
-    return res.status(200).json({ message: 'Password reset email sent' });
+    // Response with success message and standard data structure
+    return res.status(200).json({
+      message: 'Password reset email sent',
+      data: { email: user.email }
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
 
-// Handle Password Reset with Token
+// ✅ Handle Password Reset with Token
 const resetPassword = async (req, res) => {
   const { resetCode, newPassword } = req.body;
 
@@ -39,7 +43,8 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired reset token' });
     }
 
-    const user = await User.findByPk(resetEntry.user_id);  // Ensure you're using `user_id` from PasswordReset model
+    // Find the user by user_id in the reset entry
+    const user = await User.findByPk(resetEntry.user_id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -54,7 +59,11 @@ const resetPassword = async (req, res) => {
     // Delete the password reset entry (used once)
     await resetEntry.destroy();
 
-    return res.status(200).json({ message: 'Password successfully reset' });
+    // Return successful response with standardized payload
+    return res.status(200).json({
+      message: 'Password successfully reset',
+      data: { userId: user.id, email: user.email }
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: 'Internal server error' });

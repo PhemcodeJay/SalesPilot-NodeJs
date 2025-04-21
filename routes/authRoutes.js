@@ -13,8 +13,7 @@ const passwordResetRouter = require('./passwordresetRoute');
 const router = express.Router();
 
 // Route for account activation
-router.post('/activate', activateUser);
-
+router.post('/activate', activateUser);  // Use POST for account activation if needed for sending activation code
 
 // Serve login page
 router.get('/login', (req, res) => {
@@ -32,10 +31,11 @@ router.get('/logout', (req, res) => {
 });
 
 // Serve account activation success/failure page
-router.get('/activate', (req, res, next) => {
+router.get('/activation-status', (req, res, next) => {
   // Calls controller that might render or redirect internally
-  activateUser(req, res, next); // Optional: Render or redirect based on outcome
-  OR: res.render('auth/activate'); // Static view if preferred
+  activateUser(req, res, next);  // Optional: Render or redirect based on outcome
+  // OR render a static view if needed:
+  // res.render('auth/activate'); // Static view if preferred
 });
 
 // Login logic (with tenant middleware)

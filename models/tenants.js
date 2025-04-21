@@ -28,12 +28,13 @@ module.exports = (sequelize, DataTypes) => {
     },
     status: {
       type: DataTypes.ENUM('active', 'inactive'),
+      allowNull: false,
       defaultValue: 'inactive',
     },
     subscription_type: {
       type: DataTypes.ENUM('trial', 'starter', 'business', 'enterprise'),
-      defaultValue: 'trial',
       allowNull: false,
+      defaultValue: 'trial',
     },
     subscription_start_date: {
       type: DataTypes.DATE,

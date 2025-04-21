@@ -21,20 +21,18 @@ const signUpController = async (req, res) => {
   } = req.body;
 
   try {
-    // Check rate limiting for activation requests
     const isRateLimited = await rateLimitActivationRequests(email);
     if (isRateLimited) {
       return res.status(429).json({ error: 'Too many requests. Please try again later.' });
     }
 
-    // Prepare user and tenant data
     const userData = {
       username,
       email,
       password,
       phone,
       location,
-      role: 'sales'  // Default role for user
+      role: 'sales'
     };
 
     const tenantData = {
@@ -44,35 +42,33 @@ const signUpController = async (req, res) => {
       address: tenantAddress
     };
 
-    // Sign up user and create tenant, subscription
     const { user, tenant, subscription } = await signUp(userData, tenantData);
 
-    // ✅ Activation email already sent inside signUp — no need to call again here
-
-    // Return successful response
     res.status(201).json({
       message: 'User and tenant registered successfully. Please check your email to activate your account.',
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        phone: user.phone,
-        location: user.location,
-        role: user.role,
-      },
-      tenant: {
-        id: tenant.id,
-        name: tenant.name,
-        email: tenant.email,
-        phone: tenant.phone,
-        address: tenant.address,
-        status: tenant.status,
-      },
-      subscription: {
-        id: subscription.id,
-        plan: subscription.plan, // 🔧 fixed reference
-        status: subscription.status,
-      },
+      data: {
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          phone: user.phone,
+          location: user.location,
+          role: user.role,
+        },
+        tenant: {
+          id: tenant.id,
+          name: tenant.name,
+          email: tenant.email,
+          phone: tenant.phone,
+          address: tenant.address,
+          status: tenant.status,
+        },
+        subscription: {
+          id: subscription.id,
+          plan: subscription.plan,
+          status: subscription.status,
+        },
+      }
     });
   } catch (err) {
     console.error('SignUp error:', err);
@@ -86,7 +82,19 @@ const loginController = async (req, res) => {
 
   try {
     const { user, token } = await login({ email, password, tenant_id });
-    res.status(200).json({ message: 'Login successful', token });
+
+    res.status(200).json({
+      message: 'Login successful',
+      data: {
+        user: {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          role: user.role,
+        },
+        token
+      }
+    });
   } catch (error) {
     console.error('Login error:', error);
     res.status(401).json({ error: error.message || 'Invalid credentials' });
@@ -151,8 +159,18 @@ const passwordResetConfirmController = async (req, res) => {
 const activateUser = async (req, res) => {
   try {
     const { userId, activationCode } = req.query;
+
+    // Option 2: Ensure required query parameters
+    if (!userId || !activationCode) {
+      return res.status(400).json({ error: 'Missing activation parameters' });
+    }
+
     await verifyActivationCode(activationCode, userId);
-    res.status(200).json({ message: 'Account activated successfully.' });
+
+    res.status(200).json({
+      message: 'Account activated successfully.',
+      data: { userId }
+    });
   } catch (error) {
     console.error('Activation error:', error);
     res.status(400).json({ error: error.message });
@@ -167,3 +185,5 @@ module.exports = {
   passwordResetConfirmController,
   activateUser,
 };
+
+// Add a session token cookie, verify JWT in a middleware, or auto-login after activation!
