@@ -40,6 +40,7 @@
     "nodemailer": "^6.9.16",
     "outlayer": "^2.1.1",
     "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
     "sequelize": "^6.37.5",
     "uuid": "^11.1.0"

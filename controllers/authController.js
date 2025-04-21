@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const { User } = require('../models');
 const PasswordResetService = require('../services/passwordresetService');
 const { sendPasswordResetEmail } = require('../utils/emailUtils');
-const { signUp, login, activateUser } = require('../services/authService');
+const { signUp, login, resetPassword, activateUser, refreshToken } = require('../services/authService');
 const { rateLimitActivationRequests } = require('../middleware/rateLimiter');
 
 // ✅ SignUp Controller
@@ -192,6 +192,23 @@ const activateUserController = async (req, res) => {
   }
 };
 
+// ✅ Refresh Token Controller
+const refreshTokenController = async (req, res) => {
+  const { oldToken } = req.body;
+
+  try {
+    const { newToken } = await refreshToken(oldToken);
+
+    res.status(200).json({
+      message: 'Token refreshed successfully',
+      data: { newToken }
+    });
+  } catch (err) {
+    console.error('Error refreshing token:', err);
+    res.status(500).json({ error: 'Error refreshing token' });
+  }
+};
+
 module.exports = {
   signUpController,
   loginController,
@@ -199,4 +216,5 @@ module.exports = {
   passwordResetRequestController,
   passwordResetConfirmController,
   activateUserController,
+  refreshTokenController,
 };

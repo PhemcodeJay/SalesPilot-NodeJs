@@ -1,15 +1,16 @@
 module.exports = (sequelize, DataTypes) => {
   const PasswordReset = sequelize.define('PasswordReset', {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,  // Changed to UUID for consistency with other models
+      defaultValue: DataTypes.UUIDV4,  // Automatically generate UUID
       primaryKey: true,
-      autoIncrement: true,
+      allowNull: false,
     },
     user_id: {
       type: DataTypes.UUID,  // Changed to UUID to match the `User` model foreign key type
       allowNull: false,
       references: {
-        model: 'users', // Make sure this references the correct table
+        model: 'users',  // Ensure this is the correct table name for users
         key: 'id',
       },
     },
@@ -32,7 +33,7 @@ module.exports = (sequelize, DataTypes) => {
     tableName: 'password_resets',
     underscored: true,
     createdAt: 'created_at',
-    updatedAt: false, // No need for 'updated_at'
+    updatedAt: false, // No need for 'updated_at' since it’s not needed
   });
 
   // Logic to set expiration time before creating the password reset

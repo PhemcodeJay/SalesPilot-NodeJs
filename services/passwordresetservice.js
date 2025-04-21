@@ -1,5 +1,6 @@
 const { PasswordReset, User } = require('../models'); // Import models correctly
 const { v4: uuidv4 } = require('uuid');
+const { Op } = require('sequelize');  // Sequelize operators for comparison
 
 // Generate a reset token for password reset
 exports.generateResetToken = async (userId) => {
@@ -31,4 +32,31 @@ exports.verifyResetToken = async (code) => {
   if (!reset) return null;  // Return null if token doesn't exist or has expired
 
   return reset;  // Return the reset entry for further validation
+};
+
+// Reset the password for the user
+exports.resetPassword = async (resetCode, newPassword) => {
+  // Verify the reset token's validity
+  const resetRecord = await this.verifyResetToken(resetCode);
+  if (!resetRecord) {
+    throw new Error('Invalid or expired reset token');
+  }
+
+  // Find the user associated with the reset token
+  const user = await User.findByPk(resetRecord.user_id);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Hash the new password
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  // Update the user's password
+  user.password = hashedPassword;
+  await user.save();
+
+  // Optionally, destroy the reset token after the password has been reset
+  await resetRecord.destroy();
+
+  return true;
 };

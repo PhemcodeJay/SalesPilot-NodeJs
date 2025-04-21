@@ -6,7 +6,7 @@ const { models, sequelize } = require('../config/db');
 const subscriptionService = require('./subscriptionService');
 const passwordResetService = require('./passwordresetService');
 
-const { User, Tenant, ActivationCode } = models;
+const { User, Tenant, ActivationCode, PasswordReset } = models;
 const { EMAIL_ENABLED, JWT_SECRET, CLIENT_URL, BASE_URL } = process.env;
 
 const authService = {

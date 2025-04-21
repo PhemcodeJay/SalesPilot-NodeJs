@@ -1,10 +1,10 @@
 const nodemailer = require('nodemailer');
-const crypto = require('crypto'); // Make sure to import the crypto module
+const crypto = require('crypto'); // Ensure this is imported
 const { User } = require('../models'); // Import User model
 
 // Configure Nodemailer (use your email provider settings)
 const transporter = nodemailer.createTransport({
-  service: 'gmail',  // Use your preferred email service here
+  service: 'gmail',  // Change to your preferred email service
   auth: {
     user: process.env.EMAIL_USER,  // Your email address
     pass: process.env.EMAIL_PASS,  // Your email password or app-specific password
@@ -26,7 +26,7 @@ async function sendActivationEmail(email, code) {
     await transporter.sendMail(mailOptions);
     console.log('Activation email sent to:', email);
   } catch (error) {
-    console.error('Error sending activation email:', error);
+    console.error('Error sending activation email:', error.message);
   }
 }
 
@@ -58,12 +58,12 @@ async function sendPasswordResetEmail(user) {
     await transporter.sendMail(mailOptions);
     console.log('Password reset email sent to:', user.email);
   } catch (error) {
-    console.error('Error sending password reset email:', error);
+    console.error('Error sending password reset email:', error.message);
   }
 }
 
 // Export the functions for use in other parts of your application
 module.exports = {
-  sendActivationEmail,  // Exported function
-  sendPasswordResetEmail,  // Exported function
+  sendActivationEmail,
+  sendPasswordResetEmail,
 };

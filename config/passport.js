@@ -3,19 +3,17 @@ const LocalStrategy = require('passport-local').Strategy;
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
+const { User } = require('../models');  // Import the User model at the top
 
 // Setup Passport local strategy for login (username or email)
 passport.use(
   new LocalStrategy(
     {
-      usernameField: 'usernameOrEmail', // We use this custom field to accept either username or email
+      usernameField: 'usernameOrEmail', // Custom field to accept either username or email
       passwordField: 'password',
     },
     async (usernameOrEmail, password, done) => {
       try {
-        // Dynamically load the User model after Sequelize is initialized
-        const { User } = require('../models'); // Dynamically load the User model
-
         // Find user by either email or username
         const user = await User.findOne({
           where: {
@@ -50,10 +48,6 @@ passport.serializeUser((user, done) => {
 // Deserialize user from session
 passport.deserializeUser(async (userId, done) => {
   try {
-    // Dynamically load the User model after Sequelize is initialized
-    const { User } = require('../models'); // Dynamically load the User model
-
-    // Find the user by ID and return user object
     const user = await User.findByPk(userId);
     if (!user) {
       return done(new Error('User not found'), null);
@@ -64,19 +58,20 @@ passport.deserializeUser(async (userId, done) => {
   }
 });
 
-// Setup JWT strategy for token-based authentication
+// Setup JWT strategy for token-based authentication using passport-jwt
+const JwtStrategy = require('passport-jwt').Strategy;
+const ExtractJwt = require('passport-jwt').ExtractJwt;
+
 passport.use(
-  'jwt',
-  new passport.Strategy(
+  new JwtStrategy(
     {
       secretOrKey: process.env.JWT_SECRET,
-      jwtFromRequest: req => req.cookies['access_token'], // Assuming token is stored in cookies
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        (req) => req.cookies['access_token'], // Extract from cookies
+      ]),
     },
     async (jwtPayload, done) => {
       try {
-        // Dynamically load the User model after Sequelize is initialized
-        const { User } = require('../models'); // Dynamically load the User model
-
         // Find user by ID from JWT payload
         const user = await User.findByPk(jwtPayload.id);
         if (!user) {

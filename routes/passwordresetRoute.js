@@ -9,7 +9,7 @@ const router = express.Router();
 
 // ✅ Recover password (initial request)
 router.get('/recoverpwd', (req, res) => {
-  res.render('auth/recoverpwd');
+  res.render('auth/recoverpwd');  // Make sure auth/recoverpwd.ejs exists
 });
 
 // ✅ Securely serve reset password form
@@ -35,9 +35,9 @@ router.get('/passwordreset', async (req, res) => {
 });
 
 // ✅ Trigger password reset email
-router.post('/recoverpwd', passwordResetRequestController);
+router.post('/recoverpwd', passwordResetRequestController);  // Send email
 
 // ✅ Handle form submission with new password
-router.post('/passwordreset', passwordResetConfirmController);
+router.post('/passwordreset', passwordResetConfirmController);  // Confirm token + update password
 
 module.exports = router;

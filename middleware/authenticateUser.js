@@ -1,4 +1,3 @@
-// middleware/authenticateUser.js
 const passport = require('passport');
 
 const authenticateUser = (req, res, next) => {
@@ -7,8 +6,10 @@ const authenticateUser = (req, res, next) => {
     return next(); // Proceed to the requested route
   }
 
-  // If not authenticated, redirect to login page
-  req.flash('error', 'You must be logged in to access this page.');
+  // If not authenticated, set flash message and redirect to login page
+  if (!req.flash('error').length) {  // Prevent overwriting an existing flash message
+    req.flash('error', 'You must be logged in to access this page.');
+  }
   return res.redirect('/login');
 };
 

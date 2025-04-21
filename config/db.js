@@ -20,33 +20,40 @@ const sequelize = new Sequelize(databaseUrl, {
   }
 });
 
-// 📦 Load Admin Models
-const models = {};
-const modelsDirectory = __dirname;
-const baseFilename = path.basename(__filename);
+// 📦 Load Models Dynamically
+const loadModels = (sequelizeInstance) => {
+  const models = {};
+  const modelsDirectory = __dirname;
+  const baseFilename = path.basename(__filename);
 
-fs.readdirSync(modelsDirectory)
-  .filter(file => file.endsWith(".js") && file !== baseFilename)
-  .forEach(file => {
-    try {
-      const modelFn = require(path.join(modelsDirectory, file));
-      if (typeof modelFn === "function") {
-        const model = modelFn(sequelize, DataTypes);
-        models[model.name] = model;
-        debug(`✅ Admin Model loaded: ${model.name}`);
+  fs.readdirSync(modelsDirectory)
+    .filter(file => file.endsWith(".js") && file !== baseFilename)
+    .forEach(file => {
+      try {
+        const modelFn = require(path.join(modelsDirectory, file));
+        if (typeof modelFn === "function") {
+          const model = modelFn(sequelizeInstance, DataTypes);
+          models[model.name] = model;
+          debug(`✅ Model loaded: ${model.name}`);
+        }
+      } catch (err) {
+        console.error(`❌ Error loading model ${file}:`, err.message);
       }
-    } catch (err) {
-      console.error(`❌ Error loading model ${file}:`, err.message);
+    });
+
+  // Setup associations
+  Object.values(models).forEach(model => {
+    if (typeof model.associate === "function") {
+      model.associate(models);
+      debug(`🔗 Association set for: ${model.name}`);
     }
   });
 
-// 🔗 Setup associations
-Object.values(models).forEach(model => {
-  if (typeof model.associate === "function") {
-    model.associate(models);
-    debug(`🔗 Association set for: ${model.name}`);
-  }
-});
+  return models;
+};
+
+// 📦 Load Admin Models
+const models = loadModels(sequelize);
 
 // ✅ Admin DB Utilities
 const testConnection = async () => {
@@ -93,25 +100,16 @@ const getTenantDb = (dbName) => {
   const tenantSequelize = new Sequelize(dbName, process.env.DB_USER, process.env.DB_PASS, {
     host: process.env.DB_HOST,
     dialect: 'mysql',
-    logging: debug
-  });
-
-  const tenantModels = {};
-  fs.readdirSync(modelsDirectory)
-    .filter(file => file.endsWith(".js") && file !== baseFilename)
-    .forEach(file => {
-      const modelFn = require(path.join(modelsDirectory, file));
-      if (typeof modelFn === "function") {
-        const model = modelFn(tenantSequelize, DataTypes);
-        tenantModels[model.name] = model;
-      }
-    });
-
-  Object.values(tenantModels).forEach(model => {
-    if (typeof model.associate === "function") {
-      model.associate(tenantModels);
+    logging: debug,
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000
     }
   });
+
+  const tenantModels = loadModels(tenantSequelize);
 
   tenantDbCache[dbName] = {
     sequelize: tenantSequelize,

@@ -9,18 +9,18 @@ const {
   activateUserController,
   passwordResetRequestController,
   passwordResetConfirmController
-} = require('../controllers/authController'); // include all updated controllers
+} = require('../controllers/authController'); // Include all updated controllers
 
 const router = express.Router();
 
 // ✅ Serve login page
 router.get('/login', (req, res) => {
-  res.render('auth/login'); // Make sure auth/login.ejs exists
+  res.render('auth/login'); // Ensure auth/login.ejs exists
 });
 
 // ✅ Serve signup page
 router.get('/signup', (req, res) => {
-  res.render('auth/signup'); // Make sure auth/signup.ejs exists
+  res.render('auth/signup'); // Ensure auth/signup.ejs exists
 });
 
 // ✅ Serve logout page (optional)
@@ -56,7 +56,7 @@ router.post('/logout', logoutController);
 router.post('/activate', activateUserController);
 
 // ✅ Password Reset Flow (POST)
-router.post('/password-reset/request', passwordResetRequestController);   // Send email
-router.post('/password-reset/confirm', passwordResetConfirmController); // Confirm token + update password
+router.post('/password-reset/request', passwordResetRequestController);  // Send email
+router.post('/password-reset/confirm', passwordResetConfirmController);  // Confirm token + update password
 
 module.exports = router;

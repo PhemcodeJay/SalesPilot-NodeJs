@@ -52,7 +52,7 @@ const verifyActivationCode = async (submittedCode, userId) => {
   const record = await ActivationCode.findOne({
     where: {
       user_id: userId,
-      expires_at: { [Op.gt]: now },
+      expires_at: { [Op.gt]: now }, // Check if the code is still valid
     },
     order: [['created_at', 'DESC']], // Ensure we get the most recent code
   });
@@ -65,10 +65,12 @@ const verifyActivationCode = async (submittedCode, userId) => {
   const user = await User.findByPk(userId);
   if (!user) throw new Error('User not found.');
 
+  // Update user status to 'active'
   user.status = 'active';
   await user.save();
 
-  await record.destroy(); // Invalidate code after use
+  // Destroy the activation code after successful activation
+  await record.destroy();
 
   return true;
 };

@@ -19,7 +19,7 @@ const requestPasswordReset = async (req, res) => {
 
     // Send reset email with the generated token
     const resetLink = `${process.env.FRONTEND_URL}/recoverpwd?token=${code}`;
-    await sendPasswordResetEmail(user, resetLink);
+    await sendPasswordResetEmail(user.email, resetLink);  // Updated for clarity
 
     // Return standardized success response
     return res.status(200).json({

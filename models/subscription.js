@@ -1,12 +1,13 @@
 module.exports = (sequelize, DataTypes) => {
   const Subscription = sequelize.define('Subscription', {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,  // Changed to UUID for consistency with User and Tenant models
+      defaultValue: DataTypes.UUIDV4,  // Automatically generate UUID
       primaryKey: true,
-      autoIncrement: true,
+      allowNull: false,
     },
     tenant_id: {
-      type: DataTypes.UUID, // Ensures UUID for tenant_id
+      type: DataTypes.UUID,  // Ensures UUID for tenant_id, consistent with Tenant model
       allowNull: false,
       references: {
         model: 'tenants',
@@ -14,10 +15,10 @@ module.exports = (sequelize, DataTypes) => {
       },
     },
     user_id: {
-      type: DataTypes.UUID, // Changed to UUID to match User model
+      type: DataTypes.UUID,  // Changed to UUID to match User model
       allowNull: false,
       references: {
-        model: 'users', // Ensure this is the correct table name
+        model: 'users',  // Ensure this is the correct table name
         key: 'id',
       },
     },
@@ -47,6 +48,8 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: true,
     tableName: 'subscriptions',
     underscored: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
   });
 
   Subscription.associate = (models) => {
