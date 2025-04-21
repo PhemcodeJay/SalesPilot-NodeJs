@@ -5,11 +5,19 @@ module.exports = (sequelize, DataTypes) => {
       primaryKey: true,
       autoIncrement: true,
     },
-    user_id: {
-      type: DataTypes.INTEGER,
+    tenant_id: {
+      type: DataTypes.UUID, // Ensures UUID for tenant_id
       allowNull: false,
       references: {
-        model: 'users',
+        model: 'tenants',
+        key: 'id',
+      },
+    },
+    user_id: {
+      type: DataTypes.UUID, // Changed to UUID to match User model
+      allowNull: false,
+      references: {
+        model: 'users', // Ensure this is the correct table name
         key: 'id',
       },
     },
@@ -42,6 +50,14 @@ module.exports = (sequelize, DataTypes) => {
   });
 
   Subscription.associate = (models) => {
+    // Each Subscription is linked to a Tenant (One-to-One)
+    Subscription.belongsTo(models.Tenant, {
+      foreignKey: 'tenant_id',
+      as: 'tenant',
+      onDelete: 'CASCADE',
+    });
+
+    // Each Subscription is linked to a User (One-to-One)
     Subscription.belongsTo(models.User, {
       foreignKey: 'user_id',
       as: 'user',

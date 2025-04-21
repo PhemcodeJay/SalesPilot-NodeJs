@@ -6,10 +6,10 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true,
     },
     user_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,  // Changed to UUID to match the `User` model foreign key type
       allowNull: false,
       references: {
-        model: 'users', // Linking to the User model
+        model: 'users', // Make sure this references the correct table
         key: 'id',
       },
     },
@@ -25,7 +25,7 @@ module.exports = (sequelize, DataTypes) => {
     created_at: {
       type: DataTypes.DATE,
       allowNull: false,
-      defaultValue: sequelize.literal('CURRENT_TIMESTAMP'),
+      defaultValue: sequelize.literal('CURRENT_TIMESTAMP'),  // Auto-sets creation time
     },
   }, {
     timestamps: true,
@@ -35,19 +35,19 @@ module.exports = (sequelize, DataTypes) => {
     updatedAt: false, // No need for 'updated_at'
   });
 
-  // PasswordReset logic
+  // Logic to set expiration time before creating the password reset
   PasswordReset.beforeCreate((passwordReset, options) => {
     const expirationTime = new Date();
-    expirationTime.setHours(expirationTime.getHours() + 1); // Default expiration is 1 hour
+    expirationTime.setHours(expirationTime.getHours() + 1); // Default expiration: 1 hour from creation
     passwordReset.expires_at = expirationTime;
   });
 
-  // Define associations
+  // Associations
   PasswordReset.associate = (models) => {
     PasswordReset.belongsTo(models.User, {
       foreignKey: 'user_id',
       as: 'user',
-      onDelete: 'CASCADE',
+      onDelete: 'CASCADE',  // Ensures deletion of password resets when the user is deleted
     });
   };
 

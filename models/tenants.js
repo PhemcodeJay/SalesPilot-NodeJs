@@ -44,16 +44,42 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DATE,
       allowNull: false,
     },
+    created_at: {
+      type: DataTypes.DATE, // Changed to DataTypes.DATE
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
+    updated_at: {
+      type: DataTypes.DATE, // Changed to DataTypes.DATE
+      allowNull: true,
+      defaultValue: DataTypes.NOW,
+    },
+    deleted_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   }, {
-    timestamps: true,
+    timestamps: false, // Disable automatic timestamps
     tableName: 'tenants',
     underscored: true,
+    paranoid: true, // Soft delete support
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+    deletedAt: 'deleted_at',
   });
 
   Tenant.associate = (models) => {
-    Tenant.hasMany(models.User, {
+    // One Tenant has one User
+    Tenant.hasOne(models.User, {
       foreignKey: 'tenant_id',
-      as: 'users',
+      as: 'user',
+      onDelete: 'CASCADE',
+    });
+
+    // One Tenant has one Subscription
+    Tenant.hasOne(models.Subscription, {
+      foreignKey: 'tenant_id',
+      as: 'subscription',
       onDelete: 'CASCADE',
     });
   };

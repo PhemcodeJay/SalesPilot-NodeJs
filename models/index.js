@@ -28,7 +28,7 @@ fs.readdirSync(modelsDirectory)
     }
   });
 
-// ✅ Establish global associations
+// ✅ Establish global associations for main models
 Object.values(models).forEach((model) => {
   if (typeof model.associate === "function") {
     model.associate(models);

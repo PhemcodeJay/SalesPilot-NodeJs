@@ -6,8 +6,12 @@ module.exports = (sequelize, DataTypes) => {
       autoIncrement: true,
     },
     user_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.UUID,  // Changed to UUID to match the `User` model foreign key
       allowNull: false,
+      references: {
+        model: 'users',  // Make sure this references the correct table
+        key: 'id',
+      },
     },
     activation_code: {
       type: DataTypes.STRING(100),
@@ -21,28 +25,30 @@ module.exports = (sequelize, DataTypes) => {
     created_at: {
       type: DataTypes.DATE,
       allowNull: false,
-      defaultValue: sequelize.literal('CURRENT_TIMESTAMP'),
+      defaultValue: sequelize.literal('CURRENT_TIMESTAMP'),  // Auto-sets creation time
     },
   }, {
     tableName: 'activation_codes',
     underscored: true,
-    timestamps: true,
+    timestamps: true,  // Ensures created_at and updated_at fields are managed automatically
     createdAt: 'created_at',
-    updatedAt: false, // No need for 'updated_at'
+    updatedAt: false,  // No need for an 'updated_at' field
   });
 
+  // Associations
   ActivationCode.associate = (models) => {
+    // An ActivationCode belongs to one User (one-to-one relationship)
     ActivationCode.belongsTo(models.User, {
       foreignKey: 'user_id',
       as: 'user',
-      onDelete: 'CASCADE',
+      onDelete: 'CASCADE',  // Ensures deletion of activation codes when the user is deleted
     });
   };
 
-  // Add expiration logic if needed
+  // Logic to set expiration time before creating the activation code
   ActivationCode.beforeCreate((activationCode, options) => {
     const expirationTime = new Date();
-    expirationTime.setHours(expirationTime.getHours() + 24); // Example: 24 hours expiration
+    expirationTime.setHours(expirationTime.getHours() + 24); // Default expiration: 24 hours from creation
     activationCode.expires_at = expirationTime;
   });
 
