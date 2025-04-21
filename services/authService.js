@@ -1,22 +1,18 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { sendPasswordResetEmail } = require('../utils/emailUtils');
-const { sendActivationEmail } = require('./activationCodeService');
+const { sendActivationEmail, sendPasswordResetEmail } = require('./emailUtils');
 const { models, sequelize } = require('../config/db');
 const subscriptionService = require('./subscriptionService');
 
 const { User, Tenant, Subscription, ActivationCode } = models;
-const { JWT_SECRET, CLIENT_URL } = process.env;
-
-// Email flag
-const EMAIL_ENABLED = process.env.EMAIL_ENABLED === 'true';
+const { EMAIL_ENABLED, JWT_SECRET, CLIENT_URL, BASE_URL } = process.env;
 
 const authService = {
+
   // ✅ Sign Up
   signUp: async (userData, tenantData) => {
     const transaction = await sequelize.transaction();
-
     try {
       const now = new Date();
 
@@ -26,9 +22,9 @@ const authService = {
         email: tenantData.email,
         phone: tenantData.phone,
         address: tenantData.address,
-        status: EMAIL_ENABLED ? 'inactive' : 'active',
+        status: EMAIL_ENABLED ? 'inactive' : 'active', // inactive in prod
         subscription_start_date: now,
-        subscription_end_date: new Date(now.setFullYear(now.getFullYear() + 1)),
+        subscription_end_date: new Date(now.setMonth(now.getMonth() + 3)), // 3-month trial
       }, { transaction });
 
       // Create User
@@ -41,7 +37,7 @@ const authService = {
         role: userData.role || 'sales',
         phone: userData.phone,
         location: userData.location,
-        status: EMAIL_ENABLED ? 'inactive' : 'active',
+        status: EMAIL_ENABLED ? 'inactive' : 'active', // Inactive if in prod mode
       }, { transaction });
 
       // Create Subscription
@@ -50,22 +46,28 @@ const authService = {
       let activationCodeRecord = null;
 
       if (EMAIL_ENABLED) {
+        // Generate an activation code in production mode
         const activationCode = crypto.randomBytes(20).toString('hex');
         activationCodeRecord = await ActivationCode.create({
           user_id: user.id,
           activation_code: activationCode,
-          expires_at: new Date(Date.now() + 60 * 60 * 1000),
+          expires_at: new Date(Date.now() + 60 * 60 * 1000), // Code expires in 1 hour
           created_at: new Date(),
         }, { transaction });
+
+        // Send activation email
+        await sendActivationEmail(user.email, activationCode);
+      }
+
+      // In development mode, automatically activate the user
+      if (!EMAIL_ENABLED) {
+        user.status = 'active'; // Auto-activate user in dev mode
+        await user.save();
       }
 
       await transaction.commit();
 
-      if (EMAIL_ENABLED && activationCodeRecord) {
-        await sendActivationEmail(user, activationCodeRecord.activation_code);
-      }
-
-      return { tenant, user, subscription, activationCode: activationCodeRecord };
+      return { tenant, user, subscription, activationCode: activationCodeRecord ? activationCodeRecord.activation_code : null };
     } catch (err) {
       await transaction.rollback();
       console.error('❌ Error during sign-up:', err);
@@ -74,134 +76,153 @@ const authService = {
   },
 
   // ✅ Login
-  login: async ({ email, password, tenant_id }) => {
-    const tenant = await Tenant.findOne({ where: { id: tenant_id } });
-    if (!tenant) throw new Error('Tenant not found');
+  login: async (email, password) => {
+    try {
+      const user = await User.findOne({ where: { email } });
+      if (!user) {
+        throw new Error('User not found');
+      }
 
-    const user = await User.findOne({ where: { email, tenant_id } });
-    if (!user) throw new Error('User not found');
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        throw new Error('Invalid credentials');
+      }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) throw new Error('Invalid credentials');
+      if (user.status !== 'active') {
+        throw new Error('User account is inactive');
+      }
 
-    const token = jwt.sign(
-      { userId: user.id, tenantId: tenant.id },
-      JWT_SECRET,
-      { expiresIn: '1h' }
-    );
+      // Generate JWT token
+      const payload = { userId: user.id, tenantId: user.tenant_id };
+      const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
 
-    return { user, token };
-  },
-
-  // ✅ Password Reset Request
-  passwordResetRequest: async (email) => {
-    const user = await User.findOne({ where: { email } });
-    if (!user) throw new Error('User with this email does not exist');
-
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
-
-    user.reset_token = resetToken;
-    user.reset_token_expiry = resetTokenExpiry;
-    await user.save();
-
-    const resetLink = `${CLIENT_URL}/reset-password?token=${resetToken}`;
-    await sendPasswordResetEmail(user.email, resetLink);
-  },
-
-  // ✅ Password Reset Confirm
-  passwordResetConfirm: async (token, newPassword) => {
-    const user = await User.findOne({ where: { reset_token: token } });
-    if (!user || new Date() > user.reset_token_expiry) {
-      throw new Error('Invalid or expired reset token');
+      return { token, user };
+    } catch (err) {
+      console.error('❌ Login Error:', err);
+      throw new Error('Login failed. Please try again.');
     }
-
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
-    user.reset_token = null;
-    user.reset_token_expiry = null;
-    await user.save();
   },
 
-  // ✅ CRUD: User
-  createUser: async (data) => {
-    const hashedPassword = await bcrypt.hash(data.password, 10);
-    return await User.create({ ...data, password: hashedPassword });
+  // ✅ Request Password Reset
+  requestPasswordReset: async (email) => {
+    try {
+      const user = await User.findOne({ where: { email } });
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Generate reset token and expiration time
+      const resetToken = crypto.randomBytes(20).toString('hex');
+      const resetTokenExpiration = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+      user.reset_token = resetToken;
+      user.reset_token_expiry = resetTokenExpiration;
+      await user.save();
+
+      // Send password reset email
+      await sendPasswordResetEmail(user);
+
+      return { message: 'Password reset email sent' };
+    } catch (err) {
+      console.error('❌ Password Reset Request Error:', err);
+      throw new Error('Failed to request password reset');
+    }
   },
 
-  getUser: async (id) => {
-    const user = await User.findByPk(id);
-    if (!user) throw new Error('User not found');
-    return user;
+  // ✅ Reset Password Execution
+  resetPassword: async (token, newPassword) => {
+    try {
+      const user = await User.findOne({ where: { reset_token: token, reset_token_expiry: { [Op.gt]: new Date() } } });
+      if (!user) {
+        throw new Error('Invalid or expired reset token');
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      user.password = hashedPassword;
+      user.reset_token = null;
+      user.reset_token_expiry = null;
+      await user.save();
+
+      return { message: 'Password reset successfully' };
+    } catch (err) {
+      console.error('❌ Password Reset Error:', err);
+      throw new Error('Failed to reset password');
+    }
   },
 
-  updateUser: async (id, updates) => {
-    const user = await User.findByPk(id);
-    if (!user) throw new Error('User not found');
-    Object.assign(user, updates);
-    await user.save();
-    return user;
+  // ✅ Activate User (called when user clicks on activation link)
+  activateUser: async (activationCode) => {
+    try {
+      const codeRecord = await ActivationCode.findOne({ where: { activation_code: activationCode } });
+      if (!codeRecord || codeRecord.expires_at < new Date()) {
+        throw new Error('Invalid or expired activation code');
+      }
+
+      const user = await User.findByPk(codeRecord.user_id);
+      user.status = 'active';
+      await user.save();
+
+      // Optionally, you can remove the activation code after successful activation
+      await codeRecord.destroy();
+
+      return { message: 'User activated successfully' };
+    } catch (err) {
+      console.error('❌ Activation Error:', err);
+      throw new Error('User activation failed');
+    }
   },
 
-  deleteUser: async (id) => {
-    const user = await User.findByPk(id);
-    if (!user) throw new Error('User not found');
-    await user.destroy();
-    return { message: 'User deleted successfully' };
+  // ✅ Refresh Token (to refresh JWT token)
+  refreshToken: async (oldToken) => {
+    try {
+      const decoded = jwt.verify(oldToken, JWT_SECRET);
+      const user = await User.findByPk(decoded.userId);
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const newToken = jwt.sign({ userId: user.id, tenantId: user.tenant_id }, JWT_SECRET, { expiresIn: '1h' });
+      return { newToken };
+    } catch (err) {
+      console.error('❌ Refresh Token Error:', err);
+      throw new Error('Failed to refresh token');
+    }
   },
 
-  // ✅ CRUD: Tenant
-  createTenant: async (data) => {
-    return await Tenant.create(data);
+  // ✅ Update User Profile
+  updateProfile: async (userId, updateData) => {
+    try {
+      const user = await User.findByPk(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      await user.update(updateData);
+      return { message: 'Profile updated successfully', user };
+    } catch (err) {
+      console.error('❌ Update Profile Error:', err);
+      throw new Error('Failed to update profile');
+    }
   },
 
-  getTenant: async (id) => {
-    const tenant = await Tenant.findByPk(id);
-    if (!tenant) throw new Error('Tenant not found');
-    return tenant;
+  // ✅ Delete User (Soft delete by setting status to 'deleted')
+  deleteUser: async (userId) => {
+    try {
+      const user = await User.findByPk(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      user.status = 'deleted';
+      await user.save();
+      return { message: 'User deleted successfully' };
+    } catch (err) {
+      console.error('❌ Delete User Error:', err);
+      throw new Error('Failed to delete user');
+    }
   },
 
-  updateTenant: async (id, updates) => {
-    const tenant = await Tenant.findByPk(id);
-    if (!tenant) throw new Error('Tenant not found');
-    Object.assign(tenant, updates);
-    await tenant.save();
-    return tenant;
-  },
-
-  deleteTenant: async (id) => {
-    const tenant = await Tenant.findByPk(id);
-    if (!tenant) throw new Error('Tenant not found');
-    await tenant.destroy();
-    return { message: 'Tenant deleted successfully' };
-  },
-
-  // ✅ CRUD: Subscription
-  createSubscription: async (data) => {
-    return await Subscription.create(data);
-  },
-
-  getSubscription: async (id) => {
-    const subscription = await Subscription.findByPk(id);
-    if (!subscription) throw new Error('Subscription not found');
-    return subscription;
-  },
-
-  updateSubscription: async (id, updates) => {
-    const subscription = await Subscription.findByPk(id);
-    if (!subscription) throw new Error('Subscription not found');
-    Object.assign(subscription, updates);
-    await subscription.save();
-    return subscription;
-  },
-
-  deleteSubscription: async (id) => {
-    const subscription = await Subscription.findByPk(id);
-    if (!subscription) throw new Error('Subscription not found');
-    await subscription.destroy();
-    return { message: 'Subscription deleted successfully' };
-  }
 };
 
 module.exports = authService;
-// Add a session token cookie, verify JWT in a middleware, or auto-login after activation!

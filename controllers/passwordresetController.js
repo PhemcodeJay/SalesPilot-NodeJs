@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { generateResetToken, verifyResetToken } = require('../services/passwordresetService');
-const User = require('../models/user');
+const { User } = require('../models');
 const { sendPasswordResetEmail } = require('../utils/emailUtils');
 
 // ✅ Request Password Reset
@@ -18,9 +18,10 @@ const requestPasswordReset = async (req, res) => {
     const { code } = await generateResetToken(user.id);
 
     // Send reset email with the generated token
-    await sendPasswordResetEmail(user.email, code);
+    const resetLink = `${process.env.FRONTEND_URL}/recoverpwd?token=${code}`;
+    await sendPasswordResetEmail(user, resetLink);
 
-    // Response with success message and standard data structure
+    // Response with success message and standardized data structure
     return res.status(200).json({
       message: 'Password reset email sent',
       data: { email: user.email }
