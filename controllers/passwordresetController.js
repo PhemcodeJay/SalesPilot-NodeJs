@@ -21,9 +21,9 @@ const requestPasswordReset = async (req, res) => {
     const resetLink = `${process.env.FRONTEND_URL}/recoverpwd?token=${code}`;
     await sendPasswordResetEmail(user, resetLink);
 
-    // Response with success message and standardized data structure
+    // Return standardized success response
     return res.status(200).json({
-      message: 'Password reset email sent',
+      message: 'Password reset email sent successfully',
       data: { email: user.email }
     });
   } catch (error) {
@@ -39,7 +39,6 @@ const resetPassword = async (req, res) => {
   try {
     // Verify the reset token using the service
     const resetEntry = await verifyResetToken(resetCode);
-
     if (!resetEntry) {
       return res.status(400).json({ error: 'Invalid or expired reset token' });
     }

@@ -101,6 +101,7 @@ const renewSubscriptions = async () => {
     const newEndDate = new Date();
     newEndDate.setMonth(newEndDate.getMonth() + planDetails.durationMonths);
 
+    // Make sure end date is at the end of the month if necessary
     if (newEndDate.getDate() !== now.getDate()) {
       newEndDate.setDate(0);
     }
@@ -121,7 +122,32 @@ const renewSubscriptions = async () => {
   }
 };
 
+// Get the current active subscription for a tenant
+const getActiveSubscription = async (tenantId) => {
+  const subscription = await models.Subscription.findOne({
+    where: {
+      tenant_id: tenantId,
+      status: 'Active',
+    },
+    order: [['created_at', 'DESC']],
+  });
+
+  return subscription;
+};
+
+// Get the subscription plan details for a tenant
+const getSubscriptionPlanDetails = async (tenantId) => {
+  const subscription = await getActiveSubscription(tenantId);
+  if (!subscription) {
+    throw new Error('No active subscription found for this tenant');
+  }
+
+  return PLANS[subscription.subscription_plan];
+};
+
 module.exports = {
   createSubscription,
   renewSubscriptions,
+  getActiveSubscription,
+  getSubscriptionPlanDetails,
 };

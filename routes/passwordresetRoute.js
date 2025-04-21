@@ -1,23 +1,43 @@
 const express = require('express');
-const { requestPasswordReset, resetPassword } = require('../controllers/passwordresetController');
+const { verifyResetToken } = require('../services/passwordresetService');
+const {
+  passwordResetRequestController,
+  passwordResetConfirmController
+} = require('../controllers/authController');
 
 const router = express.Router();
 
-// Serve the password recovery page (form to enter email)
+// ✅ Recover password (initial request)
 router.get('/recoverpwd', (req, res) => {
-  res.render('auth/recoverpwd'); // Ensure recoverpwd.ejs exists in your views folder
+  res.render('auth/recoverpwd');
 });
 
-// Serve the password reset page (form to enter new password)
-router.get('/passwordreset', (req, res) => {
-  const { token } = req.query; // optional: pass token to the view
-  res.render('auth/passwordreset', { token }); // Ensure passwordreset.ejs exists and accepts `token` if needed
+// ✅ Securely serve reset password form
+router.get('/passwordreset', async (req, res) => {
+  const { token } = req.query;
+
+  if (!token) {
+    return res.render('auth/reset-error', { message: 'Missing or invalid reset link.' });
+  }
+
+  try {
+    const tokenEntry = await verifyResetToken(token);
+    if (!tokenEntry) {
+      return res.render('auth/reset-error', { message: 'Reset link is invalid or has expired. Please request a new one.' });
+    }
+
+    // If token is valid, render the reset form with the token
+    res.render('auth/passwordreset', { token });
+  } catch (err) {
+    console.error('Token validation error:', err);
+    return res.render('auth/reset-error', { message: 'Something went wrong. Please try again.' });
+  }
 });
 
-// Handle password reset request (send email with reset link)
-router.post('/recoverpwd', requestPasswordReset);
+// ✅ Trigger password reset email
+router.post('/recoverpwd', passwordResetRequestController);
 
-// Handle password reset form submission (update password)
-router.post('/passwordreset', resetPassword);
+// ✅ Handle form submission with new password
+router.post('/passwordreset', passwordResetConfirmController);
 
 module.exports = router;

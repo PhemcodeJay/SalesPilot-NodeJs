@@ -74,6 +74,7 @@ const signUpController = async (req, res) => {
           features: JSON.parse(subscription.features),  // Make sure to parse the features if they are stored as JSON
           price: subscription.price,
         },
+        activationCode: activationCode,  // Include activation code if in development mode
       }
     });
   } catch (err) {

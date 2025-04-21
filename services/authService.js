@@ -4,12 +4,12 @@ const crypto = require('crypto');
 const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
 const { models, sequelize } = require('../config/db');
 const subscriptionService = require('./subscriptionService');
+const passwordResetService = require('./passwordresetService');
 
 const { User, Tenant, ActivationCode } = models;
 const { EMAIL_ENABLED, JWT_SECRET, CLIENT_URL, BASE_URL } = process.env;
 
 const authService = {
-
   // ✅ Sign Up
   signUp: async (userData, tenantData) => {
     const transaction = await sequelize.transaction();
@@ -45,6 +45,7 @@ const authService = {
 
       let activationCodeRecord = null;
 
+      // Handling activation code and email based on environment
       if (EMAIL_ENABLED) {
         // Generate an activation code in production mode
         const activationCode = crypto.randomBytes(20).toString('hex');
@@ -59,15 +60,15 @@ const authService = {
         await sendActivationEmail(user.email, activationCode);
       }
 
-      // In development mode, automatically activate the user
+      // In development mode, automatically activate the user and skip email sending
       if (!EMAIL_ENABLED) {
         user.status = 'active'; // Auto-activate user in dev mode
-        await user.save();
+        await user.save({ transaction });
       }
 
       await transaction.commit();
 
-      // Return the subscription data along with tenant and user
+      // Return the subscription data along with tenant, user, and activation code (if any)
       return { tenant, user, subscription, activationCode: activationCodeRecord ? activationCodeRecord.activation_code : null };
     } catch (err) {
       await transaction.rollback();
@@ -75,7 +76,7 @@ const authService = {
       throw new Error('Sign-up failed. Please try again.');
     }
   },
-  
+
   // ✅ Login
   login: async (email, password) => {
     try {
@@ -112,16 +113,11 @@ const authService = {
         throw new Error('User not found');
       }
 
-      // Generate reset token and expiration time
-      const resetToken = crypto.randomBytes(20).toString('hex');
-      const resetTokenExpiration = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-
-      user.reset_token = resetToken;
-      user.reset_token_expiry = resetTokenExpiration;
-      await user.save();
+      // Generate reset token and expiration time using the password reset service
+      const { code: resetToken } = await passwordResetService.generateResetToken(user.id);
 
       // Send password reset email
-      await sendPasswordResetEmail(user);
+      await sendPasswordResetEmail(user, resetToken);
 
       return { message: 'Password reset email sent' };
     } catch (err) {
@@ -133,9 +129,14 @@ const authService = {
   // ✅ Reset Password Execution
   resetPassword: async (token, newPassword) => {
     try {
-      const user = await User.findOne({ where: { reset_token: token, reset_token_expiry: { [Op.gt]: new Date() } } });
-      if (!user) {
+      const reset = await passwordResetService.verifyResetToken(token);
+      if (!reset) {
         throw new Error('Invalid or expired reset token');
+      }
+
+      const user = await User.findByPk(reset.user_id);
+      if (!user) {
+        throw new Error('User not found');
       }
 
       const hashedPassword = await bcrypt.hash(newPassword, 10);

@@ -18,7 +18,7 @@ const generateActivationCode = async (userId, transaction = null) => {
     user_id: userId,
     activation_code: hashedCode,
     expires_at: expiresAt,
-    created_at: new Date(),
+    created_at: new Date(), // Will match with the model's 'created_at'
   }, { transaction });
 
   return { rawCode, activationRecord };
@@ -54,7 +54,7 @@ const verifyActivationCode = async (submittedCode, userId) => {
       user_id: userId,
       expires_at: { [Op.gt]: now },
     },
-    order: [['created_at', 'DESC']],
+    order: [['created_at', 'DESC']], // Ensure we get the most recent code
   });
 
   if (!record) throw new Error('No valid activation code found or it has expired.');

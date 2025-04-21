@@ -1,59 +1,62 @@
 const express = require('express');
 const passport = require('passport');
 const tenantMiddleware = require('../middleware/tenantMiddleware');
+
 const {
   signUpController,
   loginController,
   logoutController,
-  activateUserController
-} = require('../controllers/authController');
+  activateUserController,
+  passwordResetRequestController,
+  passwordResetConfirmController
+} = require('../controllers/authController'); // include all updated controllers
 
-const passwordResetRouter = require('./passwordresetRoute');
 const router = express.Router();
 
-// Route for account activation (POST to ensure safe handling)
-router.post('/activate', activateUserController);  // Use POST for account activation
-
-// Serve login page (render the login form)
+// ✅ Serve login page
 router.get('/login', (req, res) => {
-  res.render('auth/login'); // Ensure auth/login.ejs exists for the login page
+  res.render('auth/login'); // Make sure auth/login.ejs exists
 });
 
-// Serve signup page (render the signup form)
+// ✅ Serve signup page
 router.get('/signup', (req, res) => {
-  res.render('auth/signup'); // Ensure auth/signup.ejs exists for the signup page
+  res.render('auth/signup'); // Make sure auth/signup.ejs exists
 });
 
-// Serve logout page (optional, may just redirect instead)
+// ✅ Serve logout page (optional)
 router.get('/logout', (req, res) => {
-  res.render('auth/logout'); // Ensure auth/logout.ejs exists (optional, if using a frontend button)
+  res.render('auth/logout'); // Optional view
 });
 
-// Route for account activation status (success/failure)
+// ✅ Activation page (GET)
+router.get('/activate', (req, res) => {
+  res.render('auth/activate'); // Show form or message page
+});
+
+// ✅ Activation status page (GET)
 router.get('/activation-status', (req, res) => {
-  res.render('auth/activation-status');  // Render the activation-status view
+  res.render('auth/activation-status'); // Show success or error
 });
 
-// Login logic (with tenant middleware)
-router.post('/login', tenantMiddleware, loginController);
-
-// Signup logic (to register a new user)
+// ✅ Signup logic (POST)
 router.post('/signup', signUpController);
 
-// Token-based login (using JWT authentication)
+// ✅ Login logic with tenant middleware
+router.post('/login', tenantMiddleware, loginController);
+
+// ✅ Token-based login using JWT auth
 router.post('/token-login', passport.authenticate('jwt', { session: false }), (req, res) => {
   res.status(200).json({ message: 'Authenticated', user: req.user });
 });
 
-// Logout logic (clear the user's session and cookies)
+// ✅ Logout logic (POST)
 router.post('/logout', logoutController);
 
-// Mount password reset routes (grouping them together under /password-reset)
-router.use('/password-reset', passwordResetRouter);
+// ✅ Account activation logic (POST)
+router.post('/activate', activateUserController);
 
-// Render the activation page (for GET requests to /activate)
-router.get('/activate', (req, res) => {
-  res.render('auth/activate');  // Ensure that auth/activate.ejs exists for the activation page
-});
+// ✅ Password Reset Flow (POST)
+router.post('/password-reset/request', passwordResetRequestController);   // Send email
+router.post('/password-reset/confirm', passwordResetConfirmController); // Confirm token + update password
 
 module.exports = router;
