@@ -13,3 +13,84 @@
     at Function.process_params (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:346:12)
     at next (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:280:10)
   
+
+    [2025-04-21T19:14:25.001Z] - Error occurred:
+    Cannot find module 'ejs'
+Require stack:
+- E:\Repositories\salespilot\node_modules\express\lib\view.js
+- E:\Repositories\salespilot\node_modules\express\lib\application.js
+- E:\Repositories\salespilot\node_modules\express\lib\express.js
+- E:\Repositories\salespilot\node_modules\express\index.js
+- E:\Repositories\salespilot\app.js
+    Stack: Error: Cannot find module 'ejs'
+Require stack:
+- E:\Repositories\salespilot\node_modules\express\lib\view.js
+- E:\Repositories\salespilot\node_modules\express\lib\application.js
+- E:\Repositories\salespilot\node_modules\express\lib\express.js
+- E:\Repositories\salespilot\node_modules\express\index.js
+- E:\Repositories\salespilot\app.js
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1239:15)
+    at Function._load (node:internal/modules/cjs/loader:1064:27)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:218:24)
+    at Module.require (node:internal/modules/cjs/loader:1325:12)
+    at require (node:internal/modules/helpers:136:16)
+    at new View (E:\Repositories\salespilot\node_modules\express\lib\view.js:81:14)
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:587:12)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at E:\Repositories\salespilot\app.js:84:36
+  
+
+    [2025-04-21T19:19:33.172Z] - Error occurred:
+    Cannot find module 'ejs'
+Require stack:
+- E:\Repositories\salespilot\node_modules\express\lib\view.js
+- E:\Repositories\salespilot\node_modules\express\lib\application.js
+- E:\Repositories\salespilot\node_modules\express\lib\express.js
+- E:\Repositories\salespilot\node_modules\express\index.js
+- E:\Repositories\salespilot\app.js
+    Stack: Error: Cannot find module 'ejs'
+Require stack:
+- E:\Repositories\salespilot\node_modules\express\lib\view.js
+- E:\Repositories\salespilot\node_modules\express\lib\application.js
+- E:\Repositories\salespilot\node_modules\express\lib\express.js
+- E:\Repositories\salespilot\node_modules\express\index.js
+- E:\Repositories\salespilot\app.js
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1239:15)
+    at Function._load (node:internal/modules/cjs/loader:1064:27)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:218:24)
+    at Module.require (node:internal/modules/cjs/loader:1325:12)
+    at require (node:internal/modules/helpers:136:16)
+    at new View (E:\Repositories\salespilot\node_modules\express\lib\view.js:81:14)
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:587:12)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at E:\Repositories\salespilot\app.js:83:32
+  
+
+    [2025-04-21T19:21:20.918Z] - Error occurred:
+    Cannot find module 'ejs'
+Require stack:
+- E:\Repositories\salespilot\node_modules\express\lib\view.js
+- E:\Repositories\salespilot\node_modules\express\lib\application.js
+- E:\Repositories\salespilot\node_modules\express\lib\express.js
+- E:\Repositories\salespilot\node_modules\express\index.js
+- E:\Repositories\salespilot\app.js
+    Stack: Error: Cannot find module 'ejs'
+Require stack:
+- E:\Repositories\salespilot\node_modules\express\lib\view.js
+- E:\Repositories\salespilot\node_modules\express\lib\application.js
+- E:\Repositories\salespilot\node_modules\express\lib\express.js
+- E:\Repositories\salespilot\node_modules\express\index.js
+- E:\Repositories\salespilot\app.js
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1239:15)
+    at Function._load (node:internal/modules/cjs/loader:1064:27)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:218:24)
+    at Module.require (node:internal/modules/cjs/loader:1325:12)
+    at require (node:internal/modules/helpers:136:16)
+    at new View (E:\Repositories\salespilot\node_modules\express\lib\view.js:81:14)
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:587:12)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at E:\Repositories\salespilot\app.js:83:32
+  

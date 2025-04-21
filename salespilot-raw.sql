@@ -1,3 +1,7 @@
+-- Database: salespilot
+-- ----------------------------
+-- Table structure 
+-- ----------------------------
 CREATE TABLE `tenants` (
   `id` CHAR(36) NOT NULL,
   `name` VARCHAR(255) NOT NULL,
@@ -8,7 +12,7 @@ CREATE TABLE `tenants` (
   `subscription_type` ENUM('trial', 'starter', 'business', 'enterprise') NOT NULL DEFAULT 'trial',
   `subscription_start_date` TIMESTAMP NOT NULL,
   `subscription_end_date` TIMESTAMP NOT NULL,
-  `created_at` TIMESTAMP NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` TIMESTAMP NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -18,21 +22,28 @@ CREATE TABLE `tenants` (
 
 CREATE TABLE `users` (
   `id` INT NOT NULL AUTO_INCREMENT,
-  `tenant_id` CHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,  -- Ensure CHAR(36) matches the tenants' table
-  `username` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
-  `last_name` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
-  `email` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
-  `password` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `tenant_id` CHAR(36) NOT NULL,
+  `username` VARCHAR(255) NOT NULL,
+  `phone` VARCHAR(255) NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `password` VARCHAR(255) NOT NULL,
+  `location` VARCHAR(255) NOT NULL,
+  `activation_token` VARCHAR(512) DEFAULT NULL,
+  `reset_token` VARCHAR(512) DEFAULT NULL,
+  `role` ENUM('sales', 'admin', 'manager') NOT NULL DEFAULT 'sales',
+  `reset_token_expiry` DATETIME DEFAULT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`),
+  KEY `tenant_id` (`tenant_id`),
   CONSTRAINT `users_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 
 CREATE TABLE `activation_codes` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `user_id` INT NOT NULL,
-  `activation_code` VARCHAR(100) COLLATE utf8mb4_general_ci NOT NULL,
+  `activation_code` VARCHAR(100) NOT NULL,
   `expires_at` TIMESTAMP NOT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -44,9 +55,9 @@ CREATE TABLE `activation_codes` (
 CREATE TABLE `password_resets` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `user_id` INT NOT NULL,
-  `reset_code` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `reset_code` VARCHAR(255) NOT NULL,
   `expires_at` TIMESTAMP NOT NULL,
-  `email` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -57,17 +68,20 @@ CREATE TABLE `password_resets` (
 
 CREATE TABLE `subscriptions` (
   `id` INT NOT NULL AUTO_INCREMENT,
-  `tenant_id` CHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `plan_name` VARCHAR(100) COLLATE utf8mb4_general_ci NOT NULL,
-  `plan_description` TEXT COLLATE utf8mb4_general_ci NOT NULL,
+  `tenant_id` CHAR(36) NOT NULL,
+  `plan_name` VARCHAR(100) NOT NULL,
+  `plan_description` TEXT NOT NULL,
   `plan_price` DECIMAL(10,2) NOT NULL,
   `start_date` DATE NOT NULL,
   `end_date` DATE NOT NULL,
-  `subscription_status` ENUM('active','inactive','expired') COLLATE utf8mb4_general_ci NOT NULL,
+  `subscription_status` ENUM('active','inactive','expired') NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `tenant_id` (`tenant_id`),
   CONSTRAINT `subscriptions_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 
 CREATE TABLE `categories` (
   `category_id` INT NOT NULL AUTO_INCREMENT,
