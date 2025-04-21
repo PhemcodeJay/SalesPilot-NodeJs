@@ -75,38 +75,7 @@ const authService = {
     }
   },
 
-  // ✅ Activate User (called when user clicks on activation link)
-  activateUser: async (activationCode) => {
-    try {
-      // Find activation code record
-      const codeRecord = await ActivationCode.findOne({ where: { activation_code: activationCode } });
-
-      if (!codeRecord || codeRecord.expires_at < new Date()) {
-        throw new Error('Invalid or expired activation code');
-      }
-
-      // Find the associated user
-      const user = await User.findByPk(codeRecord.user_id);
-
-      // If user is already active, no further action is required
-      if (user.status === 'active') {
-        throw new Error('Account is already activated');
-      }
-
-      // Update user status to active
-      user.status = 'active';
-      await user.save();
-
-      // Optionally, remove the activation code after successful activation
-      await codeRecord.destroy();
-
-      return { message: 'User activated successfully' };
-    } catch (err) {
-      console.error('❌ Activation Error:', err);
-      throw new Error('User activation failed');
-    }
-  },
-
+  
   // ✅ Login
   login: async (email, password) => {
     try {
