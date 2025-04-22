@@ -1,8 +1,9 @@
+// Import necessary modules and services
 const bcrypt = require('bcryptjs');
-const { User, ActivationCode } = require('../models');
+const { User } = require('../models');
 const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
 const PasswordResetService = require('../services/passwordresetService');
-const { signUp, login, resetPassword, activateUser, refreshToken } = require('../services/authService');
+const { signUp, login, activateUser, refreshToken } = require('../services/authService');
 const { rateLimitActivationRequests } = require('../middleware/rateLimiter');
 const { generateActivationCode } = require('../services/ActivationCodeService'); // Use the activation service
 

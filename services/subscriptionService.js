@@ -77,7 +77,7 @@ const createSubscription = async (tenantId, plan = 'trial', transaction = null) 
     price: planDetails.price,
   }, { transaction });
 
-  // Update tenant's subscription start and end dates
+  // Update tenant's subscription start and end dates within the same transaction
   tenant.subscription_start_date = now;
   tenant.subscription_end_date = endDate;
   await tenant.save({ transaction });

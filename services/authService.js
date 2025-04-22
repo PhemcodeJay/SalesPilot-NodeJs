@@ -40,7 +40,7 @@ const authService = {
         status: EMAIL_ENABLED ? 'inactive' : 'active', // Inactive if in prod mode
       }, { transaction });
 
-      // Create Subscription
+      // Create Subscription (trial period)
       const subscription = await subscriptionService.createSubscription(tenant.id, 'trial', transaction);
 
       let activationCodeRecord = null;
@@ -76,6 +76,7 @@ const authService = {
       throw new Error('Sign-up failed. Please try again.');
     }
   },
+
 
   // ✅ Login
   login: async (email, password) => {
