@@ -1,8 +1,8 @@
 module.exports = (sequelize, DataTypes) => {
   const User = sequelize.define('User', {
     id: {
-      type: DataTypes.UUID,  // Use UUID for consistency with Tenant
-      defaultValue: DataTypes.UUIDV4, // Automatically generate UUID
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
       allowNull: false,
     },
@@ -10,7 +10,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: 'tenants',  // Link to the tenants table
+        model: 'tenants',
         key: 'id',
       },
     },
@@ -68,27 +68,26 @@ module.exports = (sequelize, DataTypes) => {
     updatedAt: 'updated_at',
   });
 
-  // Associations
   User.associate = (models) => {
-    // A User belongs to one Tenant (one-to-one relationship)
+    // Belongs to a Tenant
     User.belongsTo(models.Tenant, {
       foreignKey: 'tenant_id',
       as: 'tenant',
-      onDelete: 'CASCADE',  // If tenant is deleted, the user should also be deleted
+      onDelete: 'CASCADE',
     });
 
-    // A User has one Subscription (one-to-one relationship)
+    // Has one Subscription
     User.hasOne(models.Subscription, {
       foreignKey: 'user_id',
       as: 'subscription',
-      onDelete: 'CASCADE',  // If user is deleted, subscription should be deleted
+      onDelete: 'CASCADE',
     });
 
-    // A User can have many ActivationCodes (one-to-many relationship)
+    // Has many ActivationCodes
     User.hasMany(models.ActivationCode, {
       foreignKey: 'user_id',
       as: 'activationCodes',
-      onDelete: 'CASCADE',  // If user is deleted, activation codes should also be deleted
+      onDelete: 'CASCADE',
     });
   };
 

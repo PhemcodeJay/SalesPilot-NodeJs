@@ -1,0 +1,49 @@
+<!-- views/error.ejs -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title><%= title || "Error" %></title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f8f8f8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: #333;
+      margin: 0;
+    }
+    .error-container {
+      text-align: center;
+      padding: 40px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+    h1 {
+      font-size: 3rem;
+      color: #d32f2f;
+    }
+    p {
+      font-size: 1.2rem;
+    }
+    a {
+      margin-top: 20px;
+      display: inline-block;
+      text-decoration: none;
+      color: #007bff;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="error-container">
+    <h1><%= statusCode || 500 %></h1>
+    <p><%= message || "Something went wrong." %></p>
+    <a href="/">Go to Home</a>
+  </div>
+</body>
+</html>

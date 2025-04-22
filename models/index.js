@@ -21,6 +21,10 @@ fs.readdirSync(modelsDirectory)
       if (typeof modelFn === "function") {
         const model = modelFn(sequelize, DataTypes);
         models[model.name] = model;
+
+        // Directly export each model
+        module.exports[model.name] = model;
+
         debug(`✅ Model ${model.name} loaded.`);
       }
     } catch (err) {
@@ -44,21 +48,22 @@ async function initializeTenantModels(tenantDbName) {
     const tenantSequelize = await getTenantDatabase(tenantDbName);
     const tenantModels = {};
 
-    // Load models using tenant DB instance
-    fs.readdirSync(modelsDirectory)
-      .filter((file) => file.endsWith(".js") && file !== baseFilename)
-      .forEach((file) => {
-        try {
-          const modelFn = require(path.join(modelsDirectory, file));
-          if (typeof modelFn === "function") {
-            const model = modelFn(tenantSequelize, DataTypes);
-            tenantModels[model.name] = model;
-            debug(`✅ Tenant model ${model.name} initialized.`);
-          }
-        } catch (err) {
-          console.error(`❌ Error initializing tenant model ${file}:`, err.message);
+    // Load tenant models using tenant DB instance
+    const tenantModelFiles = fs.readdirSync(modelsDirectory)
+      .filter((file) => file.endsWith(".js") && file !== baseFilename);
+
+    for (const file of tenantModelFiles) {
+      try {
+        const modelFn = require(path.join(modelsDirectory, file));
+        if (typeof modelFn === "function") {
+          const model = modelFn(tenantSequelize, DataTypes);
+          tenantModels[model.name] = model;
+          debug(`✅ Tenant model ${model.name} initialized.`);
         }
-      });
+      } catch (err) {
+        console.error(`❌ Error initializing tenant model ${file}:`, err.message);
+      }
+    }
 
     // Apply associations for tenant models
     Object.values(tenantModels).forEach((model) => {
@@ -76,8 +81,7 @@ async function initializeTenantModels(tenantDbName) {
   }
 }
 
-module.exports = {
-  sequelize,
-  models,
-  initializeTenantModels,
-};
+// Export core
+module.exports.sequelize = sequelize;
+module.exports.models = models;
+module.exports.initializeTenantModels = initializeTenantModels;

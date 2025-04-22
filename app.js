@@ -9,7 +9,7 @@ const morgan = require('morgan');
 const session = require('express-session');
 const passport = require('passport');
 const flash = require('connect-flash');
-
+const { v4: uuidv4 } = require('uuid');
 const { testConnection, syncModels, closeAllConnections, getTenantDb } = require('./config/db'); // Import functions from db.js
 const rateLimiter = require('./middleware/rateLimiter');
 const tenantMiddleware = require('./middleware/tenantMiddleware');
@@ -112,12 +112,26 @@ app.use((req, res, next) => {
   });
 });
 
-// ❗ Global Error Handler
+// ✅ Global Error Handler (only ONE!)
 app.use((err, req, res, next) => {
-  console.error('💥 Unexpected Error:', err.stack || err.message);
-  res.status(500).json({
-    error: 'Internal Server Error',
-    message: err.message || 'Something went wrong',
+  const statusCode = err.status || 500;
+  const message = err.message || 'Internal Server Error';
+
+  console.error('💥 Unexpected Error:', err.stack || message);
+
+  // Check if client expects JSON (API call)
+  if (req.xhr || req.headers.accept?.includes('application/json')) {
+    return res.status(statusCode).json({
+      error: 'Internal Server Error',
+      message,
+    });
+  }
+
+  // Otherwise, render error page
+  res.status(statusCode).render('error', {
+    title: 'Error',
+    statusCode,
+    message,
   });
 });
 
@@ -125,7 +139,6 @@ app.use((err, req, res, next) => {
 app.get('/ping', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
-
 
 // ✅ Start the server and initialize DBs
 app.listen(port, async () => {

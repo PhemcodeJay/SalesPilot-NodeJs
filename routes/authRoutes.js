@@ -9,40 +9,45 @@ const {
   activateUserController,
   passwordResetRequestController,
   passwordResetConfirmController
-} = require('../controllers/authController'); // Include all updated controllers
+} = require('../controllers/authController');
 
 const router = express.Router();
 
+// Use tenantMiddleware on routes that need tenant resolution
+router.get('/', tenantMiddleware, (req, res) => {
+  res.render('index'); // tenant_id will automatically be available in the view
+});
+
 // ✅ Serve login page
-router.get('/login', (req, res) => {
-  res.render('auth/login'); // Ensure auth/login.ejs exists
+router.get('/login', tenantMiddleware, (req, res) => {
+  res.render('auth/login'); // tenant_id will automatically be available in the view
 });
 
 // ✅ Serve signup page
-router.get('/signup', (req, res) => {
-  res.render('auth/signup'); // Ensure auth/signup.ejs exists
+router.get('/signup', tenantMiddleware, (req, res) => {
+  res.render('auth/signup'); // tenant_id will automatically be available in the view
 });
 
 // ✅ Serve logout page (optional)
-router.get('/logout', (req, res) => {
-  res.render('auth/logout'); // Optional view
+router.get('/logout', tenantMiddleware, (req, res) => {
+  res.render('auth/logout'); // tenant_id will automatically be available in the view
 });
 
 // ✅ Activation page (GET)
-router.get('/activate', (req, res) => {
-  res.render('auth/activate'); // Show form or message page
+router.get('/activate', tenantMiddleware, (req, res) => {
+  res.render('auth/activate'); // tenant_id will automatically be available in the view
 });
 
 // ✅ Activation status page (GET)
-router.get('/activation-status', (req, res) => {
-  res.render('auth/activation-status'); // Show success or error
+router.get('/activation-status', tenantMiddleware, (req, res) => {
+  res.render('auth/activation-status'); // tenant_id will automatically be available in the view
 });
 
 // ✅ Signup logic (POST)
-router.post('/signup', signUpController);
+router.post('/signup', tenantMiddleware, signUpController); // tenant_id will automatically be available
 
 // ✅ Login logic with tenant middleware
-router.post('/login', tenantMiddleware, loginController);
+router.post('/login', tenantMiddleware, loginController); // tenant_id will automatically be available
 
 // ✅ Token-based login using JWT auth
 router.post('/token-login', passport.authenticate('jwt', { session: false }), (req, res) => {
@@ -50,13 +55,13 @@ router.post('/token-login', passport.authenticate('jwt', { session: false }), (r
 });
 
 // ✅ Logout logic (POST)
-router.post('/logout', logoutController);
+router.post('/logout', tenantMiddleware, logoutController); // tenant_id will automatically be available
 
 // ✅ Account activation logic (POST)
-router.post('/activate', activateUserController);
+router.post('/activate', tenantMiddleware, activateUserController); // tenant_id will automatically be available
 
 // ✅ Password Reset Flow (POST)
-router.post('/password-reset/request', passwordResetRequestController);  // Send email
-router.post('/password-reset/confirm', passwordResetConfirmController);  // Confirm token + update password
+router.post('/password-reset/request', tenantMiddleware, passwordResetRequestController);  // tenant_id will automatically be available
+router.post('/password-reset/confirm', tenantMiddleware, passwordResetConfirmController);  // tenant_id will automatically be available
 
 module.exports = router;
