@@ -126,6 +126,7 @@ app.get('/ping', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+
 // ✅ Start the server and initialize DBs
 app.listen(port, async () => {
   console.log(`🚀 SalesPILOT Server is running at http://localhost:${port}`);
@@ -148,11 +149,20 @@ app.listen(port, async () => {
       try {
         const tenantDb = getTenantDb(trimmedTenantName);
         console.log(`✅ Tenant DB '${trimmedTenantName}' already exists.`);
+
+        // Sync tenant database models
+        await tenantDb.sequelize.sync({ force: false }); // Sync the models for the tenant
+        console.log(`✅ Tenant DB '${trimmedTenantName}' models synced.`);
       } catch (err) {
         // Handle case when tenant DB does not exist or needs creation
         console.log(`❌ Tenant DB '${trimmedTenantName}' not found. Creating it now...`);
         await createTenantDatabase(trimmedTenantName); // Create tenant DB
         console.log(`🛠️ Tenant DB '${trimmedTenantName}' initialized.`);
+
+        // Now get the tenant DB and sync models after creation
+        const tenantDb = getTenantDb(trimmedTenantName);
+        await tenantDb.sequelize.sync({ force: false }); // Sync the models for the new tenant
+        console.log(`✅ Tenant DB '${trimmedTenantName}' models synced.`);
       }
     }
 
@@ -182,8 +192,6 @@ const createTenantDatabase = async (tenantName) => {
     console.log(`🛠️ Tenant DB '${tenantName}' created successfully.`);
 
     // Optionally, you can also initialize tenant-specific tables here by syncing models
-
-    // Now get the tenant DB and sync the models to it
     const tenantDb = getTenantDb(tenantName);
     await tenantDb.sequelize.sync({ force: false }); // Sync the models for the new tenant
     console.log(`✅ Tenant DB '${tenantName}' initialized and models synced.`);
