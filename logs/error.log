@@ -136,3 +136,65 @@ title is not defined
     at E:\Repositories\salespilot\routes\passwordresetRoute.js:20:16
     at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
   
+
+    [2025-04-22T02:41:45.799Z] - Error occurred:
+    E:\Repositories\salespilot\views\auth\reset-error.ejs:6
+    4| <head>
+    5|   <meta charset="UTF-8">
+ >> 6|   <title><%= title || "Error" %></title>
+    7|   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    8|   <style>
+    9|     body {
+
+title is not defined
+    Stack: ReferenceError: E:\Repositories\salespilot\views\auth\reset-error.ejs:6
+    4| <head>
+    5|   <meta charset="UTF-8">
+ >> 6|   <title><%= title || "Error" %></title>
+    7|   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    8|   <style>
+    9|     body {
+
+title is not defined
+    at eval ("E:\\Repositories\\salespilot\\views\\auth\\reset-error.ejs":12:26)
+    at reset-error (E:\Repositories\salespilot\node_modules\ejs\lib\ejs.js:703:17)
+    at tryHandleCache (E:\Repositories\salespilot\node_modules\ejs\lib\ejs.js:274:36)
+    at exports.renderFile [as engine] (E:\Repositories\salespilot\node_modules\ejs\lib\ejs.js:491:10)
+    at View.render (E:\Repositories\salespilot\node_modules\express\lib\view.js:135:8)
+    at tryRender (E:\Repositories\salespilot\node_modules\express\lib\application.js:657:10)
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:609:3)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at E:\Repositories\salespilot\routes\passwordresetRoute.js:20:16
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+  
+
+    [2025-04-22T02:46:22.986Z] - Error occurred:
+    E:\Repositories\salespilot\views\auth\reset-error.ejs:6
+    4| <head>
+    5|   <meta charset="UTF-8">
+ >> 6|   <title><%= title || "Error" %></title>
+    7|   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    8|   <style>
+    9|     body {
+
+title is not defined
+    Stack: ReferenceError: E:\Repositories\salespilot\views\auth\reset-error.ejs:6
+    4| <head>
+    5|   <meta charset="UTF-8">
+ >> 6|   <title><%= title || "Error" %></title>
+    7|   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    8|   <style>
+    9|     body {
+
+title is not defined
+    at eval ("E:\\Repositories\\salespilot\\views\\auth\\reset-error.ejs":12:26)
+    at reset-error (E:\Repositories\salespilot\node_modules\ejs\lib\ejs.js:703:17)
+    at tryHandleCache (E:\Repositories\salespilot\node_modules\ejs\lib\ejs.js:274:36)
+    at exports.renderFile [as engine] (E:\Repositories\salespilot\node_modules\ejs\lib\ejs.js:491:10)
+    at View.render (E:\Repositories\salespilot\node_modules\express\lib\view.js:135:8)
+    at tryRender (E:\Repositories\salespilot\node_modules\express\lib\application.js:657:10)
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:609:3)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at E:\Repositories\salespilot\routes\passwordresetRoute.js:20:16
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+  
