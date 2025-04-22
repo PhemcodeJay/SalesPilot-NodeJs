@@ -51,7 +51,7 @@
 
                   <!-- Image Column -->
                   <div class="col-lg-5 content-right">
-                    <img src="/assets/images/login/side-bkgpng" class="img-fluid image-right" alt="Activation Illustration" />
+                    <img src="/assets/images/login/side-bkg.png" class="img-fluid image-right" alt="Activation Illustration" />
                   </div>
                 </div>
               </div>
@@ -86,59 +86,60 @@
   <script src="/assets/js/app.js"></script>
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const activationForm = document.getElementById('activation-form');
-      const activationCodeInput = document.getElementById('activation-code');
-      const errorElement = document.getElementById('activation-code-error');
-      const resendButton = document.getElementById('resendButton');
+document.addEventListener('DOMContentLoaded', () => {
+  const activationForm = document.getElementById('activation-form');
+  const activationCodeInput = document.getElementById('activation-code');
+  const errorElement = document.getElementById('activation-code-error');
+  const resendButton = document.getElementById('resendButton');
 
-      activationForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        errorElement.textContent = '';
-        const activationCode = activationCodeInput.value.trim();
+  activationForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorElement.textContent = '';
+    const activationCode = activationCodeInput.value.trim();
 
-        if (!activationCode) {
-          errorElement.textContent = 'Activation code is required.';
-          return;
-        }
+    if (!activationCode) {
+      errorElement.textContent = 'Activation code is required.';
+      return;
+    }
 
-        try {
-          const response = await fetch('/auth/activate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ activationCode })
-          });
-
-          const data = await response.json();
-
-          if (response.ok) {
-            $('#successModal').modal('show');
-          } else {
-            errorElement.textContent = data.error || 'Invalid or expired activation code.';
-          }
-        } catch (err) {
-          errorElement.textContent = 'An error occurred. Please try again later.';
-        }
+    try {
+      const response = await fetch('/auth/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activationCode })
       });
 
-      resendButton.addEventListener('click', async () => {
-        try {
-          const response = await fetch('/auth/resend-activation', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-          });
+      const data = await response.json();
 
-          const data = await response.json();
-          if (data.success) {
-            alert('A new activation code has been sent to your email.');
-          } else {
-            alert(data.error || 'Failed to resend activation code.');
-          }
-        } catch {
-          alert('An error occurred while resending the activation code.');
-        }
+      if (response.ok) {
+        $('#successModal').modal('show');
+      } else {
+        errorElement.textContent = data.error || 'Invalid or expired activation code.';
+      }
+    } catch (err) {
+      errorElement.textContent = 'An error occurred. Please try again later.';
+    }
+  });
+
+  resendButton.addEventListener('click', async () => {
+    try {
+      const response = await fetch('/auth/resend-activation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
       });
-    });
+
+      const data = await response.json();
+      if (data.success) {
+        alert('A new activation code has been sent to your email.');
+      } else {
+        alert(data.error || 'Failed to resend activation code.');
+      }
+    } catch {
+      alert('An error occurred while resending the activation code.');
+    }
+  });
+});
+
   </script>
 </body>
 </html>

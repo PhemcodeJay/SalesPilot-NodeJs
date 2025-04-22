@@ -40,7 +40,7 @@
           You have been successfully logged out.
         </div>
         <div class="modal-footer">
-          <a href="/login" class="btn btn-primary w-100">Go to Login</a>
+          <a href="/" class="btn btn-primary w-100">Go to Home</a>
         </div>
       </div>
     </div>
@@ -61,9 +61,14 @@
       })
       .then(response => response.json())
       .then(data => {
-        if (data.success || data.message === 'Logged out') {
+        if (data.message === 'Logged out successfully') {
           const logoutModal = new bootstrap.Modal(document.getElementById('logoutModal'));
           logoutModal.show();
+
+          // Redirect to homepage after 2 seconds
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000); // Adjust the delay as needed
         } else {
           alert("Logout failed. Please try again.");
         }

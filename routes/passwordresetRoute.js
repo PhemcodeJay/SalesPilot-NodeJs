@@ -1,15 +1,15 @@
 const express = require('express');
-const { verifyResetToken } = require('../services/passwordresetService');
+const { verifyResetToken } = require('../services/passwordresetService');  // Importing the password service
 const {
-  passwordResetRequestController,
-  passwordResetConfirmController
-} = require('../controllers/authController');
+  requestPasswordReset,  // Use the updated controller method
+  resetPassword         // Use the updated controller method
+} = require('../controllers/passwordresetController');  // Updated to use the passwordController
 
 const router = express.Router();
 
 // ✅ Recover password (initial request)
 router.get('/recoverpwd', (req, res) => {
-  res.render('auth/recoverpwd');  // Make sure auth/recoverpwd.ejs exists
+  res.render('auth/recoverpwd');  // Ensure that the 'auth/recoverpwd.ejs' file exists
 });
 
 // ✅ Securely serve reset password form
@@ -35,9 +35,9 @@ router.get('/passwordreset', async (req, res) => {
 });
 
 // ✅ Trigger password reset email
-router.post('/recoverpwd', passwordResetRequestController);  // Send email
+router.post('/recoverpwd', requestPasswordReset);  // Send email using controller
 
 // ✅ Handle form submission with new password
-router.post('/passwordreset', passwordResetConfirmController);  // Confirm token + update password
+router.post('/passwordreset', resetPassword);  // Confirm token + update password using controller
 
 module.exports = router;

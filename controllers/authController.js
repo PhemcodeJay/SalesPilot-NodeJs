@@ -1,9 +1,10 @@
 const bcrypt = require('bcryptjs');
-const { User } = require('../models');
+const { User, ActivationCode } = require('../models');
+const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
 const PasswordResetService = require('../services/passwordresetService');
-const { sendPasswordResetEmail } = require('../utils/emailUtils');
 const { signUp, login, resetPassword, activateUser, refreshToken } = require('../services/authService');
 const { rateLimitActivationRequests } = require('../middleware/rateLimiter');
+const { generateActivationCode } = require('../services/ActivationCodeService'); // Use the activation service
 
 // ✅ SignUp Controller
 const signUpController = async (req, res) => {
@@ -17,6 +18,7 @@ const signUpController = async (req, res) => {
     tenantEmail,
     tenantPhone,
     tenantAddress,
+    role = 'sales',  // Default to 'sales' if role is not provided
   } = req.body;
 
   try {
@@ -33,7 +35,7 @@ const signUpController = async (req, res) => {
       password,
       phone,
       location,
-      role: 'sales',  // Default role as sales
+      role,  // Assign role dynamically (default 'sales')
     };
 
     const tenantData = {
@@ -46,6 +48,7 @@ const signUpController = async (req, res) => {
     // Perform signup and create the user, tenant, and subscription
     const { user, tenant, subscription, activationCode } = await signUp(userData, tenantData);
 
+    // Sending response with the created data
     res.status(201).json({
       message: 'User and tenant registered successfully. Please check your email to activate your account.',
       data: {
@@ -71,11 +74,11 @@ const signUpController = async (req, res) => {
           status: subscription.status,
           startDate: subscription.start_date,
           endDate: subscription.end_date,
-          features: JSON.parse(subscription.features),  // Make sure to parse the features if they are stored as JSON
+          features: subscription.features ? JSON.parse(subscription.features) : [],  // Ensure features are parsed as JSON if needed
           price: subscription.price,
         },
         activationCode: activationCode,  // Include activation code if in development mode
-      }
+      },
     });
   } catch (err) {
     console.error('SignUp error:', err);
@@ -172,23 +175,47 @@ const passwordResetConfirmController = async (req, res) => {
 
 // ✅ Account Activation Controller
 const activateUserController = async (req, res) => {
+  const { activationCode, email, action, userId } = req.body;
+
   try {
-    const { activationCode } = req.query;
+    if (action === 'activate') {
+      // Handle account activation
+      if (!activationCode || !userId) {
+        return res.status(400).json({ error: 'Activation code and user ID are required.' });
+      }
 
-    // Ensure required query parameter
-    if (!activationCode) {
-      return res.status(400).json({ error: 'Missing activation code' });
+      // Verify the activation code
+      const success = await activateUser(activationCode, userId);
+      if (success) {
+        return res.status(200).json({ success: 'Account successfully activated.' });
+      }
+
+      return res.status(400).json({ error: 'Failed to activate account. Please check your code.' });
+
+    } else if (action === 'resend') {
+      // Handle resending activation code
+      if (!email) {
+        return res.status(400).json({ error: 'Email is required to resend the activation code.' });
+      }
+
+      // Find the user by email
+      const user = await User.findOne({ where: { email, status: 'inactive' } });
+
+      if (!user) {
+        return res.status(400).json({ error: 'No unactivated user found with this email.' });
+      }
+
+      // Generate and send activation code to the user
+      await sendActivationEmail(user.email, await generateActivationCode(user.id));
+
+      return res.status(200).json({ success: 'A new activation code has been sent to your email.' });
+
+    } else {
+      return res.status(400).json({ error: 'Invalid action. Please specify "activate" or "resend".' });
     }
-
-    // Activate the user
-    await activateUser(activationCode);
-
-    res.status(200).json({
-      message: 'Account activated successfully.'
-    });
   } catch (error) {
-    console.error('Activation error:', error);
-    res.status(400).json({ error: error.message });
+    console.error('Error handling activation:', error);
+    return res.status(500).json({ error: 'An error occurred while processing the request.' });
   }
 };
 

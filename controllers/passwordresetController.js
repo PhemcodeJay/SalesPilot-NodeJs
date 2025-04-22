@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
-const { generateResetToken, verifyResetToken } = require('../services/passwordresetService');
-const { User } = require('../models');
 const { sendPasswordResetEmail } = require('../utils/emailUtils');
+const PasswordResetService = require('../services/passwordresetService');  // Importing the password reset service
+const { User } = require('../models');  // Import User model
 
 // ✅ Request Password Reset
 const requestPasswordReset = async (req, res) => {
@@ -15,11 +15,11 @@ const requestPasswordReset = async (req, res) => {
     }
 
     // Generate reset token using the service
-    const { code } = await generateResetToken(user.id);
+    const { code } = await PasswordResetService.generateResetToken(user.id);
 
     // Send reset email with the generated token
     const resetLink = `${process.env.FRONTEND_URL}/recoverpwd?token=${code}`;
-    await sendPasswordResetEmail(user.email, resetLink);  // Updated for clarity
+    await sendPasswordResetEmail(user, resetLink);  // Send the email with the reset link
 
     // Return standardized success response
     return res.status(200).json({
@@ -37,36 +37,16 @@ const resetPassword = async (req, res) => {
   const { resetCode, newPassword } = req.body;
 
   try {
-    // Verify the reset token using the service
-    const resetEntry = await verifyResetToken(resetCode);
-    if (!resetEntry) {
-      return res.status(400).json({ error: 'Invalid or expired reset token' });
-    }
-
-    // Find the user by user_id in the reset entry
-    const user = await User.findByPk(resetEntry.user_id);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Hash the new password
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
-
-    // Update the user's password
-    user.password = hashedPassword;
-    await user.save();
-
-    // Delete the password reset entry (used once)
-    await resetEntry.destroy();
+    // Reset the password using the service
+    await PasswordResetService.resetPassword(resetCode, newPassword);  // Calling the service to reset the password
 
     // Return successful response with standardized payload
     return res.status(200).json({
-      message: 'Password successfully reset',
-      data: { userId: user.id, email: user.email }
+      message: 'Password successfully reset'
     });
   } catch (error) {
     console.error('Error in resetPassword:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: error.message });  // Return specific error message from the service
   }
 };
 

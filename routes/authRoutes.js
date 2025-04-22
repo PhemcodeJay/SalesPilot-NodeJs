@@ -8,7 +8,8 @@ const {
   logoutController,
   activateUserController,
   passwordResetRequestController,
-  passwordResetConfirmController
+  passwordResetConfirmController,
+  refreshTokenController,
 } = require('../controllers/authController');
 
 const router = express.Router();
@@ -63,5 +64,8 @@ router.post('/activate', tenantMiddleware, activateUserController); // tenant_id
 // ✅ Password Reset Flow (POST)
 router.post('/password-reset/request', tenantMiddleware, passwordResetRequestController);  // tenant_id will automatically be available
 router.post('/password-reset/confirm', tenantMiddleware, passwordResetConfirmController);  // tenant_id will automatically be available
+
+// ✅ Refresh Token Flow (POST)
+router.post('/refresh-token', tenantMiddleware, refreshTokenController);  // tenant_id will automatically be available
 
 module.exports = router;
