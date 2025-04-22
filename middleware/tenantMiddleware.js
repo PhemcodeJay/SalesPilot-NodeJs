@@ -1,5 +1,5 @@
 const path = require('path');
-const { Tenant } = require('../models'); // Main DB models
+const { Tenant, User, Subscription } = require('../models'); // Main DB models
 const { getTenantDb } = require('../config/db'); // Utility for tenant DB instance
 const { v4: uuidv4 } = require('uuid');
 
@@ -8,7 +8,7 @@ const { v4: uuidv4 } = require('uuid');
  */
 const tenantMiddleware = async (req, res, next) => {
   try {
-    // ✅ Bypass tenant check for public or auth routes
+    // ✅ Bypass tenant check for public or auth routes (signup and login)
     const skipRoutes = ['/', '/signup', '/login'];
     if (skipRoutes.includes(req.path) || req.path.startsWith('/public') || path.extname(req.path)) {
       return next();
@@ -34,11 +34,11 @@ const tenantMiddleware = async (req, res, next) => {
     if (!tenant) {
       console.warn(`❌ Tenant with ID "${tenantId}" not found.`);
 
-      // Optional: Create a new default tenant (only for dev or testing)
+      // Create a new tenant if not found (only for dev/testing, optional for production)
       tenant = await Tenant.create({
         id: tenantId,
-        name: 'Default Tenant',
-        email: `default-${tenantId}@example.com`,
+        name: 'Default Tenant', // Replace with dynamic tenant name logic (e.g., from request body)
+        email: `default-${tenantId}@example.com`, // Replace with dynamic email
         subscription_start_date: new Date(),
         subscription_end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days trial
       });
@@ -54,11 +54,46 @@ const tenantMiddleware = async (req, res, next) => {
     // ✅ Make tenantId available in all views (if using EJS, can be accessed here)
     res.locals.tenantId = tenantId;
 
+    // Now that the tenant exists, proceed to create a user and subscription
+    if (req.path === '/signup' && req.body) {
+      // Create a new user associated with the tenant
+      const { username, email, password, role, phone, location } = req.body;
+
+      const user = await User.create({
+        tenant_id: tenantId,
+        username,
+        email,
+        password,  // Ensure password is hashed before saving (via service or bcrypt middleware)
+        role: role || 'sales',  // Default to 'sales' if no role provided
+        phone,
+        location,
+      });
+
+      console.log(`✅ Created user: ${user.username}`);
+
+      // Create the subscription for the user
+      const subscription = await Subscription.create({
+        tenant_id: tenantId,
+        user_id: user.id,
+        subscription_plan: 'trial',  // Default to trial subscription
+        start_date: new Date(),
+        end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days trial
+        status: 'Active',
+        is_free_trial_used: false,  // Optional flag for trial status
+      });
+
+      console.log(`✅ Created subscription for user: ${user.username}`);
+
+      // Attach the created user and subscription to the request for further use (e.g., login, etc.)
+      req.user = user;  // Make user available for next middleware or routes
+      req.subscription = subscription;  // Make subscription available for next middleware or routes
+    }
+
     // ✅ Proceed to the next middleware/route
     next();
   } catch (err) {
     console.error('💥 Tenant Middleware Error:', err.message);
-    
+
     // Handle errors and display error message to the user
     res.status(500).render('error', {
       title: 'Tenant Error',

@@ -1,9 +1,10 @@
-const { PasswordReset, User } = require('../models'); // Import models correctly
+const { PasswordReset, User } = require('../models');
+const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const { Op } = require('sequelize');  // Sequelize operators for comparison
 
 // Generate a reset token for password reset
-exports.generateResetToken = async (userId) => {
+exports.generateResetToken = async (userId, transaction = null) => {
   const code = uuidv4();  // Generate a unique UUID as the reset token
   const expirationTime = new Date();
   expirationTime.setHours(expirationTime.getHours() + 1); // Set expiry to 1 hour from now
@@ -13,13 +14,13 @@ exports.generateResetToken = async (userId) => {
     reset_code: code,
     expires_at: expirationTime,  // Set the expiry date for the token
     created_at: new Date(),  // Use the correct field name
-  });
+  }, { transaction });
 
   return { code, resetRecord };
 };
 
 // Verify the reset token's validity
-exports.verifyResetToken = async (code) => {
+exports.verifyResetToken = async (code, transaction = null) => {
   const now = new Date();
 
   const reset = await PasswordReset.findOne({
@@ -27,6 +28,7 @@ exports.verifyResetToken = async (code) => {
       reset_code: code,
       expires_at: { [Op.gt]: now }, // Check if the token has not expired
     },
+    transaction,  // Ensure the transaction is passed if needed
   });
 
   if (!reset) return null;  // Return null if token doesn't exist or has expired
@@ -35,15 +37,15 @@ exports.verifyResetToken = async (code) => {
 };
 
 // Reset the password for the user
-exports.resetPassword = async (resetCode, newPassword) => {
+exports.resetPassword = async (resetCode, newPassword, transaction = null) => {
   // Verify the reset token's validity
-  const resetRecord = await this.verifyResetToken(resetCode);
+  const resetRecord = await this.verifyResetToken(resetCode, transaction);
   if (!resetRecord) {
     throw new Error('Invalid or expired reset token');
   }
 
   // Find the user associated with the reset token
-  const user = await User.findByPk(resetRecord.user_id);
+  const user = await User.findByPk(resetRecord.user_id, { transaction });
   if (!user) {
     throw new Error('User not found');
   }
@@ -53,10 +55,10 @@ exports.resetPassword = async (resetCode, newPassword) => {
 
   // Update the user's password
   user.password = hashedPassword;
-  await user.save();
+  await user.save({ transaction });
 
   // Optionally, destroy the reset token after the password has been reset
-  await resetRecord.destroy();
+  await resetRecord.destroy({ transaction });
 
   return true;
 };

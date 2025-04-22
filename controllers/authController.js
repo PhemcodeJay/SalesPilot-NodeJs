@@ -1,11 +1,10 @@
-// Import necessary modules and services
 const bcrypt = require('bcryptjs');
 const { User } = require('../models');
 const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
 const PasswordResetService = require('../services/passwordresetService');
 const { signUp, login, activateUser, refreshToken } = require('../services/authService');
 const { rateLimitActivationRequests } = require('../middleware/rateLimiter');
-const { generateActivationCode } = require('../services/ActivationCodeService'); // Use the activation service
+const { generateActivationCode } = require('../services/ActivationCodeService');
 
 // ✅ SignUp Controller
 const signUpController = async (req, res) => {
@@ -49,9 +48,14 @@ const signUpController = async (req, res) => {
     // Perform signup and create the user, tenant, and subscription
     const { user, tenant, subscription, activationCode } = await signUp(userData, tenantData);
 
+    // Response depends on EMAIL_ENABLED flag
+    const responseMessage = process.env.EMAIL_ENABLED === 'false'
+      ? 'User and tenant registered successfully. Your account is active.'
+      : 'User and tenant registered successfully. Please check your email to activate your account.';
+
     // Sending response with the created data
     res.status(201).json({
-      message: 'User and tenant registered successfully. Please check your email to activate your account.',
+      message: responseMessage,
       data: {
         user: {
           id: user.id,

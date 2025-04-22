@@ -26,13 +26,15 @@ const PLANS = {
 
 // Create a new subscription
 const createSubscription = async (tenantId, plan = 'trial', transaction = null) => {
+  // Validate tenant
   const tenant = await models.Tenant.findByPk(tenantId, { transaction });
   if (!tenant) throw new Error('Tenant not found.');
 
+  // Get plan details
   const planDetails = PLANS[plan];
   if (!planDetails) throw new Error('Invalid subscription plan.');
 
-  // Check if tenant has already used a free trial
+  // Check if the tenant has already used the free trial
   if (plan === 'trial') {
     const trialUsed = await models.Subscription.findOne({
       where: {
@@ -57,15 +59,17 @@ const createSubscription = async (tenantId, plan = 'trial', transaction = null) 
     transaction,
   });
 
+  // If there is an active subscription that hasn't expired, throw an error
   if (existingSubscription && new Date(existingSubscription.end_date) > new Date()) {
     throw new Error('Tenant already has an active subscription.');
   }
 
+  // Calculate start and end dates
   const now = new Date();
   const endDate = new Date();
   endDate.setMonth(now.getMonth() + planDetails.durationMonths);
 
-  // Create the subscription record in the database
+  // Create the subscription in the database
   const subscription = await models.Subscription.create({
     tenant_id: tenant.id,
     subscription_plan: plan,
@@ -77,7 +81,7 @@ const createSubscription = async (tenantId, plan = 'trial', transaction = null) 
     price: planDetails.price,
   }, { transaction });
 
-  // Update tenant's subscription start and end dates within the same transaction
+  // Update tenant's subscription start and end dates in the same transaction
   tenant.subscription_start_date = now;
   tenant.subscription_end_date = endDate;
   await tenant.save({ transaction });
@@ -101,16 +105,17 @@ const renewSubscriptions = async () => {
     const newEndDate = new Date();
     newEndDate.setMonth(newEndDate.getMonth() + planDetails.durationMonths);
 
-    // Make sure end date is at the end of the month if necessary
+    // Ensure the end date is at the end of the month if necessary
     if (newEndDate.getDate() !== now.getDate()) {
-      newEndDate.setDate(0);
+      newEndDate.setDate(0); // Set to the last day of the previous month
     }
 
+    // Update subscription end date and status
     sub.end_date = newEndDate;
     sub.status = 'Renewed';
     await sub.save();
 
-    // Also update tenant's subscription dates
+    // Also update the tenant's subscription dates
     const tenant = await models.Tenant.findByPk(sub.tenant_id);
     if (tenant) {
       tenant.subscription_start_date = now;

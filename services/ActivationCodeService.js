@@ -47,6 +47,11 @@ const buildActivationEmail = (email, code, userId) => {
  * Send Activation Email to New User
  */
 const sendActivationEmail = async (user, transaction = null) => {
+  // Check if the user is already active
+  if (user.status === 'active') {
+    throw new Error('User is already active. No need to send activation email.');
+  }
+
   // Generate activation code and save it, passing transaction if necessary
   const { rawCode } = await generateActivationCode(user.id, transaction); 
 
@@ -84,12 +89,17 @@ const verifyActivationCode = async (submittedCode, userId, transaction = null) =
   const user = await User.findByPk(userId, { transaction });
   if (!user) throw new Error('User not found.');
 
+  // Ensure user is not already active
+  if (user.status === 'active') {
+    throw new Error('User account is already active.');
+  }
+
   // Update user status to 'active'
   user.status = 'active';
   await user.save({ transaction });
 
-  // Optional: Soft-delete or log the activation code instead of destroying it
-  await record.destroy({ transaction }); // Optionally log instead of deleting
+  // Soft-delete or log the activation code instead of destroying it (optional)
+  await record.destroy({ transaction });
 
   return true;
 };

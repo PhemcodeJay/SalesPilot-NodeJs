@@ -19,7 +19,12 @@ async function sendActivationEmail(email, code) {
     from: process.env.EMAIL_USER,
     to: email,
     subject: 'Activate Your Account',
-    text: `Click the following link to activate your account: ${link}`,
+    html: `
+      <h2>Welcome to Our Service</h2>
+      <p>To activate your account, click the following link:</p>
+      <a href="${link}">${link}</a>
+      <p>If you did not request this activation, please ignore this email.</p>
+    `, // HTML formatted email
   };
 
   try {
@@ -43,15 +48,21 @@ async function sendPasswordResetEmail(user) {
   // Construct the reset link
   const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 
-  // Email subject and message
+  // Email subject and message with HTML formatting
   const subject = 'Password Reset Request';
-  const message = `Hello ${user.name},\n\nYou requested a password reset. Click the link below to reset your password:\n\n${resetLink}\n\nIf you did not request this, please ignore this email.\n\nThanks, The YourApp Team`;
+  const message = `
+    <h3>Hello ${user.name},</h3>
+    <p>You requested a password reset. To reset your password, click the link below:</p>
+    <a href="${resetLink}">Reset Password</a>
+    <p>This link will expire in 1 hour. If you did not request this, please ignore this email.</p>
+    <p>Thanks,<br />The YourApp Team</p>
+  `;
 
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: user.email,
     subject: subject,
-    text: message,
+    html: message,  // HTML formatted email
   };
 
   try {

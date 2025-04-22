@@ -37,8 +37,13 @@ const resetPassword = async (req, res) => {
   const { resetCode, newPassword } = req.body;
 
   try {
-    // Reset the password using the service
-    await PasswordResetService.resetPassword(resetCode, newPassword);  // Calling the service to reset the password
+    // Verify reset code and reset the password using the service
+    const resetStatus = await PasswordResetService.resetPassword(resetCode, newPassword);
+    
+    // If no reset was done, throw an error
+    if (!resetStatus) {
+      return res.status(400).json({ error: 'Invalid or expired reset code' });
+    }
 
     // Return successful response with standardized payload
     return res.status(200).json({
@@ -46,7 +51,7 @@ const resetPassword = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in resetPassword:', error);
-    return res.status(500).json({ error: error.message });  // Return specific error message from the service
+    return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 };
 

@@ -6,8 +6,8 @@ const { models, sequelize } = require('../config/db');
 const subscriptionService = require('./subscriptionService');
 const passwordResetService = require('./passwordresetService');
 
-const { User, Tenant, ActivationCode, PasswordReset } = models;
-const { EMAIL_ENABLED, JWT_SECRET, CLIENT_URL, BASE_URL } = process.env;
+const { User, Tenant, ActivationCode } = models;
+const { EMAIL_ENABLED, JWT_SECRET } = process.env;
 
 // Helper function to get status based on email enabled flag
 const getStatus = () => EMAIL_ENABLED ? 'inactive' : 'active';
@@ -18,6 +18,8 @@ const authService = {
     const transaction = await sequelize.transaction();
     try {
       const now = new Date();
+      const endDate = new Date(now);
+      endDate.setMonth(endDate.getMonth() + 3); // Subscription trial period (3 months)
 
       // Create Tenant
       const tenant = await Tenant.create({
@@ -27,7 +29,7 @@ const authService = {
         address: tenantData.address,
         status: getStatus(),  // Use helper function
         subscription_start_date: now,
-        subscription_end_date: new Date(now.setMonth(now.getMonth() + 3)), // 3-month trial
+        subscription_end_date: endDate,
       }, { transaction });
 
       // Create User
