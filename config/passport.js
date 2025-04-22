@@ -1,9 +1,10 @@
+require('dotenv').config(); // Load environment variables first
+
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
-const { User } = require('../models');  // Import the User model at the top
 
 // Setup Passport local strategy for login (username or email)
 passport.use(
@@ -14,6 +15,9 @@ passport.use(
     },
     async (usernameOrEmail, password, done) => {
       try {
+        // Import the models directly from db.js
+        const { User } = require('./db').models;
+
         // Find user by either email or username
         const user = await User.findOne({
           where: {
@@ -48,6 +52,7 @@ passport.serializeUser((user, done) => {
 // Deserialize user from session
 passport.deserializeUser(async (userId, done) => {
   try {
+    const { User } = require('./db').models;
     const user = await User.findByPk(userId);
     if (!user) {
       return done(new Error('User not found'), null);
@@ -72,6 +77,7 @@ passport.use(
     },
     async (jwtPayload, done) => {
       try {
+        const { User } = require('./db').models;
         // Find user by ID from JWT payload
         const user = await User.findByPk(jwtPayload.id);
         if (!user) {

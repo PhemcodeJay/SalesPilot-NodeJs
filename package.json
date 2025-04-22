@@ -19,7 +19,7 @@
     "cors": "^2.8.5",
     "debug": "^4.4.0",
     "desandro-matches-selector": "^2.0.2",
-    "dotenv": "^16.4.7",
+    "dotenv": "^16.5.0",
     "ejs": "^3.1.10",
     "ev-emitter": "^2.1.2",
     "express": "^4.21.2",
@@ -42,7 +42,8 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
-    "sequelize": "^6.37.5",
+    "path": "^0.12.7",
+    "sequelize": "^6.37.7",
     "uuid": "^11.1.0"
   },
   "devDependencies": {

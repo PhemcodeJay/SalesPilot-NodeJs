@@ -10,13 +10,7 @@ const session = require('express-session');
 const passport = require('passport');
 const flash = require('connect-flash');
 
-const {
-  testConnection,
-  syncModels,
-  tenantDBs,
-  createTenantDatabase,
-  closeAllConnections
-} = require('./config/db');
+const { testConnection, syncModels, closeAllConnections, getTenantDb } = require('./config/db'); // Import functions from db.js
 const rateLimiter = require('./middleware/rateLimiter');
 const tenantMiddleware = require('./middleware/tenantMiddleware');
 const authenticateUser = require('./middleware/authenticateUser');
@@ -127,7 +121,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-
 // ✅ Health-check route
 app.get('/ping', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -139,8 +132,8 @@ app.listen(port, async () => {
 
   try {
     // 🔗 Test and sync admin DB
-    await testConnection();
-    await syncModels();
+    await testConnection();   // Test the connection to the main admin DB
+    await syncModels();       // Sync the models for the admin DB
     console.log('✅ Main (Admin) DB Connected & Models Synced Successfully');
 
     // 📦 Optionally load default tenant DBs from config or list
@@ -148,10 +141,18 @@ app.listen(port, async () => {
       ? process.env.DEFAULT_TENANTS.split(',') // e.g., "tenant_alpha,tenant_beta"
       : [];
 
+    // Create tenant databases after server and admin DB initialization
     for (const tenantName of defaultTenants) {
-      if (!tenantDBs[tenantName]) {
-        await createTenantDatabase(tenantName.trim());
-        console.log(`🛠️ Tenant DB '${tenantName}' initialized.`);
+      const trimmedTenantName = tenantName.trim();
+
+      try {
+        const tenantDb = getTenantDb(trimmedTenantName);
+        console.log(`✅ Tenant DB '${trimmedTenantName}' already exists.`);
+      } catch (err) {
+        // Handle case when tenant DB does not exist or needs creation
+        console.log(`❌ Tenant DB '${trimmedTenantName}' not found. Creating it now...`);
+        await createTenantDatabase(trimmedTenantName); // Create tenant DB
+        console.log(`🛠️ Tenant DB '${trimmedTenantName}' initialized.`);
       }
     }
 
@@ -161,11 +162,45 @@ app.listen(port, async () => {
   }
 });
 
+// Function to create tenant database if it doesn't exist
+const createTenantDatabase = async (tenantName) => {
+  const adminSequelize = new Sequelize(process.env.DATABASE_URL, {
+    dialect: 'mysql',
+    logging: false, // Disable logging for this query
+  });
+
+  try {
+    // Check if tenant database already exists
+    const result = await adminSequelize.query(`SHOW DATABASES LIKE '${tenantName}'`);
+    if (result[0].length > 0) {
+      console.log(`✅ Tenant DB '${tenantName}' already exists.`);
+      return;
+    }
+
+    // Tenant DB does not exist, so create it
+    await adminSequelize.query(`CREATE DATABASE ${tenantName}`);
+    console.log(`🛠️ Tenant DB '${tenantName}' created successfully.`);
+
+    // Optionally, you can also initialize tenant-specific tables here by syncing models
+
+    // Now get the tenant DB and sync the models to it
+    const tenantDb = getTenantDb(tenantName);
+    await tenantDb.sequelize.sync({ force: false }); // Sync the models for the new tenant
+    console.log(`✅ Tenant DB '${tenantName}' initialized and models synced.`);
+
+  } catch (err) {
+    console.error(`❌ Error creating tenant DB '${tenantName}':`, err.message);
+    throw err;
+  } finally {
+    await adminSequelize.close(); // Close the connection to admin DB
+  }
+};
+
 // 🧹 Graceful shutdown
 const shutdown = async () => {
   console.log('\n👋 DB Shutting down...');
   try {
-    await closeAllConnections();
+    await closeAllConnections();  // Close all DB connections
     console.log('✅ Main (Admin) DB Disconnected and Closed.');
     process.exit(0);
   } catch (err) {
