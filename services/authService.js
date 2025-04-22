@@ -9,6 +9,9 @@ const passwordResetService = require('./passwordresetService');
 const { User, Tenant, ActivationCode, PasswordReset } = models;
 const { EMAIL_ENABLED, JWT_SECRET, CLIENT_URL, BASE_URL } = process.env;
 
+// Helper function to get status based on email enabled flag
+const getStatus = () => EMAIL_ENABLED ? 'inactive' : 'active';
+
 const authService = {
   // ✅ Sign Up
   signUp: async (userData, tenantData) => {
@@ -22,7 +25,7 @@ const authService = {
         email: tenantData.email,
         phone: tenantData.phone,
         address: tenantData.address,
-        status: EMAIL_ENABLED ? 'inactive' : 'active', // inactive in prod
+        status: getStatus(),  // Use helper function
         subscription_start_date: now,
         subscription_end_date: new Date(now.setMonth(now.getMonth() + 3)), // 3-month trial
       }, { transaction });
@@ -37,7 +40,7 @@ const authService = {
         role: userData.role || 'sales',
         phone: userData.phone,
         location: userData.location,
-        status: EMAIL_ENABLED ? 'inactive' : 'active', // Inactive if in prod mode
+        status: getStatus(),  // Use helper function
       }, { transaction });
 
       // Create Subscription (trial period)
@@ -76,7 +79,6 @@ const authService = {
       throw new Error('Sign-up failed. Please try again.');
     }
   },
-
 
   // ✅ Login
   login: async (email, password) => {

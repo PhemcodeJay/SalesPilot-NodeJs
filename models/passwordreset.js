@@ -1,23 +1,23 @@
 module.exports = (sequelize, DataTypes) => {
   const PasswordReset = sequelize.define('PasswordReset', {
     id: {
-      type: DataTypes.UUID,  // Changed to UUID for consistency with other models
-      defaultValue: DataTypes.UUIDV4,  // Automatically generate UUID
+      type: DataTypes.UUID,  // UUID for consistency
+      defaultValue: DataTypes.UUIDV4,  // Auto-generate UUID
       primaryKey: true,
       allowNull: false,
     },
     user_id: {
-      type: DataTypes.UUID,  // Changed to UUID to match the `User` model foreign key type
+      type: DataTypes.UUID,  // Foreign key for the User model
       allowNull: false,
       references: {
-        model: 'users',  // Ensure this is the correct table name for users
+        model: 'users',  // Ensure this is referencing the correct table
         key: 'id',
       },
     },
     reset_code: {
       type: DataTypes.STRING(100),
       allowNull: false,
-      unique: true,
+      unique: true,  // Ensure reset code is unique
     },
     expires_at: {
       type: DataTypes.DATE,
@@ -33,13 +33,13 @@ module.exports = (sequelize, DataTypes) => {
     tableName: 'password_resets',
     underscored: true,
     createdAt: 'created_at',
-    updatedAt: false, // No need for 'updated_at' since it’s not needed
+    updatedAt: false,  // No need for 'updated_at'
   });
 
-  // Logic to set expiration time before creating the password reset
-  PasswordReset.beforeCreate((passwordReset, options) => {
+  // Logic to set expiration time before creating the password reset record
+  PasswordReset.beforeCreate((passwordReset) => {
     const expirationTime = new Date();
-    expirationTime.setHours(expirationTime.getHours() + 1); // Default expiration: 1 hour from creation
+    expirationTime.setHours(expirationTime.getHours() + 1);  // Default expiration time: 1 hour from creation
     passwordReset.expires_at = expirationTime;
   });
 
@@ -48,7 +48,7 @@ module.exports = (sequelize, DataTypes) => {
     PasswordReset.belongsTo(models.User, {
       foreignKey: 'user_id',
       as: 'user',
-      onDelete: 'CASCADE',  // Ensures deletion of password resets when the user is deleted
+      onDelete: 'CASCADE',  // Ensures deletion of password reset entries when the user is deleted
     });
   };
 

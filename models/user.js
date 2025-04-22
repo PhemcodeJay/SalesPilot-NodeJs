@@ -52,14 +52,6 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING(512),
       allowNull: true,
     },
-    reset_token: {
-      type: DataTypes.STRING(512),
-      allowNull: true,
-    },
-    reset_token_expiry: {
-      type: DataTypes.DATE,
-      allowNull: true,
-    },
   }, {
     timestamps: true,
     tableName: 'users',

@@ -207,7 +207,8 @@ const activateUserController = async (req, res) => {
       }
 
       // Generate and send activation code to the user
-      await sendActivationEmail(user.email, await generateActivationCode(user.id));
+      const activationCode = await generateActivationCode(user.id);
+      await sendActivationEmail(user.email, activationCode);
 
       return res.status(200).json({ success: 'A new activation code has been sent to your email.' });
 
