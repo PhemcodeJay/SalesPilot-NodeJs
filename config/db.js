@@ -1,4 +1,4 @@
-require('dotenv').config(); // Load environment variables first
+require('dotenv').config(); // Load environment variables
 
 const { Sequelize, DataTypes } = require('sequelize');
 const fs = require('fs');
@@ -60,7 +60,7 @@ const testConnection = async () => {
 
 const syncModels = async () => {
   try {
-    await sequelize.sync({ force: false }); // Ensure `force: false` in production
+    await sequelize.sync({ force: false });
     debug('✅ Admin DB models synced.');
   } catch (err) {
     console.error('❌ Error syncing admin DB models:', err.message);
@@ -83,23 +83,28 @@ const tenantDbCache = {};
 
 /**
  * Dynamically create and return Sequelize + loaded models for a tenant DB
+ * Supports env override (TENANT_DB_URL_{TENANT})
  */
 const getTenantDb = (dbName) => {
   if (!dbName) throw new Error('❌ Tenant DB name is required');
 
   if (tenantDbCache[dbName]) return tenantDbCache[dbName];
 
-  const tenantSequelize = new Sequelize(dbName, process.env.DB_USER, process.env.DB_PASS, {
-    host: process.env.DB_HOST,
-    dialect: 'mysql',
-    logging: debug,
-    pool: {
-      max: 5,
-      min: 0,
-      acquire: 30000,
-      idle: 10000
-    }
-  });
+  const envKey = `TENANT_DB_URL_${dbName.toUpperCase()}`;
+  const customDbUrl = process.env[envKey];
+
+  const tenantSequelize = customDbUrl
+    ? new Sequelize(customDbUrl, {
+        dialect: 'mysql',
+        logging: debug,
+        pool: { max: 5, min: 0, acquire: 30000, idle: 10000 }
+      })
+    : new Sequelize(dbName, process.env.DB_USER, process.env.DB_PASS, {
+        host: process.env.DB_HOST,
+        dialect: 'mysql',
+        logging: debug,
+        pool: { max: 5, min: 0, acquire: 30000, idle: 10000 }
+      });
 
   const tenantModels = loadModels(tenantSequelize);
 
@@ -114,27 +119,27 @@ const getTenantDb = (dbName) => {
 // 🧩 Test Tenant Database Connection
 const testTenantConnection = async (dbName) => {
   try {
-    const tenantDb = getTenantDb(dbName);  // Get tenant DB
-    await tenantDb.sequelize.authenticate();  // Authenticate tenant DB
+    const tenantDb = getTenantDb(dbName);
+    await tenantDb.sequelize.authenticate();
     debug(`✅ Connected to tenant database: ${dbName}`);
   } catch (err) {
-    console.error(`❌ Tenant DB connection failed: ${dbName}`, err.message);
+    console.error(`❌ Tenant DB connection failed (${dbName}):`, err.message);
     throw err;
   }
 };
 
-// 🧩 Set Associations after Models are Loaded to avoid Cyclic Dependencies
+// 🧩 Set Associations for Admin Models
 Object.values(models).forEach(model => {
   if (typeof model.associate === 'function') {
-    model.associate(models); // Set associations after loading all models
+    model.associate(models);
     debug(`🔗 Association set for: ${model.name}`);
   }
 });
 
-// 🧩 Exporting models for use in passport.js without circular dependencies
+// 🧩 Export everything
 module.exports = {
   sequelize,
-  models,  // Ensure models are exported here
+  models,
   testConnection,
   syncModels,
   closeAllConnections,

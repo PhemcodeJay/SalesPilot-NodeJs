@@ -1,18 +1,67 @@
 const jwt = require('jsonwebtoken');
-const secret = process.env.JWT_SECRET || 'your_jwt_secret'; // Ensure 'your_jwt_secret' is a secure fallback
+const debug = require('debug')('auth');
 
-// Generate JWT Token
-const generateToken = (user) => {
-  return jwt.sign({ id: user.id, role: user.role }, secret, { expiresIn: '1h' });
+// Retrieve JWT secrets from environment variables
+const accessSecret = process.env.JWT_SECRET;
+const refreshSecret = process.env.JWT_REFRESH_SECRET || 'fallback_refresh_secret';
+
+// Logging warnings if secrets are not defined
+if (!accessSecret) {
+  console.warn('⚠️ JWT_SECRET is not set in .env — using insecure fallback');
+}
+if (!refreshSecret) {
+  console.warn('⚠️ JWT_REFRESH_SECRET is not set — using insecure fallback');
+}
+
+/**
+ * Generate short-lived access token
+ * @param {Object} payload - Must contain `id` and `role`, can include more
+ * @param {String} [expiresIn='15m']
+ */
+const generateToken = (payload, expiresIn = '15m') => {
+  debug(`🔐 Generating access token for user ${payload.id}`);
+  return jwt.sign(payload, accessSecret || 'your_jwt_secret', { expiresIn });
 };
 
-// Verify JWT Token
+/**
+ * Generate refresh token
+ * @param {Object} payload - Typically { id }
+ * @param {String} [expiresIn='7d']
+ */
+const generateRefreshToken = (payload, expiresIn = '7d') => {
+  debug(`🔁 Generating refresh token for user ${payload.id}`);
+  return jwt.sign(payload, refreshSecret, { expiresIn });
+};
+
+/**
+ * Verify access token
+ */
 const verifyToken = (token) => {
   try {
-    return jwt.verify(token, secret);
-  } catch (error) {
-    throw new Error('Invalid or expired token');
+    const decoded = jwt.verify(token, accessSecret || 'your_jwt_secret');
+    return decoded;
+  } catch (err) {
+    debug('❌ Access token error:', err.message);
+    throw new Error(err.name === 'TokenExpiredError' ? 'Access token expired' : 'Invalid access token');
   }
 };
 
-module.exports = { generateToken, verifyToken };
+/**
+ * Verify refresh token
+ */
+const verifyRefreshToken = (token) => {
+  try {
+    const decoded = jwt.verify(token, refreshSecret);
+    return decoded;
+  } catch (err) {
+    debug('❌ Refresh token error:', err.message);
+    throw new Error(err.name === 'TokenExpiredError' ? 'Refresh token expired' : 'Invalid refresh token');
+  }
+};
+
+module.exports = {
+  generateToken,
+  verifyToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+};

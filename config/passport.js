@@ -2,40 +2,38 @@ require('dotenv').config(); // Load environment variables first
 
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
+const JwtStrategy = require('passport-jwt').Strategy;
+const ExtractJwt = require('passport-jwt').ExtractJwt;
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
 
-// Setup Passport local strategy for login (username or email)
+// Load User model dynamically to avoid circular deps
+const getUserModel = () => require('./db').models.User;
+
+// ==============================
+// 🔐 Local Strategy for Login
+// ==============================
 passport.use(
   new LocalStrategy(
     {
-      usernameField: 'usernameOrEmail', // Custom field to accept either username or email
+      usernameField: 'usernameOrEmail',
       passwordField: 'password',
     },
     async (usernameOrEmail, password, done) => {
       try {
-        // Import the models directly from db.js
-        const { User } = require('./db').models;
-
-        // Find user by either email or username
+        const User = getUserModel();
         const user = await User.findOne({
           where: {
             [Op.or]: [{ email: usernameOrEmail }, { username: usernameOrEmail }],
           },
         });
 
-        if (!user) {
-          return done(null, false, { message: 'Invalid credentials' });
-        }
+        if (!user) return done(null, false, { message: 'Invalid credentials' });
 
-        // Compare the password
         const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-          return done(null, false, { message: 'Invalid credentials' });
-        }
+        if (!isMatch) return done(null, false, { message: 'Invalid credentials' });
 
-        // Successful authentication
         return done(null, user);
       } catch (error) {
         return done(error);
@@ -44,45 +42,40 @@ passport.use(
   )
 );
 
-// Serialize user to store user information in session
+// ==============================
+// 🧠 Session Handling
+// ==============================
 passport.serializeUser((user, done) => {
   done(null, user.id);
 });
 
-// Deserialize user from session
-passport.deserializeUser(async (userId, done) => {
+passport.deserializeUser(async (id, done) => {
   try {
-    const { User } = require('./db').models;
-    const user = await User.findByPk(userId);
-    if (!user) {
-      return done(new Error('User not found'), null);
-    }
+    const User = getUserModel();
+    const user = await User.findByPk(id);
+    if (!user) return done(new Error('User not found'), null);
     done(null, user);
-  } catch (error) {
-    done(error, null);
+  } catch (err) {
+    done(err, null);
   }
 });
 
-// Setup JWT strategy for token-based authentication using passport-jwt
-const JwtStrategy = require('passport-jwt').Strategy;
-const ExtractJwt = require('passport-jwt').ExtractJwt;
-
+// ==============================
+// 🔑 JWT Strategy (From Cookie)
+// ==============================
 passport.use(
   new JwtStrategy(
     {
       secretOrKey: process.env.JWT_SECRET,
       jwtFromRequest: ExtractJwt.fromExtractors([
-        (req) => req.cookies['access_token'], // Extract from cookies
+        (req) => req?.cookies?.access_token || null,
       ]),
     },
     async (jwtPayload, done) => {
       try {
-        const { User } = require('./db').models;
-        // Find user by ID from JWT payload
+        const User = getUserModel();
         const user = await User.findByPk(jwtPayload.id);
-        if (!user) {
-          return done(null, false, { message: 'User not found' });
-        }
+        if (!user) return done(null, false, { message: 'User not found' });
         done(null, user);
       } catch (error) {
         done(error, false);
@@ -91,7 +84,10 @@ passport.use(
   )
 );
 
-// Generate JWT Token
+// ==============================
+// 🔧 Token Generators
+// ==============================
+
 const generateJWT = (user) => {
   const payload = {
     id: user.id,
@@ -102,4 +98,30 @@ const generateJWT = (user) => {
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 };
 
-module.exports = passport;
+const generateRefreshToken = (user) => {
+  const payload = {
+    id: user.id,
+    tokenType: 'refresh',
+  };
+  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
+};
+
+const verifyRefreshToken = (token) => {
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    if (payload.tokenType !== 'refresh') throw new Error('Invalid refresh token');
+    return payload;
+  } catch (err) {
+    throw new Error('Invalid or expired refresh token');
+  }
+};
+
+// ==============================
+// 📤 Export
+// ==============================
+module.exports = {
+  passport,
+  generateJWT,
+  generateRefreshToken,
+  verifyRefreshToken,
+};

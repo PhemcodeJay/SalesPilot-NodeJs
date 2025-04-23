@@ -1,7 +1,8 @@
 const path = require('path');
-const { Tenant, User, Subscription } = require('../models'); // Main DB models
+const { Tenant, User, Subscription, ActivationCode } = require('../models'); // Main DB models
 const { getTenantDb } = require('../config/db'); // Utility for tenant DB instance
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 /**
  * Middleware to resolve and attach the correct Sequelize instance for the tenant
@@ -54,22 +55,32 @@ const tenantMiddleware = async (req, res, next) => {
     // ✅ Make tenantId available in all views (if using EJS, can be accessed here)
     res.locals.tenantId = tenantId;
 
-    // Now that the tenant exists, proceed to create a user and subscription
+    // Now that the tenant exists, proceed to create a user, activation code, and subscription if it's a signup request
     if (req.path === '/signup' && req.body) {
-      // Create a new user associated with the tenant
       const { username, email, password, role, phone, location } = req.body;
 
+      // Ensure password is hashed before saving (via service or bcrypt middleware)
       const user = await User.create({
         tenant_id: tenantId,
         username,
         email,
-        password,  // Ensure password is hashed before saving (via service or bcrypt middleware)
+        password,  // Make sure password is hashed elsewhere in your user model or service
         role: role || 'sales',  // Default to 'sales' if no role provided
         phone,
         location,
       });
 
       console.log(`✅ Created user: ${user.username}`);
+
+      // Create the activation code for the user
+      const activationCode = crypto.randomBytes(20).toString('hex'); // Random activation code
+      await ActivationCode.create({
+        user_id: user.id,
+        activation_code: activationCode,
+        expiration_date: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day expiration
+      });
+
+      console.log(`✅ Created activation code for user: ${user.username}`);
 
       // Create the subscription for the user
       const subscription = await Subscription.create({
@@ -83,6 +94,41 @@ const tenantMiddleware = async (req, res, next) => {
       });
 
       console.log(`✅ Created subscription for user: ${user.username}`);
+
+      // Insert data into main database as well
+      await User.create({
+        tenant_id: tenantId,
+        username,
+        email,
+        password,  // Same hashed password
+        role: role || 'sales',  // Default to 'sales'
+        phone,
+        location,
+      });
+
+      console.log(`✅ Inserted user into main database: ${user.username}`);
+
+      // Insert activation code into main database
+      await ActivationCode.create({
+        user_id: user.id,
+        activation_code: activationCode,
+        expiration_date: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day expiration
+      });
+
+      console.log(`✅ Inserted activation code into main database for user: ${user.username}`);
+
+      // Insert subscription into main database
+      await Subscription.create({
+        tenant_id: tenantId,
+        user_id: user.id,
+        subscription_plan: 'trial',
+        start_date: new Date(),
+        end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days trial
+        status: 'Active',
+        is_free_trial_used: false,
+      });
+
+      console.log(`✅ Inserted subscription into main database for user: ${user.username}`);
 
       // Attach the created user and subscription to the request for further use (e.g., login, etc.)
       req.user = user;  // Make user available for next middleware or routes
