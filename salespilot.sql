@@ -573,8 +573,8 @@ CREATE TABLE `subscriptions` (
   `plan_name` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
   `plan_description` text COLLATE utf8mb4_general_ci NOT NULL,
   `plan_price` decimal(10,2) NOT NULL,
-  `start_date` date NOT NULL,
-  `end_date` date NOT NULL,
+  `start_date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `end_date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `subscription_status` enum('active','inactive','expired') COLLATE utf8mb4_general_ci NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
@@ -672,12 +672,13 @@ CREATE TABLE `users` (
   `phone` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `email` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `password` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `confirm_password` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `location` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
-  `activation_token` varchar(512) COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `reset_token` varchar(512) COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `role` enum('sales','admin','manager') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'sales',
+  `reset_token` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL,
   `reset_token_expiry` datetime DEFAULT NULL,
+  `role` enum('sales','admin','manager') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'sales',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`),
   KEY `tenant_id` (`tenant_id`),
@@ -703,4 +704,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-04-22  4:32:57
+-- Dump completed on 2025-04-24  2:23:21
