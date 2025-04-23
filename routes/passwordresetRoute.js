@@ -1,18 +1,19 @@
 const express = require('express');
-const { verifyResetToken } = require('../services/passwordresetService');  // Importing the password service
+const tenantMiddleware = require('../middleware/tenantMiddleware');
+const { verifyResetToken } = require('../services/passwordresetService');
 const {
-  requestPasswordReset,  // Use the updated controller method
-  resetPassword         // Use the updated controller method
-} = require('../controllers/passwordresetController');  // Updated to use the passwordController
+  requestPasswordReset,
+  resetPassword,
+} = require('../controllers/passwordresetController');  // Uses updated password controller
 
 const router = express.Router();
 
-// ✅ Recover password (initial request)
+// ✅ Serve Recover Password Page (GET)
 router.get('/recoverpwd', (req, res) => {
-  res.render('auth/recoverpwd');  // Ensure that the 'auth/recoverpwd.ejs' file exists
+  res.render('auth/recoverpwd');  // Display form to enter email
 });
 
-// ✅ Securely serve reset password form
+// ✅ Serve Password Reset Page (GET) using token
 router.get('/passwordreset', async (req, res) => {
   const { token } = req.query;
 
@@ -26,18 +27,18 @@ router.get('/passwordreset', async (req, res) => {
       return res.render('auth/reset-error', { message: 'Reset link is invalid or has expired. Please request a new one.' });
     }
 
-    // If token is valid, render the reset form with the token
-    res.render('auth/passwordreset', { token });
+    // Render password reset form with the valid token
+    return res.render('auth/passwordreset', { token });
   } catch (err) {
     console.error('Token validation error:', err);
     return res.render('auth/reset-error', { message: 'Something went wrong. Please try again.' });
   }
 });
 
-// ✅ Trigger password reset email
-router.post('/recoverpwd', requestPasswordReset);  // Send email using controller
+// ✅ Request password reset email (POST)
+router.post('/recoverpwd', requestPasswordReset);  // Sends email with reset token
 
-// ✅ Handle form submission with new password
-router.post('/passwordreset', resetPassword);  // Confirm token + update password using controller
+// ✅ Handle form-based password reset (POST)
+router.post('/passwordreset', resetPassword);  // Accepts token and new password
 
 module.exports = router;

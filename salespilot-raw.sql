@@ -28,12 +28,13 @@ CREATE TABLE `users` (
   `phone` VARCHAR(255) NOT NULL,
   `email` VARCHAR(255) NOT NULL,
   `password` VARCHAR(255) NOT NULL,
+  `confirm_password` VARCHAR(255) NOT NULL,
   `location` VARCHAR(255) NOT NULL,
-  `activation_token` VARCHAR(512) DEFAULT NULL,
-  `reset_token` VARCHAR(512) DEFAULT NULL,
+  `reset_token` varchar(512) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `reset_token_expiry` datetime DEFAULT NULL,
   `role` ENUM('sales', 'admin', 'manager') NOT NULL DEFAULT 'sales',
-  `reset_token_expiry` DATETIME DEFAULT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`),
   KEY `tenant_id` (`tenant_id`),
@@ -66,15 +67,14 @@ CREATE TABLE `password_resets` (
   CONSTRAINT `password_resets_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-
 CREATE TABLE `subscriptions` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `tenant_id` CHAR(36) NOT NULL,
   `plan_name` VARCHAR(100) NOT NULL,
   `plan_description` TEXT NOT NULL,
   `plan_price` DECIMAL(10,2) NOT NULL,
-  `start_date` DATE NOT NULL,
-  `end_date` DATE NOT NULL,
+  `start_date` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `end_date` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `subscription_status` ENUM('active','inactive','expired') NOT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,

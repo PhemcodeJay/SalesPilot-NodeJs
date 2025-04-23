@@ -6,15 +6,12 @@ const { sendEmail } = require('../utils/emailUtils');
 
 const { ActivationCode, User } = models;
 
-/**
- * Generate and Save Activation Code for a User
- */
+// Generate and save a new activation code for a user
 const generateActivationCode = async (userId, transaction = null) => {
-  const rawCode = crypto.randomBytes(3).toString('hex').toUpperCase(); // 6-character readable code
+  const rawCode = crypto.randomBytes(3).toString('hex').toUpperCase(); // 6-char hex code
   const hashedCode = await bcrypt.hash(rawCode, 10);
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24); // 24 hours from now
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-  // Create the activation record with the option for a transaction
   const activationRecord = await ActivationCode.create({
     user_id: userId,
     activation_code: hashedCode,
@@ -25,81 +22,63 @@ const generateActivationCode = async (userId, transaction = null) => {
   return { rawCode, activationRecord };
 };
 
-/**
- * Build Activation Email Content
- */
+// Build activation email content
 const buildActivationEmail = (email, code, userId) => {
-  const activationLink = `${process.env.CLIENT_URL}/activate-account?user=${userId}`;
+  const link = `${process.env.CLIENT_URL}/activate-account?user=${userId}`;
   return {
-    subject: 'Activate Your Account',
+    subject: 'Activate Your SalesPilot Account',
     html: `
-      <h2>Activate Your Account</h2>
-      <p>Use the following code to activate your account:</p>
+      <h2>Welcome to SalesPilot!</h2>
+      <p>Use the code below to activate your account:</p>
       <h3>${code}</h3>
-      <p>Or click the link below:</p>
-      <a href="${activationLink}">${activationLink}</a>
-      <p>This code will expire in 24 hours.</p>
+      <p>Or click this link:</p>
+      <a href="${link}">${link}</a>
+      <p><small>This code expires in 24 hours.</small></p>
     `
   };
 };
 
-/**
- * Send Activation Email to New User
- */
+// Send activation email to a user
 const sendActivationEmail = async (user, transaction = null) => {
-  // Check if the user is already active
   if (user.status === 'active') {
-    throw new Error('User is already active. No need to send activation email.');
+    throw new Error('User is already active.');
   }
 
-  // Generate activation code and save it, passing transaction if necessary
-  const { rawCode } = await generateActivationCode(user.id, transaction); 
-
-  // Build email content
+  const { rawCode } = await generateActivationCode(user.id, transaction);
   const { subject, html } = buildActivationEmail(user.email, rawCode, user.id);
 
-  // Send the email to the user
   await sendEmail(user.email, subject, html);
 };
 
-/**
- * Verify Submitted Activation Code
- */
+// Verify submitted activation code
 const verifyActivationCode = async (submittedCode, userId, transaction = null) => {
   const now = new Date();
 
-  // Find the most recent valid activation code for the user
   const record = await ActivationCode.findOne({
     where: {
       user_id: userId,
-      expires_at: { [Op.gt]: now }, // Check if the code is still valid
+      expires_at: { [Op.gt]: now },
     },
-    order: [['created_at', 'DESC']], // Ensure we get the most recent code
+    order: [['created_at', 'DESC']],
     transaction,
   });
 
-  // If no valid record is found or the code has expired
-  if (!record) throw new Error('No valid activation code found or it has expired.');
+  if (!record) throw new Error('Activation code expired or not found.');
 
-  // Compare the submitted code with the stored (hashed) code
-  const isMatch = await bcrypt.compare(submittedCode, record.activation_code);
-  if (!isMatch) throw new Error('Invalid activation code.');
+  const isValid = await bcrypt.compare(submittedCode, record.activation_code);
+  if (!isValid) throw new Error('Invalid activation code.');
 
-  // Find the user associated with the activation code
   const user = await User.findByPk(userId, { transaction });
   if (!user) throw new Error('User not found.');
 
-  // Ensure user is not already active
   if (user.status === 'active') {
-    throw new Error('User account is already active.');
+    throw new Error('User is already activated.');
   }
 
-  // Update user status to 'active'
   user.status = 'active';
   await user.save({ transaction });
 
-  // Soft-delete or log the activation code instead of destroying it (optional)
-  await record.destroy({ transaction });
+  await record.destroy({ transaction }); // Clean up used code
 
   return true;
 };

@@ -18,6 +18,23 @@ module.exports = (sequelize, DataTypes) => {
         isEmail: true,
       },
     },
+    phone: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    address: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    status: {
+      type: DataTypes.ENUM('active', 'inactive'),
+      defaultValue: 'inactive',
+    },
+    subscription_type: {
+      type: DataTypes.ENUM('trial', 'starter', 'business', 'enterprise'),
+      defaultValue: 'trial',
+      allowNull: false,
+    },
     subscription_start_date: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -26,12 +43,18 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DATE,
       allowNull: false,
     },
+    deleted_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   }, {
-    timestamps: true,
     tableName: 'tenants',
+    timestamps: true,
     underscored: true,
+    paranoid: true, // enables soft deletes
     createdAt: 'created_at',
     updatedAt: 'updated_at',
+    deletedAt: 'deleted_at',
   });
 
   Tenant.associate = (models) => {
@@ -40,6 +63,7 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'tenant_id',
       as: 'users',
       onDelete: 'CASCADE',
+      onUpdate: 'CASCADE',
     });
 
     // One Tenant has one Subscription
@@ -47,6 +71,7 @@ module.exports = (sequelize, DataTypes) => {
       foreignKey: 'tenant_id',
       as: 'subscription',
       onDelete: 'CASCADE',
+      onUpdate: 'CASCADE',
     });
   };
 

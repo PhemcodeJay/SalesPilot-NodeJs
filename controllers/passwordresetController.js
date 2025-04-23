@@ -24,11 +24,11 @@ const requestPasswordReset = async (req, res) => {
     // Return standardized success response
     return res.status(200).json({
       message: 'Password reset email sent successfully',
-      data: { email: user.email }
+      data: { email: user.email }  // Return the email to confirm the sent email
     });
   } catch (error) {
     console.error('Error in requestPasswordReset:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 };
 

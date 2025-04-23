@@ -51,7 +51,7 @@ exports.resetPassword = async (resetCode, newPassword, transaction = null) => {
   }
 
   // Hash the new password
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  const hashedPassword = await bcrypt.hash(newPassword, 12);  // Increased the cost factor for improved security
 
   // Update the user's password
   user.password = hashedPassword;

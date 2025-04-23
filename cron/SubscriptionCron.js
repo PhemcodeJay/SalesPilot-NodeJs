@@ -15,10 +15,10 @@ cron.schedule('0 0 1 * *', async () => {
     });
 
     // Mark expired subscriptions as 'Expired'
-    expiredSubscriptions.forEach(async (subscription) => {
+    for (const subscription of expiredSubscriptions) {
       await subscription.update({ status: 'Expired' });
       console.log(`Subscription for tenant ${subscription.tenant_id} has expired.`);
-    });
+    }
 
     // Now, run renewal logic for subscriptions that can be renewed
     await renewSubscriptions();

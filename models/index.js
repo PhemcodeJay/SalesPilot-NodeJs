@@ -65,7 +65,7 @@ async function initializeTenantModels(tenantDbName) {
       }
     }
 
-    // Apply associations for tenant models
+    // Apply associations for tenant models **after** all models are loaded
     Object.values(tenantModels).forEach((model) => {
       if (typeof model.associate === "function") {
         model.associate(tenantModels);

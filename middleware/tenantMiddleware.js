@@ -3,6 +3,7 @@ const { Tenant, User, Subscription, ActivationCode } = require('../models'); // 
 const { getTenantDb } = require('../config/db'); // Utility for tenant DB instance
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
+const { sendActivationEmail } = require('../utils/emailUtils'); // Import the email utility
 
 /**
  * Middleware to resolve and attach the correct Sequelize instance for the tenant
@@ -59,12 +60,19 @@ const tenantMiddleware = async (req, res, next) => {
     if (req.path === '/signup' && req.body) {
       const { username, email, password, role, phone, location } = req.body;
 
-      // Ensure password is hashed before saving (via service or bcrypt middleware)
+      // Ensure password is hashed before saving (via bcrypt or similar hashing middleware)
+      if (!password) {
+        return res.status(400).json({ message: 'Password is required' });
+      }
+      
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create user record for tenant
       const user = await User.create({
         tenant_id: tenantId,
         username,
         email,
-        password,  // Make sure password is hashed elsewhere in your user model or service
+        password: hashedPassword,  // Ensure password is hashed before saving
         role: role || 'sales',  // Default to 'sales' if no role provided
         phone,
         location,
@@ -82,6 +90,9 @@ const tenantMiddleware = async (req, res, next) => {
 
       console.log(`✅ Created activation code for user: ${user.username}`);
 
+      // Send activation email to the user
+      await sendActivationEmail(user.email, activationCode);  // Send email after creating user and activation code
+
       // Create the subscription for the user
       const subscription = await Subscription.create({
         tenant_id: tenantId,
@@ -95,12 +106,12 @@ const tenantMiddleware = async (req, res, next) => {
 
       console.log(`✅ Created subscription for user: ${user.username}`);
 
-      // Insert data into main database as well
+      // Insert data into the main database as well
       await User.create({
         tenant_id: tenantId,
         username,
         email,
-        password,  // Same hashed password
+        password: hashedPassword,  // Same hashed password
         role: role || 'sales',  // Default to 'sales'
         phone,
         location,

@@ -24,17 +24,14 @@ const PLANS = {
   },
 };
 
-// Create a new subscription
+// Create a new subscription for a tenant
 const createSubscription = async (tenantId, plan = 'trial', transaction = null) => {
-  // Validate tenant
   const tenant = await models.Tenant.findByPk(tenantId, { transaction });
   if (!tenant) throw new Error('Tenant not found.');
 
-  // Get plan details
   const planDetails = PLANS[plan];
   if (!planDetails) throw new Error('Invalid subscription plan.');
 
-  // Check if the tenant has already used the free trial
   if (plan === 'trial') {
     const trialUsed = await models.Subscription.findOne({
       where: {
@@ -43,13 +40,9 @@ const createSubscription = async (tenantId, plan = 'trial', transaction = null) 
       },
       transaction,
     });
-
-    if (trialUsed) {
-      throw new Error('Free trial has already been used.');
-    }
+    if (trialUsed) throw new Error('Free trial has already been used.');
   }
 
-  // Check if there's an active subscription
   const existingSubscription = await models.Subscription.findOne({
     where: {
       tenant_id: tenantId,
@@ -59,17 +52,14 @@ const createSubscription = async (tenantId, plan = 'trial', transaction = null) 
     transaction,
   });
 
-  // If there is an active subscription that hasn't expired, throw an error
   if (existingSubscription && new Date(existingSubscription.end_date) > new Date()) {
     throw new Error('Tenant already has an active subscription.');
   }
 
-  // Calculate start and end dates
   const now = new Date();
   const endDate = new Date();
   endDate.setMonth(now.getMonth() + planDetails.durationMonths);
 
-  // Create the subscription in the database
   const subscription = await models.Subscription.create({
     tenant_id: tenant.id,
     subscription_plan: plan,
@@ -81,7 +71,6 @@ const createSubscription = async (tenantId, plan = 'trial', transaction = null) 
     price: planDetails.price,
   }, { transaction });
 
-  // Update tenant's subscription start and end dates in the same transaction
   tenant.subscription_start_date = now;
   tenant.subscription_end_date = endDate;
   await tenant.save({ transaction });
@@ -89,36 +78,35 @@ const createSubscription = async (tenantId, plan = 'trial', transaction = null) 
   return subscription;
 };
 
-// Renew all expired subscriptions
+// Renew expired subscriptions
 const renewSubscriptions = async () => {
   const now = new Date();
 
+  // Find subscriptions marked as 'Expired' (from cron job)
   const expiredSubscriptions = await models.Subscription.findAll({
     where: {
-      end_date: { [Op.lte]: now },
-      status: 'Active',
+      status: 'Expired',
     },
   });
 
   for (const sub of expiredSubscriptions) {
     const planDetails = PLANS[sub.subscription_plan];
-    const newEndDate = new Date();
+    if (!planDetails) continue; // Skip if plan no longer exists
+
+    const newStartDate = new Date();
+    const newEndDate = new Date(newStartDate);
     newEndDate.setMonth(newEndDate.getMonth() + planDetails.durationMonths);
 
-    // Ensure the end date is at the end of the month if necessary
-    if (newEndDate.getDate() !== now.getDate()) {
-      newEndDate.setDate(0); // Set to the last day of the previous month
-    }
-
-    // Update subscription end date and status
+    // Update subscription record
+    sub.start_date = newStartDate;
     sub.end_date = newEndDate;
-    sub.status = 'Renewed';
+    sub.status = 'Active';
     await sub.save();
 
-    // Also update the tenant's subscription dates
+    // Update tenant's subscription info
     const tenant = await models.Tenant.findByPk(sub.tenant_id);
     if (tenant) {
-      tenant.subscription_start_date = now;
+      tenant.subscription_start_date = newStartDate;
       tenant.subscription_end_date = newEndDate;
       await tenant.save();
     }
@@ -127,25 +115,21 @@ const renewSubscriptions = async () => {
   }
 };
 
-// Get the current active subscription for a tenant
+// Get the active subscription for a tenant
 const getActiveSubscription = async (tenantId) => {
-  const subscription = await models.Subscription.findOne({
+  return await models.Subscription.findOne({
     where: {
       tenant_id: tenantId,
       status: 'Active',
     },
     order: [['created_at', 'DESC']],
   });
-
-  return subscription;
 };
 
-// Get the subscription plan details for a tenant
+// Get detailed plan info for a tenant’s current active subscription
 const getSubscriptionPlanDetails = async (tenantId) => {
   const subscription = await getActiveSubscription(tenantId);
-  if (!subscription) {
-    throw new Error('No active subscription found for this tenant');
-  }
+  if (!subscription) throw new Error('No active subscription found for this tenant');
 
   return PLANS[subscription.subscription_plan];
 };
