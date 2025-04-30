@@ -1,203 +1,168 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
-const { models, sequelize } = require('../config/db');
-const subscriptionService = require('./subscriptionService');
-const passwordResetService = require('./passwordresetService');
+const { User, Tenant, } = require('../models');
+const { createSubscription } = require('./subscriptionService');
+const { logError } = require('../utils/logger');
 
-const { User, Tenant, ActivationCode } = models;
-const { EMAIL_ENABLED, JWT_SECRET } = process.env;
+// JWT config
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRES_IN = '1d';
 
-// Helper function to get status based on email enabled flag
-const getStatus = () => EMAIL_ENABLED ? 'inactive' : 'active';
+// Ensure JWT_SECRET is defined
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET is not defined in environment variables');
+}
 
-const authService = {
-  // ✅ Sign Up
-  signUp: async (userData, tenantData) => {
-    const transaction = await sequelize.transaction();
-    try {
-      const now = new Date();
-      const endDate = new Date(now);
-      endDate.setMonth(endDate.getMonth() + 3); // Subscription trial period (3 months)
+// Sign-up service: create tenant, user, and subscription
+const signUp = async (userData, tenantData) => {
+  try {
+    // Validate input fields
+    if (!userData.email || !userData.password || !tenantData.name) {
+      throw new Error('Missing required fields');
+    }
 
-      console.log('📌 Creating tenant...');
-      const tenant = await Tenant.create({
-        name: tenantData.name,
-        email: tenantData.email,
-        phone: tenantData.phone,
-        address: tenantData.address,
-        status: getStatus(),
-        subscription_start_date: now,
-        subscription_end_date: endDate,
-      }, { transaction });
-      console.log('✅ Tenant created with ID:', tenant.id);
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(userData.password, 12);
 
-      console.log('📌 Hashing password...');
-      const hashedPassword = await bcrypt.hash(userData.password, 10);
+    // Create tenant
+    const tenant = await Tenant.create({ ...tenantData });
+    if (!tenant) {
+      throw new Error('Failed to create tenant');
+    }
 
-      console.log('📌 Creating user...');
-      const user = await User.create({
-        tenant_id: tenant.id,
-        username: userData.username,
-        email: userData.email,
-        password: hashedPassword,
-        role: userData.role || 'sales',
-        phone: userData.phone,
-        location: userData.location,
-        status: getStatus(),
-      }, { transaction });
-      console.log('✅ User created with ID:', user.id);
+    // Create user with hashed password and inactive status
+    const user = await User.create({
+      ...userData,
+      password: hashedPassword,
+      tenant_id: tenant.id,
+      status: process.env.EMAIL_ENABLED === 'false' ? 'active' : 'inactive',
+    });
+    if (!user) {
+      throw new Error('Failed to create user');
+    }
 
-      console.log('📌 Creating subscription...');
-      const subscription = await subscriptionService.createSubscription(tenant.id, 'trial', transaction);
-      console.log('✅ Subscription created with ID:', subscription.id);
+    // Create subscription using SubscriptionService (3-month trial by default)
+    const subscription = await createSubscription(tenant.id, 'trial');
+    if (!subscription) {
+      throw new Error('Failed to create subscription');
+    }
 
-      let activationCodeRecord = null;
-
-      if (EMAIL_ENABLED) {
-        console.log('📌 Generating activation code...');
-        const activationCode = crypto.randomBytes(20).toString('hex');
-        activationCodeRecord = await ActivationCode.create({
-          user_id: user.id,
-          activation_code: activationCode,
-          expires_at: new Date(Date.now() + 60 * 60 * 1000),
-          created_at: new Date(),
-        }, { transaction });
-        console.log('✅ Activation code generated.');
-
-        console.log('📤 Sending activation email...');
-        await sendActivationEmail(user.email, activationCode);
-        console.log('✅ Activation email sent.');
-      } else {
-        console.log('⚙️ Dev mode: auto-activating user...');
-        user.status = 'active';
-        await user.save({ transaction });
-        console.log('✅ User auto-activated.');
+    // Generate activation code if email sending is enabled
+    let activationCode = null;
+    if (process.env.EMAIL_ENABLED !== 'false') {
+      activationCode = await generateActivationCode(user.id);
+      if (!activationCode) {
+        throw new Error('Failed to generate activation code');
       }
-
-      await transaction.commit();
-      console.log('✅ Sign-up transaction committed.');
-
-      return {
-        tenant,
-        user,
-        subscription,
-        activationCode: activationCodeRecord ? activationCodeRecord.activation_code : null
-      };
-
-    } catch (err) {
-      console.error('❌ Sign-up error:', err.message);
-      if (err.errors) {
-        err.errors.forEach(e => console.error('Validation error:', e.message));
-      }
-      await transaction.rollback();
-      throw new Error('Sign-up failed. Please check logs for details.');
     }
-  },
 
-  // ✅ Login
-  login: async (email, password) => {
-    try {
-      const user = await User.findOne({ where: { email } });
-      if (!user) throw new Error('User not found');
-
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) throw new Error('Invalid credentials');
-
-      if (user.status !== 'active') throw new Error('User account is inactive');
-
-      const payload = { userId: user.id, tenantId: user.tenant_id };
-      const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
-
-      return { token, user };
-    } catch (err) {
-      console.error('❌ Login Error:', err.message);
-      throw new Error('Login failed');
-    }
-  },
-
-  // ✅ Request Password Reset
-  requestPasswordReset: async (email) => {
-    try {
-      const user = await User.findOne({ where: { email } });
-      if (!user) throw new Error('User not found');
-
-      const { code: resetToken } = await passwordResetService.generateResetToken(user.id);
-      await sendPasswordResetEmail(user, resetToken);
-
-      return { message: 'Password reset email sent' };
-    } catch (err) {
-      console.error('❌ Password Reset Request Error:', err.message);
-      throw new Error('Failed to request password reset');
-    }
-  },
-
-  // ✅ Reset Password
-  resetPassword: async (token, newPassword) => {
-    try {
-      const reset = await passwordResetService.verifyResetToken(token);
-      if (!reset) throw new Error('Invalid or expired reset token');
-
-      const user = await User.findByPk(reset.user_id);
-      if (!user) throw new Error('User not found');
-
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-      user.password = hashedPassword;
-      user.reset_token = null;
-      user.reset_token_expiry = null;
-      await user.save();
-
-      return { message: 'Password reset successfully' };
-    } catch (err) {
-      console.error('❌ Password Reset Error:', err.message);
-      throw new Error('Failed to reset password');
-    }
-  },
-
-  // ✅ Refresh Token
-  refreshToken: async (oldToken) => {
-    try {
-      const decoded = jwt.verify(oldToken, JWT_SECRET);
-      const user = await User.findByPk(decoded.userId);
-      if (!user) throw new Error('User not found');
-
-      const newToken = jwt.sign({ userId: user.id, tenantId: user.tenant_id }, JWT_SECRET, { expiresIn: '1h' });
-      return { newToken };
-    } catch (err) {
-      console.error('❌ Refresh Token Error:', err.message);
-      throw new Error('Failed to refresh token');
-    }
-  },
-
-  // ✅ Update Profile
-  updateProfile: async (userId, updateData) => {
-    try {
-      const user = await User.findByPk(userId);
-      if (!user) throw new Error('User not found');
-
-      await user.update(updateData);
-      return { message: 'Profile updated successfully', user };
-    } catch (err) {
-      console.error('❌ Update Profile Error:', err.message);
-      throw new Error('Failed to update profile');
-    }
-  },
-
-  // ✅ Delete User
-  deleteUser: async (userId) => {
-    try {
-      const user = await User.findByPk(userId);
-      if (!user) throw new Error('User not found');
-
-      user.status = 'deleted';
-      await user.save();
-      return { message: 'User deleted successfully' };
-    } catch (err) {
-      console.error('❌ Delete User Error:', err.message);
-      throw new Error('Failed to delete user');
-    }
-  },
+    return { user, tenant, subscription, activationCode };
+  } catch (err) {
+    logError('signUp service failed', err);
+    throw err;  // Rethrow to be handled by the controller
+  }
 };
 
-module.exports = authService;
+// Login service: validate credentials and generate JWT token
+const login = async (email, password) => {
+  try {
+    // Validate input
+    if (!email || !password) {
+      throw new Error('Email and password are required');
+    }
+
+    // Find user by email
+    const user = await User.findOne({ where: { email } });
+    if (!user || user.status !== 'active') {
+      const errMsg = 'Invalid credentials or inactive account';
+      logError(errMsg, new Error(errMsg));
+      throw new Error(errMsg);
+    }
+
+    // Compare the provided password with the hashed password
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
+      const errMsg = 'Invalid credentials';
+      logError(errMsg, new Error(errMsg));
+      throw new Error(errMsg);
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
+    return { user, token };
+  } catch (err) {
+    logError('login service failed', err);
+    throw err;  // Rethrow to be handled by the controller
+  }
+};
+
+// Activate user account after successful activation code validation
+const activateUser = async (code, userId) => {
+  try {
+    // Validate input
+    if (!code || !userId) {
+      throw new Error('Activation code and user ID are required');
+    }
+
+    // Validate the activation code using ActivationCodeService
+    const isValid = await validateActivationCode(code, userId);
+    if (!isValid) {
+      const errMsg = 'Invalid or expired activation code';
+      logError(errMsg, new Error(errMsg));
+      return false;
+    }
+
+    // Update user status to 'active'
+    await User.update({ status: 'active' }, { where: { id: userId } });
+
+    // If the code is valid, delete the activation code from the database
+    await ActivationCode.destroy({ where: { code } });
+
+    return true;
+  } catch (err) {
+    logError('activateUser service failed', err);
+    throw err;  // Rethrow to be handled by the controller
+  }
+};
+
+// Refresh token service: verify and generate a new token
+const refreshToken = async (oldToken) => {
+  try {
+    // Validate input
+    if (!oldToken) {
+      throw new Error('Old token is required');
+    }
+
+    // Verify the old token
+    const payload = jwt.verify(oldToken, JWT_SECRET);
+    if (!payload) {
+      const errMsg = 'Invalid refresh token';
+      logError(errMsg, new Error(errMsg));
+      throw new Error(errMsg);
+    }
+
+    // Generate a new JWT token
+    const newToken = jwt.sign(
+      { userId: payload.userId, role: payload.role },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
+    return { newToken };
+  } catch (err) {
+    logError('refreshToken service failed', err);
+    throw err;  // Rethrow to be handled by the controller
+  }
+};
+
+module.exports = {
+  signUp,
+  login,
+  activateUser,
+  refreshToken,
+};

@@ -1,7 +1,5 @@
-const bcrypt = require('bcryptjs');
 const { User } = require('../models');
-const { sendActivationEmail, sendPasswordResetEmail } = require('../utils/emailUtils');
-const PasswordResetService = require('../services/passwordresetService');
+const { sendActivationEmail } = require('../utils/emailUtils');
 const { signUp, login, activateUser, refreshToken } = require('../services/authService');
 const { rateLimitActivationRequests } = require('../middleware/rateLimiter');
 const { generateActivationCode } = require('../services/ActivationCodeService');
@@ -15,7 +13,7 @@ const cookieOptions = {
   maxAge: 24 * 60 * 60 * 1000, // 1 day
 };
 
-// ✅ SignUp
+// ✅ Sign Up
 const signUpController = async (req, res) => {
   const {
     username, email, password, phone, location,
@@ -84,45 +82,6 @@ const logoutController = (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 };
 
-// ✅ Request Password Reset
-const passwordResetRequestController = async (req, res) => {
-  const { email } = req.body;
-  try {
-    const user = await User.findOne({ where: { email } });
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    const { code } = await PasswordResetService.generateResetToken(user.id);
-    const link = `${process.env.FRONTEND_URL}/recoverpwd?token=${code}`;
-    await sendPasswordResetEmail(user.email, link);
-
-    res.status(200).json({ message: 'Password reset email sent.' });
-  } catch (err) {
-    logError('passwordResetRequestController error', err);
-    res.status(500).json({ error: 'Reset request failed.' });
-  }
-};
-
-// ✅ Confirm Password Reset
-const passwordResetConfirmController = async (req, res) => {
-  const { token, newPassword } = req.body;
-  try {
-    const reset = await PasswordResetService.verifyResetToken(token);
-    if (!reset) return res.status(400).json({ error: 'Invalid or expired token' });
-
-    const user = await User.findByPk(reset.userId);
-    if (!user) return res.status(404).json({ error: 'User not found' });
-
-    user.password = await bcrypt.hash(newPassword, 12);
-    await user.save();
-    await reset.destroy();
-
-    res.status(200).json({ message: 'Password successfully reset' });
-  } catch (err) {
-    logError('passwordResetConfirmController error', err);
-    res.status(500).json({ error: 'Reset failed.' });
-  }
-};
-
 // ✅ Activate or Resend
 const activateUserController = async (req, res) => {
   const { activationCode, email, action, userId } = req.body;
@@ -172,8 +131,6 @@ module.exports = {
   signUpController,
   loginController,
   logoutController,
-  passwordResetRequestController,
-  passwordResetConfirmController,
   activateUserController,
   refreshTokenController,
 };

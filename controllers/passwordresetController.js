@@ -1,9 +1,9 @@
-const bcrypt = require('bcryptjs');
+const { User } = require('../models');
 const { sendPasswordResetEmail } = require('../utils/emailUtils');
 const PasswordResetService = require('../services/passwordresetService');
-const { User } = require('../models');
+const { logError } = require('../utils/logger');
 
-// Request Password Reset
+// ✅ Request Password Reset
 const requestPasswordReset = async (req, res) => {
   const { email } = req.body;
 
@@ -16,19 +16,19 @@ const requestPasswordReset = async (req, res) => {
     const { code } = await PasswordResetService.generateResetToken(user.id);
 
     const resetLink = `${process.env.FRONTEND_URL}/recoverpwd?token=${code}`;
-    await sendPasswordResetEmail(user, resetLink);  // Send email
+    await sendPasswordResetEmail(user, resetLink);
 
-    return res.status(200).json({
+    res.status(200).json({
       message: 'Password reset email sent successfully',
       data: { email: user.email }
     });
   } catch (error) {
-    console.error('Error in requestPasswordReset:', error);
-    return res.status(500).json({ error: error.message || 'Internal server error' });
+    logError('requestPasswordReset error', error);
+    res.status(500).json({ error: 'Failed to process password reset request' });
   }
 };
 
-// Handle Password Reset with Token
+// ✅ Reset Password
 const resetPassword = async (req, res) => {
   const { resetCode, newPassword } = req.body;
 
@@ -39,12 +39,10 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired reset code' });
     }
 
-    return res.status(200).json({
-      message: 'Password successfully reset'
-    });
+    res.status(200).json({ message: 'Password successfully reset' });
   } catch (error) {
-    console.error('Error in resetPassword:', error);
-    return res.status(500).json({ error: error.message || 'Internal server error' });
+    logError('resetPassword error', error);
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 };
 

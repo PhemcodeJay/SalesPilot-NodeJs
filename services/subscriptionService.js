@@ -137,10 +137,14 @@ const getActiveSubscription = async (tenantId) => {
 
 // Get detailed plan info for a tenant’s current active subscription
 const getSubscriptionPlanDetails = async (tenantId) => {
-  const subscription = await getActiveSubscription(tenantId);
-  if (!subscription) throw new Error('No active subscription found for this tenant');
+  try {
+    const subscription = await getActiveSubscription(tenantId);
+    if (!subscription) throw new Error('No active subscription found for this tenant');
 
-  return PLANS[subscription.subscription_plan];
+    return PLANS[subscription.subscription_plan];
+  } catch (err) {
+    throw new Error(`Failed to get subscription plan details: ${err.message}`);
+  }
 };
 
 module.exports = {

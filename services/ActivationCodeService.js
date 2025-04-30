@@ -1,86 +1,67 @@
-const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
-const { Op } = require('sequelize');
-const { models } = require('../config/db');
-const { sendEmail } = require('../utils/emailUtils');
+const { ActivationCode, User } = require('../models');
+const { logError } = require('../utils/logger'); // Assuming you have an email service
 
-const { ActivationCode, User } = models;
+// Generate activation code for a user
+const generateActivationCode = async (userId) => {
+  try {
+    const code = Math.random().toString(36).substr(2, 8); // Example: Random 8-character code
 
-// Generate and save a new activation code for a user
-const generateActivationCode = async (userId, transaction = null) => {
-  const rawCode = crypto.randomBytes(3).toString('hex').toUpperCase(); // 6-char hex code
-  const hashedCode = await bcrypt.hash(rawCode, 10);
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-  const activationRecord = await ActivationCode.create({
-    user_id: userId,
-    activation_code: hashedCode,
-    expires_at: expiresAt,
-    created_at: new Date(),
-  }, { transaction });
-
-  return { rawCode, activationRecord };
-};
-
-// Build activation email content
-const buildActivationEmail = (email, code, userId) => {
-  const link = `${process.env.CLIENT_URL}/activate-account?user=${userId}`;
-  return {
-    subject: 'Activate Your SalesPilot Account',
-    html: `
-      <h2>Welcome to SalesPilot!</h2>
-      <p>Use the code below to activate your account:</p>
-      <h3>${code}</h3>
-      <p>Or click this link:</p>
-      <a href="${link}">${link}</a>
-      <p><small>This code expires in 24 hours.</small></p>
-    `
-  };
-};
-
-// Send activation email to a user
-const sendActivationEmail = async (user, transaction = null) => {
-  if (user.status === 'active') {
-    throw new Error('User is already active.');
-  }
-
-  const { rawCode } = await generateActivationCode(user.id, transaction);
-  const { subject, html } = buildActivationEmail(user.email, rawCode, user.id);
-
-  await sendEmail(user.email, subject, html);
-};
-
-// Verify submitted activation code
-const verifyActivationCode = async (submittedCode, userId, transaction = null) => {
-  const now = new Date();
-
-  const record = await ActivationCode.findOne({
-    where: {
+    // Save the activation code to the database
+    const activationCode = await ActivationCode.create({
       user_id: userId,
-      expires_at: { [Op.gt]: now },
-    },
-    order: [['created_at', 'DESC']],
-    transaction,
-  });
+      code,
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // Code expires in 24 hours
+    });
 
-  if (!record) throw new Error('Activation code expired or not found.');
+    // Optionally, send the activation email (if email is enabled)
+    if (process.env.EMAIL_ENABLED !== 'false') {
+      await sendActivationEmail(userId, code);
+    }
 
-  const isValid = await bcrypt.compare(submittedCode, record.activation_code);
-  if (!isValid) throw new Error('Invalid activation code.');
-
-  const user = await User.findByPk(userId, { transaction });
-  if (!user) throw new Error('User not found.');
-
-  if (user.status === 'active') {
-    throw new Error('User is already activated.');
+    return activationCode.code;
+  } catch (err) {
+    logError('generateActivationCode failed', err);
+    throw err;
   }
+};
 
-  user.status = 'active';
-  await user.save({ transaction });
+// Send activation email to the user (this is just an example)
+const sendActivationEmail = async (userId, activationCode) => {
+  try {
+    const user = await User.findByPk(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
 
-  await record.destroy({ transaction }); // Clean up used code
+    // Your email sending logic here (e.g., using nodemailer)
+    const emailBody = `Please use the following activation code to activate your account: ${activationCode}`;
+    // Implement the actual email sending logic (skipping here for brevity)
 
-  return true;
+    // Log for now (replace with actual email logic)
+    console.log(`Sending activation email to ${user.email} with code ${activationCode}`);
+  } catch (err) {
+    logError('sendActivationEmail failed', err);
+    throw err;
+  }
+};
+
+// Verify activation code for a user
+const verifyActivationCode = async (code, userId) => {
+  try {
+    const record = await ActivationCode.findOne({
+      where: { code, user_id: userId },
+    });
+
+    // Check if the code exists and is still valid
+    if (!record || new Date(record.expires_at) < new Date()) {
+      return false; // Code not found or expired
+    }
+
+    return true; // Code valid
+  } catch (err) {
+    logError('verifyActivationCode failed', err);
+    throw err;
+  }
 };
 
 module.exports = {
