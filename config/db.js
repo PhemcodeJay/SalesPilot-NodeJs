@@ -1,5 +1,6 @@
-require('dotenv').config(); // Load environment variables
+// config/db.js
 
+require('dotenv').config(); // Load environment variables
 const { Sequelize, DataTypes } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
@@ -23,16 +24,16 @@ const sequelize = new Sequelize(databaseUrl, {
 // 📦 Load Models Dynamically
 const loadModels = (sequelizeInstance) => {
   const models = {};
-  const modelsDirectory = __dirname;
-  const baseFilename = path.basename(__filename);
+  const modelsDirectory = __dirname; // Directory where models are located
+  const baseFilename = path.basename(__filename); // Exclude db.js file
 
   fs.readdirSync(modelsDirectory)
     .filter(file => file.endsWith('.js') && file !== baseFilename)
     .forEach(file => {
       try {
-        const modelFn = require(path.join(modelsDirectory, file));
+        const modelFn = require(path.join(modelsDirectory, file)); // Dynamically require models
         if (typeof modelFn === 'function') {
-          const model = modelFn(sequelizeInstance, DataTypes);
+          const model = modelFn(sequelizeInstance, DataTypes); // Initialize models
           models[model.name] = model;
           debug(`✅ Model loaded: ${model.name}`);
         }
@@ -47,7 +48,17 @@ const loadModels = (sequelizeInstance) => {
 // 📦 Load Admin Models
 const models = loadModels(sequelize);
 
-// ✅ Admin DB Utilities
+// 🧩 Set Associations for Admin Models (if any)
+Object.values(models).forEach(model => {
+  if (typeof model.associate === 'function') {
+    model.associate(models); // Apply associations for models
+    debug(`🔗 Association set for: ${model.name}`);
+  }
+});
+
+
+// Admin DB Utilities
+
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
@@ -60,7 +71,7 @@ const testConnection = async () => {
 
 const syncModels = async () => {
   try {
-    await sequelize.sync({ force: false });
+    await sequelize.sync({ force: false }); // Sync models (without force drop)
     debug('✅ Admin DB models synced.');
   } catch (err) {
     console.error('❌ Error syncing admin DB models:', err.message);
@@ -79,12 +90,9 @@ const closeAllConnections = async () => {
 };
 
 // 🧩 Dynamic Tenant DB Support
+
 const tenantDbCache = {};
 
-/**
- * Dynamically create and return Sequelize + loaded models for a tenant DB
- * Supports env override (TENANT_DB_URL_{TENANT})
- */
 const getTenantDb = (dbName) => {
   if (!dbName) throw new Error('❌ Tenant DB name is required');
 
@@ -128,21 +136,13 @@ const testTenantConnection = async (dbName) => {
   }
 };
 
-// 🧩 Set Associations for Admin Models
-Object.values(models).forEach(model => {
-  if (typeof model.associate === 'function') {
-    model.associate(models);
-    debug(`🔗 Association set for: ${model.name}`);
-  }
-});
-
 // 🧩 Export everything
 module.exports = {
-  sequelize,
-  models,
+  sequelize,  // Export sequelize instance for DB connection management
+  models,     // Export loaded models for use in other parts of the application
   testConnection,
   syncModels,
   closeAllConnections,
   getTenantDb,
-  testTenantConnection
+  testTenantConnection,
 };

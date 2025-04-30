@@ -5,99 +5,61 @@ const PasswordResetService = require('../services/passwordresetService');
 const { signUp, login, activateUser, refreshToken } = require('../services/authService');
 const { rateLimitActivationRequests } = require('../middleware/rateLimiter');
 const { generateActivationCode } = require('../services/ActivationCodeService');
+const { logError } = require('../utils/logger');
 
-// ✅ SignUp Controller
+// Secure cookie options
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'Strict',
+  maxAge: 24 * 60 * 60 * 1000, // 1 day
+};
+
+// ✅ SignUp
 const signUpController = async (req, res) => {
   const {
-    username,
-    email,
-    password,
-    phone,
-    location,
-    tenantName,
-    tenantEmail,
-    tenantPhone,
-    tenantAddress,
-    role = 'sales',  // Default to 'sales' if role is not provided
+    username, email, password, phone, location,
+    tenantName, tenantEmail, tenantPhone, tenantAddress,
+    role = 'sales',
   } = req.body;
 
   try {
-    // Rate limiting for activation requests
     const isRateLimited = await rateLimitActivationRequests(email);
     if (isRateLimited) {
       return res.status(429).json({ error: 'Too many requests. Please try again later.' });
     }
 
-    // Prepare user and tenant data
-    const userData = {
-      username,
-      email,
-      password,
-      phone,
-      location,
-      role,  // Assign role dynamically (default 'sales')
-    };
+    const userData = { username, email, password, phone, location, role };
+    const tenantData = { name: tenantName, email: tenantEmail, phone: tenantPhone, address: tenantAddress };
 
-    const tenantData = {
-      name: tenantName,
-      email: tenantEmail,
-      phone: tenantPhone,
-      address: tenantAddress,
-    };
-
-    // Perform signup and create the user, tenant, and subscription
     const { user, tenant, subscription, activationCode } = await signUp(userData, tenantData);
 
-    // Response depends on EMAIL_ENABLED flag
-    const responseMessage = process.env.EMAIL_ENABLED === 'false'
-      ? 'User and tenant registered successfully. Your account is active.'
-      : 'User and tenant registered successfully. Please check your email to activate your account.';
+    const responseMsg = process.env.EMAIL_ENABLED === 'false'
+      ? 'Account created and activated successfully.'
+      : 'Account created. Please activate via email.';
 
-    // Sending response with the created data
     res.status(201).json({
-      message: responseMessage,
+      message: responseMsg,
       data: {
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          phone: user.phone,
-          location: user.location,
-          role: user.role,
-        },
-        tenant: {
-          id: tenant.id,
-          name: tenant.name,
-          email: tenant.email,
-          phone: tenant.phone,
-          address: tenant.address,
-          status: tenant.status,
-        },
-        subscription: {
-          id: subscription.id,
-          plan: subscription.subscription_plan,  // Corrected field name based on the original code
-          status: subscription.status,
-          startDate: subscription.start_date,
-          endDate: subscription.end_date,
-          features: subscription.features ? JSON.parse(subscription.features) : [],  // Ensure features are parsed as JSON if needed
-          price: subscription.price,
-        },
-        activationCode: activationCode,  // Include activation code if in development mode
-      },
+        user,
+        tenant,
+        subscription,
+        activationCode: process.env.EMAIL_ENABLED === 'false' ? undefined : activationCode
+      }
     });
   } catch (err) {
-    console.error('SignUp error:', err);
-    res.status(500).json({ error: err.message || 'Error registering user. Please try again.' });
+    logError('signUpController error', err);
+    res.status(500).json({ error: err.message || 'Signup failed.' });
   }
 };
 
-// ✅ Login Controller
+// ✅ Login
 const loginController = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // Perform login and generate JWT token
     const { user, token } = await login(email, password);
+    res.cookie('token', token, cookieOptions);
 
     res.status(200).json({
       message: 'Login successful',
@@ -107,138 +69,102 @@ const loginController = async (req, res) => {
           email: user.email,
           username: user.username,
           role: user.role,
-        },
-        token
+        }
       }
     });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(401).json({ error: error.message || 'Invalid credentials' });
+  } catch (err) {
+    logError('loginController error', err);
+    res.status(401).json({ error: err.message || 'Login failed.' });
   }
 };
 
-// ✅ Logout Controller
+// ✅ Logout
 const logoutController = (req, res) => {
   res.clearCookie('token');
   res.status(200).json({ message: 'Logged out successfully' });
 };
 
-// ✅ Password Reset Request Controller
+// ✅ Request Password Reset
 const passwordResetRequestController = async (req, res) => {
   const { email } = req.body;
-
   try {
-    // Find user by email
     const user = await User.findOne({ where: { email } });
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // Generate reset token
     const { code } = await PasswordResetService.generateResetToken(user.id);
-    const resetLink = `${process.env.FRONTEND_URL}/recoverpwd?token=${code}`;
+    const link = `${process.env.FRONTEND_URL}/recoverpwd?token=${code}`;
+    await sendPasswordResetEmail(user.email, link);
 
-    // Send password reset email
-    await sendPasswordResetEmail(user.email, resetLink);
-
-    return res.status(200).json({ message: 'We have sent a password reset link to your email.' });
+    res.status(200).json({ message: 'Password reset email sent.' });
   } catch (err) {
-    console.error('Error sending password reset email:', err);
-    return res.status(500).json({ message: 'An error occurred while processing your request.' });
+    logError('passwordResetRequestController error', err);
+    res.status(500).json({ error: 'Reset request failed.' });
   }
 };
 
-// ✅ Password Reset Confirmation Controller
+// ✅ Confirm Password Reset
 const passwordResetConfirmController = async (req, res) => {
   const { token, newPassword } = req.body;
-
   try {
-    // Verify reset token and reset password
     const reset = await PasswordResetService.verifyResetToken(token);
-    if (!reset) {
-      return res.status(400).json({ error: 'Invalid or expired reset token' });
-    }
+    if (!reset) return res.status(400).json({ error: 'Invalid or expired token' });
 
-    // Hash the new password
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
-    const user = await User.findOne({ where: { id: reset.userId } });
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    const user = await User.findByPk(reset.userId);
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
-    // Save new password
-    user.password = hashedPassword;
+    user.password = await bcrypt.hash(newPassword, 12);
     await user.save();
     await reset.destroy();
 
-    return res.status(200).json({ message: 'Password successfully reset' });
+    res.status(200).json({ message: 'Password successfully reset' });
   } catch (err) {
-    console.error('Error resetting password:', err);
-    return res.status(500).json({ error: 'Internal server error' });
+    logError('passwordResetConfirmController error', err);
+    res.status(500).json({ error: 'Reset failed.' });
   }
 };
 
-// ✅ Account Activation Controller
+// ✅ Activate or Resend
 const activateUserController = async (req, res) => {
   const { activationCode, email, action, userId } = req.body;
 
   try {
     if (action === 'activate') {
-      // Handle account activation
       if (!activationCode || !userId) {
-        return res.status(400).json({ error: 'Activation code and user ID are required.' });
+        return res.status(400).json({ error: 'Missing activation code or user ID' });
       }
 
-      // Verify the activation code
       const success = await activateUser(activationCode, userId);
-      if (success) {
-        return res.status(200).json({ success: 'Account successfully activated.' });
-      }
-
-      return res.status(400).json({ error: 'Failed to activate account. Please check your code.' });
+      return res.status(success ? 200 : 400).json({
+        [success ? 'success' : 'error']: success ? 'Account activated.' : 'Invalid activation code.'
+      });
 
     } else if (action === 'resend') {
-      // Handle resending activation code
-      if (!email) {
-        return res.status(400).json({ error: 'Email is required to resend the activation code.' });
-      }
-
-      // Find the user by email
       const user = await User.findOne({ where: { email, status: 'inactive' } });
+      if (!user) return res.status(404).json({ error: 'Inactive user not found.' });
 
-      if (!user) {
-        return res.status(400).json({ error: 'No unactivated user found with this email.' });
-      }
+      const code = await generateActivationCode(user.id);
+      await sendActivationEmail(user.email, code);
 
-      // Generate and send activation code to the user
-      const activationCode = await generateActivationCode(user.id);
-      await sendActivationEmail(user.email, activationCode);
-
-      return res.status(200).json({ success: 'A new activation code has been sent to your email.' });
-
+      res.status(200).json({ success: 'Activation code resent.' });
     } else {
-      return res.status(400).json({ error: 'Invalid action. Please specify "activate" or "resend".' });
+      res.status(400).json({ error: 'Invalid action.' });
     }
-  } catch (error) {
-    console.error('Error handling activation:', error);
-    return res.status(500).json({ error: 'An error occurred while processing the request.' });
+  } catch (err) {
+    logError('activateUserController error', err);
+    res.status(500).json({ error: 'Activation failed.' });
   }
 };
 
-// ✅ Refresh Token Controller
+// ✅ Refresh JWT Token
 const refreshTokenController = async (req, res) => {
   const { oldToken } = req.body;
-
   try {
     const { newToken } = await refreshToken(oldToken);
-
-    res.status(200).json({
-      message: 'Token refreshed successfully',
-      data: { newToken }
-    });
+    res.cookie('token', newToken, cookieOptions);
+    res.status(200).json({ message: 'Token refreshed.' });
   } catch (err) {
-    console.error('Error refreshing token:', err);
-    res.status(500).json({ error: 'Error refreshing token' });
+    logError('refreshTokenController error', err);
+    res.status(500).json({ error: 'Token refresh failed.' });
   }
 };
 

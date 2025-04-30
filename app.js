@@ -1,5 +1,6 @@
 require('dotenv').config(); // Must be at the very top
-
+require('./cron/SubscriptionCron'); // 📅 Load and schedule the monthly subscription cron job
+const { Sequelize } = require('sequelize'); // Import Sequelize for DB connection
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
@@ -8,9 +9,8 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const session = require('express-session');
 const passport = require('passport');
+const initializeJwtStrategy = require('./middleware/passportJwtStrategy');
 const flash = require('connect-flash');
-const { v4: uuidv4 } = require('uuid');  // Declare uuidv4 here
-
 const { testConnection, syncModels, closeAllConnections, getTenantDb } = require('./config/db'); // Import functions from db.js
 const rateLimiter = require('./middleware/rateLimiter');
 const tenantMiddleware = require('./middleware/tenantMiddleware');
@@ -22,6 +22,7 @@ const passwordResetRoutes = require('./routes/passwordresetRoute');
 
 const app = express();
 const port = process.env.PORT || 5000;
+
 
 // ✅ Security & Logging Middleware
 app.use(helmet());
@@ -58,6 +59,7 @@ app.use(
 
 // ✅ Passport Initialization
 app.use(passport.initialize());
+initializeJwtStrategy(passport);
 app.use(passport.session());
 app.use(flash());
 
@@ -104,6 +106,7 @@ app.get('/health', (req, res) => {
 
 // ✅ Error Logger
 app.use(errorLogger);
+
 
 // 🔍 404 Not Found Handler
 app.use((req, res, next) => {

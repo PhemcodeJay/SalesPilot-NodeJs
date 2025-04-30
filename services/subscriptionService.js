@@ -32,6 +32,7 @@ const createSubscription = async (tenantId, plan = 'trial', transaction = null) 
   const planDetails = PLANS[plan];
   if (!planDetails) throw new Error('Invalid subscription plan.');
 
+  // Handle trial plan and ensure free trial usage
   if (plan === 'trial') {
     const trialUsed = await models.Subscription.findOne({
       where: {
@@ -43,6 +44,7 @@ const createSubscription = async (tenantId, plan = 'trial', transaction = null) 
     if (trialUsed) throw new Error('Free trial has already been used.');
   }
 
+  // Check if the tenant already has an active subscription
   const existingSubscription = await models.Subscription.findOne({
     where: {
       tenant_id: tenantId,
@@ -56,10 +58,12 @@ const createSubscription = async (tenantId, plan = 'trial', transaction = null) 
     throw new Error('Tenant already has an active subscription.');
   }
 
+  // Calculate the subscription start and end dates
   const now = new Date();
   const endDate = new Date();
   endDate.setMonth(now.getMonth() + planDetails.durationMonths);
 
+  // Create the subscription record
   const subscription = await models.Subscription.create({
     tenant_id: tenant.id,
     subscription_plan: plan,
@@ -71,6 +75,7 @@ const createSubscription = async (tenantId, plan = 'trial', transaction = null) 
     price: planDetails.price,
   }, { transaction });
 
+  // Update the tenant's subscription information
   tenant.subscription_start_date = now;
   tenant.subscription_end_date = endDate;
   await tenant.save({ transaction });
@@ -117,13 +122,17 @@ const renewSubscriptions = async () => {
 
 // Get the active subscription for a tenant
 const getActiveSubscription = async (tenantId) => {
-  return await models.Subscription.findOne({
+  const subscription = await models.Subscription.findOne({
     where: {
       tenant_id: tenantId,
       status: 'Active',
     },
     order: [['created_at', 'DESC']],
   });
+
+  if (!subscription) throw new Error('No active subscription found for this tenant');
+
+  return subscription;
 };
 
 // Get detailed plan info for a tenant’s current active subscription

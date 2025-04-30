@@ -10,10 +10,10 @@ exports.generateResetToken = async (userId, transaction = null) => {
   expirationTime.setHours(expirationTime.getHours() + 1); // Set expiry to 1 hour from now
 
   const resetRecord = await PasswordReset.create({
-    user_id: userId,  // Ensure the field name is user_id as per the model definition
+    user_id: userId,
     reset_code: code,
     expires_at: expirationTime,  // Set the expiry date for the token
-    created_at: new Date(),  // Use the correct field name
+    created_at: new Date(),
   }, { transaction });
 
   return { code, resetRecord };
@@ -28,36 +28,31 @@ exports.verifyResetToken = async (code, transaction = null) => {
       reset_code: code,
       expires_at: { [Op.gt]: now }, // Check if the token has not expired
     },
-    transaction,  // Ensure the transaction is passed if needed
+    transaction,
   });
 
   if (!reset) return null;  // Return null if token doesn't exist or has expired
 
-  return reset;  // Return the reset entry for further validation
+  return reset;
 };
 
 // Reset the password for the user
 exports.resetPassword = async (resetCode, newPassword, transaction = null) => {
-  // Verify the reset token's validity
   const resetRecord = await this.verifyResetToken(resetCode, transaction);
   if (!resetRecord) {
     throw new Error('Invalid or expired reset token');
   }
 
-  // Find the user associated with the reset token
   const user = await User.findByPk(resetRecord.user_id, { transaction });
   if (!user) {
     throw new Error('User not found');
   }
 
-  // Hash the new password
-  const hashedPassword = await bcrypt.hash(newPassword, 12);  // Increased the cost factor for improved security
+  const hashedPassword = await bcrypt.hash(newPassword, 12);  // Hash password
 
-  // Update the user's password
   user.password = hashedPassword;
   await user.save({ transaction });
 
-  // Optionally, destroy the reset token after the password has been reset
   await resetRecord.destroy({ transaction });
 
   return true;

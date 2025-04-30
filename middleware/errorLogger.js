@@ -1,20 +1,15 @@
-const fs = require('fs');
-const path = require('path');
+// middleware/errorLogger.js
 
-const errorLogStream = fs.createWriteStream(path.join(__dirname, '../logs/error.log'), { flags: 'a' });
+const { logError } = require('../utils/logger');
 
+// Handles Express errors and logs them
 const errorLogger = (err, req, res, next) => {
-  const errorMessage = `
-    [${new Date().toISOString()}] - Error occurred:
-    ${err.message}
-    Stack: ${err.stack}
-  `;
+  logError(`Unhandled error in ${req.method} ${req.url}`, err);
 
-  // Log the error to file
-  errorLogStream.write(errorMessage + '\n');
-
-  // Send the error response
-  res.status(500).json({ error: 'Internal Server Error' });
+  res.status(500).json({
+    success: false,
+    error: 'Internal Server Error',
+  });
 };
 
 module.exports = errorLogger;

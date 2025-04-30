@@ -1,30 +1,26 @@
 const bcrypt = require('bcryptjs');
 const { sendPasswordResetEmail } = require('../utils/emailUtils');
-const PasswordResetService = require('../services/passwordresetService');  // Importing the password reset service
-const { User } = require('../models');  // Import User model
+const PasswordResetService = require('../services/passwordresetService');
+const { User } = require('../models');
 
-// ✅ Request Password Reset
+// Request Password Reset
 const requestPasswordReset = async (req, res) => {
   const { email } = req.body;
 
   try {
-    // Find user by email
     const user = await User.findOne({ where: { email } });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Generate reset token using the service
     const { code } = await PasswordResetService.generateResetToken(user.id);
 
-    // Send reset email with the generated token
     const resetLink = `${process.env.FRONTEND_URL}/recoverpwd?token=${code}`;
-    await sendPasswordResetEmail(user, resetLink);  // Send the email with the reset link
+    await sendPasswordResetEmail(user, resetLink);  // Send email
 
-    // Return standardized success response
     return res.status(200).json({
       message: 'Password reset email sent successfully',
-      data: { email: user.email }  // Return the email to confirm the sent email
+      data: { email: user.email }
     });
   } catch (error) {
     console.error('Error in requestPasswordReset:', error);
@@ -32,20 +28,17 @@ const requestPasswordReset = async (req, res) => {
   }
 };
 
-// ✅ Handle Password Reset with Token
+// Handle Password Reset with Token
 const resetPassword = async (req, res) => {
   const { resetCode, newPassword } = req.body;
 
   try {
-    // Verify reset code and reset the password using the service
     const resetStatus = await PasswordResetService.resetPassword(resetCode, newPassword);
-    
-    // If no reset was done, throw an error
+
     if (!resetStatus) {
       return res.status(400).json({ error: 'Invalid or expired reset code' });
     }
 
-    // Return successful response with standardized payload
     return res.status(200).json({
       message: 'Password successfully reset'
     });

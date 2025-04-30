@@ -1,19 +1,18 @@
 const express = require('express');
 const tenantMiddleware = require('../middleware/tenantMiddleware');
 const { verifyResetToken } = require('../services/passwordresetService');
-const {
-  requestPasswordReset,
-  resetPassword,
-} = require('../controllers/passwordresetController');  // Uses updated password controller
+const { requestPasswordReset, resetPassword } = require('../controllers/passwordresetController');
+const { validateRecoverPwd, validatePasswordReset } = require('../middleware/authvalidator');
+const errorLogger = require('../middleware/errorLogger');
 
 const router = express.Router();
 
-// ✅ Serve Recover Password Page (GET)
-router.get('/recoverpwd', (req, res) => {
-  res.render('auth/recoverpwd');  // Display form to enter email
+// Serve Recover Password Page (GET)
+router.get('/recoverpwd', tenantMiddleware, (req, res) => {
+  res.render('auth/recoverpwd');
 });
 
-// ✅ Serve Password Reset Page (GET) using token
+// Serve Password Reset Page (GET) using token
 router.get('/passwordreset', async (req, res) => {
   const { token } = req.query;
 
@@ -27,18 +26,18 @@ router.get('/passwordreset', async (req, res) => {
       return res.render('auth/reset-error', { message: 'Reset link is invalid or has expired. Please request a new one.' });
     }
 
-    // Render password reset form with the valid token
     return res.render('auth/passwordreset', { token });
   } catch (err) {
     console.error('Token validation error:', err);
-    return res.render('auth/reset-error', { message: 'Something went wrong. Please try again.' });
+    errorLogger(err, req);
+    return res.render('auth/reset-error', { message: 'Something went wrong. Please try again later.' });
   }
 });
 
-// ✅ Request password reset email (POST)
-router.post('/recoverpwd', requestPasswordReset);  // Sends email with reset token
+// Request password reset email (POST)
+router.post('/recoverpwd', tenantMiddleware, validateRecoverPwd, requestPasswordReset);
 
-// ✅ Handle form-based password reset (POST)
-router.post('/passwordreset', resetPassword);  // Accepts token and new password
+// Handle password reset form (POST)
+router.post('/passwordreset', validatePasswordReset, resetPassword);
 
 module.exports = router;
