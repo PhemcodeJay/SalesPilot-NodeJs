@@ -2,10 +2,9 @@ const { User } = require('../models');
 const { sendActivationEmail } = require('../utils/emailUtils');
 const { signUp, login, activateUser, refreshToken } = require('../services/authService');
 const { rateLimitActivationRequests } = require('../middleware/rateLimiter');
-const { generateActivationCode } = require('../services/activationCodeService');
 const { logError } = require('../utils/logger');
 
-// ✅ Secure Cookie Options
+// Secure Cookie Options
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
@@ -13,7 +12,7 @@ const cookieOptions = {
   maxAge: 24 * 60 * 60 * 1000, // 1 day
 };
 
-// ✅ Sign Up Controller
+// Sign Up Controller
 const signUpController = async (req, res) => {
   try {
     const {
@@ -57,7 +56,7 @@ const signUpController = async (req, res) => {
   }
 };
 
-// ✅ Login Controller
+// Login Controller
 const loginController = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -82,14 +81,19 @@ const loginController = async (req, res) => {
   }
 };
 
-// ✅ Logout Controller
+// Logout Controller
 const logoutController = (req, res) => {
-  // Clear the JWT token cookie
-  res.clearCookie('token');
-  return res.status(200).json({ message: 'Logged out successfully' });
+  try {
+    // Clear the JWT token cookie
+    res.clearCookie('token');
+    return res.status(200).json({ message: 'Logged out successfully' });
+  } catch (err) {
+    logError('logoutController error', err);
+    return res.status(500).json({ error: 'Logout failed.' });
+  }
 };
 
-// ✅ Activation & Resend Controller
+// Activation & Resend Controller
 const activateUserController = async (req, res) => {
   try {
     const { activationCode, email, action, userId } = req.body;
@@ -125,7 +129,7 @@ const activateUserController = async (req, res) => {
   }
 };
 
-// ✅ Refresh JWT Token Controller
+// Refresh JWT Token Controller
 const refreshTokenController = async (req, res) => {
   try {
     const { oldToken } = req.body;

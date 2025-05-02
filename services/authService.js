@@ -1,186 +1,107 @@
+const { User, Tenant, Subscription, ActivationCode } = require('../models'); // Added Subscription here
+const { logError } = require('../utils/logger');
+const { generateActivationCode, verifyActivationCode } = require('./ActivationCodeService');
+const { createSubscription } = require('./subscriptionService');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { User, Tenant, ActivationCode, Subscription } = require('../models');
-const { createSubscription } = require('./subscriptionService');
-const { generateActivationCode, validateActivationCode } = require('./activationCodeService');
-const { logError } = require('../utils/logger');
-const { sequelize, getTenantDb, syncModels } = require('../config/db'); // For tenant-specific DBs
-const validator = require('validator');  // To check for valid email format
 
-// JWT Configuration
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = '1d';
-const EMAIL_ENABLED = process.env.EMAIL_ENABLED !== 'false'; // true if enabled
-const ENV = process.env.NODE_ENV || 'development';  // Ensure this reflects the environment setting
+const EMAIL_ENABLED = process.env.EMAIL_ENABLED !== 'false';
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
 
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET is not defined in environment variables');
-}
-
-// User Sign-Up
+// Sign Up Service
 const signUp = async (userData, tenantData) => {
+  const transaction = await Tenant.sequelize.transaction();
   try {
-    if (!userData.email || !userData.password || !tenantData.name) {
-      throw new Error('Missing required fields');
-    }
+    // 1. Create Tenant
+    const tenant = await Tenant.create(tenantData, { transaction });
 
-    // Hash the user's password
-    const hashedPassword = await bcrypt.hash(userData.password, 12);
-
-    // 1. Create tenant in the main DB
-    const tenant = await Tenant.create({ ...tenantData });
-    if (!tenant) throw new Error('Failed to create tenant');
-
-    // Dynamically create the tenant's own database
-    const tenantDbName = `tenant_${tenant.id}`;
-    await sequelize.query(`CREATE DATABASE IF NOT EXISTS ${tenantDbName};`);
-    const tenantDb = getTenantDb(tenantDbName);  // Get Sequelize instance for the new tenant DB
-    await syncModels(tenantDb);  // Sync models to create tables for this tenant
-
-    // 2. Create user associated with the tenant in the main DB
+    // 2. Create User with hashed password
+    const hashedPassword = await bcrypt.hash(userData.password, 10);
     const user = await User.create({
       ...userData,
+      tenant_id: tenant.id,
       password: hashedPassword,
-      tenant_id: tenant.id,  // Link user to the tenant
       status: EMAIL_ENABLED ? 'inactive' : 'active',
-    });
-    if (!user) throw new Error('Failed to create user');
+    }, { transaction });
 
-    // 3. Create subscription (trial by default)
-    const subscription = await createSubscription(tenant.id, 'trial');
-    if (!subscription) throw new Error('Failed to create subscription');
+    // 3. Create 3-month trial subscription
+    const subscription = await createSubscription(tenant.id, 'trial', transaction);
 
+    // 4. Handle activation
     let activationCode = null;
-    // 4. If email is enabled, generate activation code
     if (EMAIL_ENABLED) {
-      activationCode = await generateActivationCode(user.id);
-      if (!activationCode) throw new Error('Failed to generate activation code');
+      activationCode = await generateActivationCode(user.id, transaction);
     }
 
-    // Insert into main database tables successfully
-    // Tenant is inserted via Tenant.create
-    // User is inserted via User.create
-    // Subscription is created by the `createSubscription` method
-
+    await transaction.commit();
     return { user, tenant, subscription, activationCode };
+
   } catch (err) {
-    logError('signUp service failed', err);
-    throw err;  // Re-throw error to be handled by the controller
+    await transaction.rollback();
+    logError('signUp service error', err);
+    throw new Error('Signup failed. Please try again.');
   }
 };
 
-// User Login (with username or email)
-const login = async (usernameOrEmail, password) => {
+// Login Service
+const login = async (email, password) => {
   try {
-    if (!usernameOrEmail || !password) {
-      throw new Error('Username/Email and password are required');
-    }
+    const user = await User.findOne({ where: { email } });
+    if (!user) throw new Error('Invalid credentials');
 
-    // Check if the input is an email
-    const isEmail = validator.isEmail(usernameOrEmail);
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) throw new Error('Invalid credentials');
 
-    // Find user by either email or username
-    const user = await User.findOne({
-      where: {
-        [isEmail ? 'email' : 'username']: usernameOrEmail, // Use email or username field based on input
-      },
-    });
+    if (user.status !== 'active') throw new Error('Account is not activated');
 
-    if (!user || user.status !== 'active') {
-      const errMsg = 'Invalid credentials or inactive account';
-      logError(errMsg, new Error(errMsg));
-      throw new Error(errMsg);
-    }
-
-    // Validate password
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) {
-      const errMsg = 'Invalid credentials';
-      logError(errMsg, new Error(errMsg));
-      throw new Error(errMsg);
-    }
-
-    // Auto-activate user in development if EMAIL_ENABLED is false (dev mode logic)
-    if (ENV === 'development' && user.status !== 'active') {
-      await User.update({ status: 'active' }, { where: { id: user.id } });
-    }
-
-    // Generate JWT token
     const token = jwt.sign(
-      { userId: user.id, role: user.role },
+      { userId: user.id, tenantId: user.tenant_id, role: user.role },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      { expiresIn: '1d' }
     );
 
     return { user, token };
+
   } catch (err) {
-    logError('login service failed', err);
-    throw err;  // Re-throw error to be handled by the controller
+    logError('login service error', err);
+    throw new Error('Login failed. Check your credentials.');
   }
 };
 
-// Activate User
-const activateUser = async (code, userId) => {
+// Logout (clears the cookie on controller level)
+
+// Activate User Service
+const activateUser = async (activationCode, userId) => {
   try {
-    if (!code || !userId) {
-      throw new Error('Activation code and user ID are required');
-    }
+    const isValid = await verifyActivationCode(activationCode, userId);
+    if (!isValid) throw new Error('Invalid or expired activation code');
 
-    // Find the user by ID
-    const user = await User.findByPk(userId);
-    if (!user) throw new Error('User not found');
-
-    // If user is already active, return true
-    if (user.status === 'active') {
-      return true;
-    }
-
-    // Validate the activation code
-    const isValid = await validateActivationCode(code, userId);
-    if (!isValid) {
-      const errMsg = 'Invalid or expired activation code';
-      logError(errMsg, new Error(errMsg));
-      return false;
-    }
-
-    // Update the user status to active
     await User.update({ status: 'active' }, { where: { id: userId } });
-    // Remove the activation code once used
-    await ActivationCode.destroy({ where: { code, user_id: userId } });
-
     return true;
+
   } catch (err) {
-    logError('activateUser service failed', err);
-    throw err;  // Re-throw error to be handled by the controller
+    logError('activateUser service error', err);
+    throw new Error('Activation failed');
   }
 };
 
 // Refresh Token
 const refreshToken = async (oldToken) => {
   try {
-    if (!oldToken) {
-      throw new Error('Old token is required');
-    }
+    const decoded = jwt.verify(oldToken, JWT_SECRET);
+    const { userId, tenantId, role } = decoded;
 
-    // Verify the old token
-    const payload = jwt.verify(oldToken, JWT_SECRET);
-    if (!payload) {
-      const errMsg = 'Invalid refresh token';
-      logError(errMsg, new Error(errMsg));
-      throw new Error(errMsg);
-    }
-
-    // Generate a new JWT token
     const newToken = jwt.sign(
-      { userId: payload.userId, role: payload.role },
+      { userId, tenantId, role },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      { expiresIn: '1d' }
     );
 
     return { newToken };
+
   } catch (err) {
-    logError('refreshToken service failed', err);
-    throw err;  // Re-throw error to be handled by the controller
+    logError('refreshToken service error', err);
+    throw new Error('Token refresh failed');
   }
 };
 

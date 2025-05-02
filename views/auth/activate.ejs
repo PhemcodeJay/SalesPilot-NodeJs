@@ -7,6 +7,7 @@
 
   <!-- Favicon -->
   <link rel="shortcut icon" href="/assets/images/favicon-blue.ico" />
+  
   <!-- Stylesheets -->
   <link rel="stylesheet" href="/assets/css/backend-plugin.min.css">
   <link rel="stylesheet" href="/assets/css/backend.css?v=1.0.0">
@@ -14,6 +15,7 @@
   <link rel="stylesheet" href="/assets/vendor/line-awesome/dist/line-awesome/css/line-awesome.min.css">
   <link rel="stylesheet" href="/assets/vendor/remixicon/fonts/remixicon.css">  
 </head>
+
 <body>
   <!-- Loader Start -->
   <div id="loading"><div id="loading-center"></div></div>
@@ -33,6 +35,7 @@
                       <h2 class="mb-2 text-center font-weight-bold">Activate Your Account</h2>
                       <p class="text-center mb-4">Enter your activation code to complete account setup.</p>
 
+                      <!-- Activation Form -->
                       <form id="activation-form" action="/auth/activate" method="POST">
                         <div class="form-group mb-3">
                           <label for="activation-code" class="font-weight-bold">Activation Code</label>
@@ -43,6 +46,7 @@
                         <button type="submit" class="btn btn-primary w-100">Activate Account</button>
                       </form>
 
+                      <!-- Resend Activation Code Button -->
                       <div class="text-center mt-3">
                         <button type="button" id="resendButton" class="btn btn-outline-primary w-100">Resend Activation Code</button>
                       </div>
@@ -86,60 +90,63 @@
   <script src="/assets/js/app.js"></script>
 
   <script>
-document.addEventListener('DOMContentLoaded', () => {
-  const activationForm = document.getElementById('activation-form');
-  const activationCodeInput = document.getElementById('activation-code');
-  const errorElement = document.getElementById('activation-code-error');
-  const resendButton = document.getElementById('resendButton');
+    document.addEventListener('DOMContentLoaded', () => {
+      const activationForm = document.getElementById('activation-form');
+      const activationCodeInput = document.getElementById('activation-code');
+      const errorElement = document.getElementById('activation-code-error');
+      const resendButton = document.getElementById('resendButton');
 
-  activationForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    errorElement.textContent = '';
-    const activationCode = activationCodeInput.value.trim();
+      // Handle form submission
+      activationForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        errorElement.textContent = '';
+        const activationCode = activationCodeInput.value.trim();
 
-    if (!activationCode) {
-      errorElement.textContent = 'Activation code is required.';
-      return;
-    }
+        // Validation
+        if (!activationCode) {
+          errorElement.textContent = 'Activation code is required.';
+          return;
+        }
 
-    try {
-      const response = await fetch('/auth/activate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ activationCode })
+        try {
+          const response = await fetch('/auth/activate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activationCode })
+          });
+
+          const data = await response.json();
+
+          // Handle successful activation
+          if (response.ok) {
+            $('#successModal').modal('show');
+          } else {
+            errorElement.textContent = data.error || 'Invalid or expired activation code.';
+          }
+        } catch (err) {
+          errorElement.textContent = 'An error occurred. Please try again later.';
+        }
       });
 
-      const data = await response.json();
+      // Resend activation code
+      resendButton.addEventListener('click', async () => {
+        try {
+          const response = await fetch('/auth/resend-activation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
 
-      if (response.ok) {
-        $('#successModal').modal('show');
-      } else {
-        errorElement.textContent = data.error || 'Invalid or expired activation code.';
-      }
-    } catch (err) {
-      errorElement.textContent = 'An error occurred. Please try again later.';
-    }
-  });
-
-  resendButton.addEventListener('click', async () => {
-    try {
-      const response = await fetch('/auth/resend-activation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+          const data = await response.json();
+          if (data.success) {
+            alert('A new activation code has been sent to your email.');
+          } else {
+            alert(data.error || 'Failed to resend activation code.');
+          }
+        } catch {
+          alert('An error occurred while resending the activation code.');
+        }
       });
-
-      const data = await response.json();
-      if (data.success) {
-        alert('A new activation code has been sent to your email.');
-      } else {
-        alert(data.error || 'Failed to resend activation code.');
-      }
-    } catch {
-      alert('An error occurred while resending the activation code.');
-    }
-  });
-});
-
+    });
   </script>
 </body>
 </html>

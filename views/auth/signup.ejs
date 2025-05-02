@@ -56,50 +56,48 @@
                                                 <form role="form" id="registrationForm" autocomplete="off">
                                                     <div class="input-group input-group-outline mb-3">
                                                         <input type="text" class="form-control" id="username" name="username" placeholder="Enter your username" required>
+                                                        <div class="error-message text-danger" id="usernameError"></div>
                                                     </div>
-                                                
+
                                                     <div class="input-group input-group-outline mb-3">
                                                         <input type="email" class="form-control" id="email" name="email" placeholder="Enter your email" required>
+                                                        <div class="error-message text-danger" id="emailError"></div>
                                                     </div>
-                                                
+
                                                     <div class="input-group input-group-outline mb-3">
                                                         <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password" required>
+                                                        <div class="error-message text-danger" id="passwordError"></div>
                                                     </div>
-                                                
+
                                                     <div class="input-group input-group-outline mb-3">
                                                         <input type="password" class="form-control" id="confirm_password" name="confirm_password" placeholder="Confirm your password" required>
+                                                        <div class="error-message text-danger" id="confirmPasswordError"></div>
                                                     </div>
-                                                
+
                                                     <div class="input-group input-group-outline mb-3">
                                                         <input type="text" class="form-control" id="phone" name="phone" placeholder="Enter your phone number" required>
+                                                        <div class="error-message text-danger" id="phoneError"></div>
                                                     </div>
-                                                
+
                                                     <div class="input-group input-group-outline mb-3">
                                                         <input type="text" class="form-control" id="location" name="location" placeholder="Enter your location" required>
+                                                        <div class="error-message text-danger" id="locationError"></div>
                                                     </div>
-                                                
-                                                    <div class="input-group input-group-outline mb-3">
-                                                        <select class="form-control" id="role" name="role" required>
-                                                            <option value="sales">Sales</option>
-                                                            <option value="admin">Admin</option>
-                                                            <option value="manager">Manager</option>
-                                                        </select>
-                                                    </div>
-                                                
+
                                                     <input type="hidden" id="tenant_id" value="123">
-                                                
+
                                                     <div class="form-check form-check-info text-start ps-0">
                                                         <input class="form-check-input" type="checkbox" value="" id="flexCheckDefault" required>
                                                         <label class="form-check-label" for="flexCheckDefault">
                                                             I agree to the <a href="javascript:;" class="text-dark font-weight-bolder">Terms and Conditions</a>
                                                         </label>
                                                     </div>
-                                                
+
                                                     <div class="text-center">
                                                         <button type="submit" class="btn btn-lg bg-gradient-primary btn-lg w-100 mt-4 mb-0">Sign Up</button>
                                                     </div>
                                                 </form>
-                                                
+
                                                 <p class="mt-3 text-center">
                                                     Already have an account? <a href="/login" class="btn btn-lg bg-gradient-primary btn-lg w-100 mt-4 mb-0">Login here</a>
                                                 </p>
@@ -121,20 +119,20 @@
 
     <!-- Modal -->
     <div class="modal fade" id="registrationModal" tabindex="-1" aria-labelledby="registrationModalLabel" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title" id="registrationModalLabel">Registration Successful</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
-            <p>Your account has been successfully created. Please check your email for an activation link.</p>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-          </div>
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="registrationModalLabel">Registration Successful</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Your account has been successfully created. Please check your email for an activation link.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
         </div>
-      </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -143,7 +141,8 @@
             $("#registrationForm").submit(function (event) {
                 event.preventDefault(); // Prevent full page reload
 
-                $(".error-message").text(""); // Clear previous errors
+                // Clear previous errors
+                $(".error-message").text("");
                 $("#errorMessage").hide();
                 $("#successMessage").hide();
 
@@ -153,26 +152,29 @@
                     email: $("#email").val(),
                     phone: $("#phone").val(),
                     location: $("#location").val(),
-                    role: $("#role").val(),
                     password: $("#password").val(),
+                    confirm_password: $("#confirm_password").val(),
                 };
 
+                // Perform AJAX request
                 $.ajax({
                     type: "POST",
-                    url: "/auth/signup",
+                    url: "/auth/signup", // API endpoint
                     contentType: "application/json",
                     data: JSON.stringify(formData),
                     success: function (response) {
-                        // Show the modal on success
+                        // Show success modal on successful signup
                         $('#registrationModal').modal('show');
                         $("#registrationForm")[0].reset();
                     },
                     error: function (xhr) {
                         if (xhr.responseJSON.errors) {
+                            // Display validation errors
                             xhr.responseJSON.errors.forEach(err => {
                                 $("#" + err.param + "Error").text(err.msg);
                             });
                         } else {
+                            // Display server-side error message
                             $("#errorMessage").text(xhr.responseJSON.message).show();
                         }
                     }

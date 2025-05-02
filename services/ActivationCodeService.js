@@ -1,71 +1,101 @@
 const { ActivationCode, User } = require('../models');
-const { logError } = require('../utils/logger'); // Assuming you have an email service
+const { logError } = require('../utils/logger');
+const {
+  sendActivationEmail,
+  canResendActivationCode,
+  deleteExpiredActivationCodes,
+} = require('../utils/emailUtils');
 
-// Generate activation code for a user
+// Generate and send activation code
 const generateActivationCode = async (userId) => {
-  try {
-    const code = Math.random().toString(36).substr(2, 8); // Example: Random 8-character code
-
-    // Save the activation code to the database
-    const activationCode = await ActivationCode.create({
-      user_id: userId,
-      code,
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // Code expires in 24 hours
-    });
-
-    // Optionally, send the activation email (if email is enabled)
-    if (process.env.EMAIL_ENABLED !== 'false') {
-      await sendActivationEmail(userId, code);
-    }
-
-    return activationCode.code;
-  } catch (err) {
-    logError('generateActivationCode failed', err);
-    throw err;
-  }
-};
-
-// Send activation email to the user (this is just an example)
-const sendActivationEmail = async (userId, activationCode) => {
   try {
     const user = await User.findByPk(userId);
     if (!user) {
       throw new Error('User not found');
     }
 
-    // Your email sending logic here (e.g., using nodemailer)
-    const emailBody = `Please use the following activation code to activate your account: ${activationCode}`;
-    // Implement the actual email sending logic (skipping here for brevity)
+    // Clean up expired codes before generating a new one
+    await deleteExpiredActivationCodes();
 
-    // Log for now (replace with actual email logic)
-    console.log(`Sending activation email to ${user.email} with code ${activationCode}`);
+    // Rate limit: check if a code was sent recently
+    const allowed = await canResendActivationCode(userId);
+    if (!allowed) {
+      throw new Error('You must wait before requesting another activation code.');
+    }
+
+    // Generate an 8-character alphanumeric code
+    const code = Math.random().toString(36).substring(2, 10);
+
+    // Save code in the database
+    const activationCode = await ActivationCode.create({
+      user_id: userId,
+      code,
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+    });
+
+    // Send activation email (if email enabled)
+    if (process.env.EMAIL_ENABLED !== 'false') {
+      await sendActivationEmail(user.email, code);
+    }
+
+    return activationCode.code;
+
   } catch (err) {
-    logError('sendActivationEmail failed', err);
-    throw err;
+    logError('generateActivationCode failed', err);
+    throw new Error('Failed to generate activation code.');
   }
 };
 
-// Verify activation code for a user
+// Verify activation code
 const verifyActivationCode = async (code, userId) => {
   try {
     const record = await ActivationCode.findOne({
-      where: { code, user_id: userId },
+      where: { user_id: userId, code },
     });
 
-    // Check if the code exists and is still valid
-    if (!record || new Date(record.expires_at) < new Date()) {
-      return false; // Code not found or expired
+    if (!record) {
+      return { success: false, message: 'Activation code not found.' };
     }
 
-    return true; // Code valid
+    if (new Date(record.expires_at) < new Date()) {
+      return { success: false, message: 'Activation code has expired.' };
+    }
+
+    return { success: true, message: 'Activation code is valid.' };
+
   } catch (err) {
     logError('verifyActivationCode failed', err);
-    throw err;
+    throw new Error('Failed to verify activation code.');
+  }
+};
+
+// Resend activation code
+const resendActivationCode = async (userId) => {
+  try {
+    const user = await User.findByPk(userId);
+    if (!user) throw new Error('User not found');
+
+    // Respect rate limit
+    const allowed = await canResendActivationCode(userId);
+    if (!allowed) {
+      throw new Error('You must wait before requesting another activation code.');
+    }
+
+    // Clean up and generate new code
+    await deleteExpiredActivationCodes();
+    const newCode = await generateActivationCode(userId);
+
+    console.log(`New activation code sent to ${user.email}: ${newCode}`);
+    return newCode;
+
+  } catch (err) {
+    logError('resendActivationCode failed', err);
+    throw new Error(err.message || 'Failed to resend activation code.');
   }
 };
 
 module.exports = {
   generateActivationCode,
-  sendActivationEmail,
   verifyActivationCode,
+  resendActivationCode,
 };
