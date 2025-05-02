@@ -1,5 +1,7 @@
 require('dotenv').config(); // Must be at the very top
 require('./cron/SubscriptionCron'); // 📅 Load and schedule the monthly subscription cron job
+require('./cron/cleanupJobs');
+
 const { Sequelize } = require('sequelize'); // Import Sequelize for DB connection
 const express = require('express');
 const path = require('path');
