@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Legal - SalesPilot</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+  <style>
+    :root {
+      --primary: #12d0f1;
+      --dark: #87d7eb;
+      --light: #f8f9fa;
+      --gray: #6c757d;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: var(--dark);
+      background-color: var(--light);
+    }
+
+    .legal-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 3rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid #eee;
+    }
+
+    .logo {
+      width: 180px;
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      color: var(--primary);
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      color: var(--gray);
+      font-size: 1.1rem;
+    }
+
+    .tabs {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .tab-btn {
+      padding: 0.8rem 2rem;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--gray);
+      position: relative;
+      transition: all 0.3s ease;
+    }
+
+    .tab-btn.active {
+      color: var(--primary);
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background-color: var(--primary);
+    }
+
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.5s ease;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .section {
+      margin-bottom: 2.5rem;
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+
+    .section h2 {
+      color: var(--primary);
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #eee;
+    }
+
+    .section h3 {
+      margin: 1.5rem 0 0.8rem;
+      color: var(--dark);
+    }
+
+    .section p,
+    .section ul {
+      margin-bottom: 1rem;
+      color: #555;
+    }
+
+    .section ul {
+      padding-left: 1.5rem;
+    }
+
+    .section li {
+      margin-bottom: 0.5rem;
+    }
+
+    .back-to-top {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--primary);
+      color: white;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 100;
+    }
+
+    .back-to-top.visible {
+      opacity: 1;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      margin-top: 3rem;
+      border-top: 1px solid #eee;
+      color: var(--gray);
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .legal-container {
+        padding: 1rem;
+      }
+
+      h1 {
+        font-size: 2rem;
+      }
+
+      .section {
+        padding: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="legal-container">
+    <header>
+      <img src="/assets/images/logo-blue.png" alt="SalesPilot Logo" class="logo" />
+      <h1>Legal Information</h1>
+      <p class="subtitle">Last updated: May 3, 2025</p>
+    </header>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="privacy">Privacy Policy</button>
+      <button class="tab-btn" data-tab="terms">Terms of Service</button>
+    </div>
+
+    <div id="privacy" class="tab-content active">
+      <!-- ... all your Privacy Policy sections remain unchanged ... -->
+      <div class="section">
+        <h2>Privacy Policy</h2>
+        <p>We value your privacy and are committed to protecting your personal information. This Privacy Policy outlines our practices regarding the collection, use, and disclosure of information when you use our web application for inventory management and sales analytics.</p>
+    </div>
+    
+    <div class="section">
+        <h3>Information We Collect</h3>
+        
+        <h4>Personal Information</h4>
+        <p>When you register for an account, we collect your name, email address, and other contact information.</p>
+        
+        <h4>Customer and Staff Data</h4>
+        <p>We collect information about your customers and staff, including names, email addresses, and transaction details.</p>
+        
+        <h4>Usage Data</h4>
+        <p>We collect information that your browser sends whenever you visit our web app. This may include your IP address, browser type, browser version, the pages of our app that you visit, the time and date of your visit, the time spent on those pages, and other statistics.</p>
+        
+        <h4>Cookies and Tracking Technologies</h4>
+        <p>We use cookies and similar tracking technologies to track activity on our app and hold certain information.</p>
+        
+        <h4>Inventory and Sales Data</h4>
+        <p>Details about the products you manage through the app, including product types, categories, and inventory quantities.</p>
+    </div>
+    
+    <div class="section">
+        <h3>How We Use Your Information</h3>
+        
+        <h4>To Provide and Maintain Our Service</h4>
+        <p>We use the collected data to operate and maintain our web app, including managing your inventory and sales analytics.</p>
+        
+        <h4>To Improve Our Service</h4>
+        <p>We use your information to understand how our service is used and to enhance user experience, fix issues, and develop new features.</p>
+        
+        <h4>To Communicate With You</h4>
+        <p>We may use your contact information to send you updates, notifications, and promotional materials. You can opt out of receiving these communications at any time.</p>
+        
+        <h4>To Ensure Security</h4>
+        <p>We use your information to monitor for and address security issues, and to prevent fraudulent activity.</p>
+    </div>
+    
+    <div class="section">
+        <h3>Sharing and Disclosure</h3>
+        
+        <h4>Third-Party Service Providers</h4>
+        <p>We may employ third-party companies and individuals to facilitate our service, provide the service on our behalf, perform service-related tasks, or assist us in analyzing how our service is used.</p>
+        
+        <h4>Legal Requirements</h4>
+        <p>We may disclose your personal information in the good faith belief that such action is necessary to:</p>
+        <ul>
+            <li>Comply with a legal obligation</li>
+            <li>Protect and defend our rights or property</li>
+            <li>Prevent or investigate possible wrongdoing</li>
+            <li>Protect the personal safety of users</li>
+            <li>Protect against legal liability</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h3>Data Security</h3>
+        <p>We prioritize the security of your data and use commercially acceptable means to protect it. However, no method of transmission over the internet or electronic storage is 100% secure. While we strive to use acceptable means to protect your personal information, we cannot guarantee its absolute security.</p>
+    </div>
+    
+    <div class="section">
+        <h3>Your Rights</h3>
+        <p>You have the right to access, correct, update, or delete your personal information. You can do this directly within your account settings or by contacting us. We will respond to your request as soon as possible.</p>
+    </div>
+    
+    <div class="section">
+        <h3>Changes to This Policy</h3>
+        <p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page. You are advised to review this Privacy Policy periodically for any changes.</p>
+    </div>
+</div>
+
+
+    <div id="terms" class="tab-content">
+      <div class="section">
+        <h2>Terms of Service</h2>
+        <p>These Terms of Service govern your use of our web application for inventory management and sales analytics. By accessing or using SalesPilot, you agree to comply with and be bound by these Terms.</p>
+    </div>
+    
+    <div class="section">
+        <h3>Use of the Service</h3>
+        
+        <h4>Eligibility</h4>
+        <p>You must be at least 18 years old to use SalesPilot. By using our service, you represent and warrant that you meet this requirement.</p>
+        
+        <h4>Account Registration</h4>
+        <p>To access certain features of SalesPilot, you may be required to create an account.</p>
+        
+        <h4>You agree to:</h4>
+        <ul>
+            <li>Provide accurate, current, and complete information during registration</li>
+            <li>Maintain and promptly update your account information</li>
+            <li>Keep your password secure and not disclose it to any third party</li>
+            <li>Accept responsibility for all activities that occur under your account</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h3>User Responsibilities</h3>
+        
+        <h4>Compliance with Laws</h4>
+        <p>You agree to use SalesPilot in compliance with all applicable laws and regulations. You are solely responsible for ensuring that your use complies with all laws, including data protection and privacy laws.</p>
+        
+        <h4>Prohibited Activities</h4>
+        <p>You agree not to:</p>
+        <ul>
+            <li>Use the service for any unlawful purposes</li>
+            <li>Engage in any activity that could harm or interfere with the service</li>
+            <li>Attempt to gain unauthorized access to any part of the service</li>
+            <li>Use the service to store, transmit, or distribute any illegal content</li>
+            <li>Use any automated means to access the service without permission</li>
+        </ul>
+    </div>
+    
+    <div class="section">
+        <h3>Intellectual Property</h3>
+        
+        <h4>Ownership</h4>
+        <p>SalesPilot and its original content, features, and functionality are and will remain our exclusive property. The service is protected by copyright, trademark, and other laws.</p>
+        
+        <h4>License</h4>
+        <p>We grant you a limited, non-exclusive, non-transferable, and revocable license to use the service for your internal business purposes, subject to these Terms.</p>
+    </div>
+    
+    <div class="section">
+        <h3>Limitation of Liability</h3>
+        <p>To the maximum extent permitted by law, we shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits or revenues, whether incurred directly or indirectly, or any loss of data, use, goodwill, or other intangible losses.</p>
+        
+        <h4>Disclaimer of Warranties</h4>
+        <p>The service is provided on an "as is" and "as available" basis. We make no representations or warranties of any kind, express or implied.</p>
+    </div>
+    
+    <div class="section">
+        <h3>Changes to These Terms</h3>
+        <p>We reserve the right to modify or replace these Terms at any time. If a revision is material, we will provide at least 30 days' notice prior to any new terms taking effect.</p>
+        
+        <h4>Contact Us</h4>
+        <p>If you have any questions about these Terms, please contact us at support@salespilot.io</p>
+    </div>
+</div>
+</div>
+
+  <div class="back-to-top" id="backToTop">
+    <i class="fas fa-arrow-up"></i>
+  </div>
+
+  <footer>
+    <p>&copy; 2025 SalesPilot. All rights reserved.</p>
+  </footer>
+
+  <script>
+    // Tabs functionality
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const target = button.getAttribute('data-tab');
+
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        tabContents.forEach(tab => tab.classList.remove('active'));
+
+        button.classList.add('active');
+        document.getElementById(target).classList.add('active');
+      });
+    });
+
+    // Back to Top functionality
+    const backToTopBtn = document.getElementById('backToTop');
+
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 200) {
+        backToTopBtn.classList.add('visible');
+      } else {
+        backToTopBtn.classList.remove('visible');
+      }
+    });
+
+    backToTopBtn.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  </script>
+</body>
+</html>
