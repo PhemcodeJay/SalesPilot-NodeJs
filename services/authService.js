@@ -30,8 +30,10 @@ const signUp = async (userData, tenantData) => {
 
     // 4. Handle activation in Main DB
     let activationCode = null;
+    let redirectPath = null;
     if (EMAIL_ENABLED) {
-      activationCode = await generateActivationCode(user.id, transaction);  // Generate activation code in Main DB
+      activationCode = await generateActivationCode(user.id, transaction);
+      redirectPath = '/auth/activate'; // Set redirect path if activation is required
     }
 
     // 5. Create tenant-specific data in Tenant DB

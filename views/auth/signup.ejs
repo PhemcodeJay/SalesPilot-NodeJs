@@ -1,186 +1,208 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Signup - SalesPilot</title>
-    <link rel="shortcut icon" href="/assets/images/favicon-blue.ico" />
-    <link rel="stylesheet" href="/assets/css/backend-plugin.min.css">
-    <link rel="stylesheet" href="/assets/css/backend.css?v=1.0.0">
-    <link rel="stylesheet" href="/assets/vendor/@fortawesome/fontawesome-free/css/all.min.css">
-    <link rel="stylesheet" href="/assets/vendor/line-awesome/dist/line-awesome/css/line-awesome.min.css">
-    <link rel="stylesheet" href="/assets/vendor/remixicon/fonts/remixicon.css"> 
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Signup - SalesPilot</title>
+  <link rel="shortcut icon" href="/assets/images/favicon-blue.ico" />
+  <link rel="stylesheet" href="/assets/css/backend-plugin.min.css" />
+  <link rel="stylesheet" href="/assets/css/backend.css?v=1.0.0" />
+  <link rel="stylesheet" href="/assets/vendor/@fortawesome/fontawesome-free/css/all.min.css" />
+  <link rel="stylesheet" href="/assets/vendor/line-awesome/dist/line-awesome/css/line-awesome.min.css" />
+  <link rel="stylesheet" href="/assets/vendor/remixicon/fonts/remixicon.css" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
-    <style>
-        body {
-            background-color: #f4f7f6;
-            font-family: Arial, sans-serif;
-        }
-        .container {
-            max-width: 1000px;
-            margin-top: 50px;
-            background: #fff;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
-            margin-left: auto;
-            margin-right: auto;
-            height: 700px;
-            overflow-y: auto;
-        }
-        #successMessage {
-            display: none;
-            color: green;
-            font-size: 16px;
-            margin-top: 20px;
-        }
-    </style>
+  <style>
+    body {
+      background-color: #f4f7f6;
+      font-family: Arial, sans-serif;
+    }
+    .container {
+      max-width: 1000px;
+      margin-top: 60px;
+      background: #fff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+      overflow-y: auto;
+    }
+    .back-home {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 1000;
+    }
+    .back-home a {
+      text-decoration: none;
+      padding: 10px 20px;
+      background-color: #0d6efd;
+      color: white;
+      border-radius: 30px;
+      font-weight: bold;
+      transition: all 0.3s ease-in-out;
+    }
+    .back-home a:hover {
+      background-color: #084298;
+    }
+    .error-message {
+      font-size: 0.9rem;
+    }
+  </style>
 </head>
 <body>
-    <div class="wrapper col-lg-12">
-        <section class="login-content">
-            <div class="container">
-                <div class="row align-items-center justify-content-center height-self-center">
-                    <div class="col-lg-8">
-                        <div class="card auth-card">
-                            <div class="card-body p-0">
-                                <div class="d-flex align-items-center auth-content">
-                                    <div class="col-lg-7 align-self-center">
-                                        <div class="p-3">
-                                            <h2 class="mb-2">Sign Up</h2>
-                                            <p>Create your SalesPilot account.</p>
 
-                                            <div class="card-body">
-                                                <form role="form" id="registrationForm" autocomplete="off">
-                                                    <div class="input-group input-group-outline mb-3">
-                                                        <input type="text" class="form-control" id="username" name="username" placeholder="Enter your username" required>
-                                                        <div class="error-message text-danger" id="usernameError"></div>
-                                                    </div>
+  <!-- Back to Home -->
+  <div class="back-home">
+    <a href="/"><i class="fas fa-arrow-left me-2"></i>Back to Home</a>
+  </div>
 
-                                                    <div class="input-group input-group-outline mb-3">
-                                                        <input type="email" class="form-control" id="email" name="email" placeholder="Enter your email" required>
-                                                        <div class="error-message text-danger" id="emailError"></div>
-                                                    </div>
-
-                                                    <div class="input-group input-group-outline mb-3">
-                                                        <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password" required>
-                                                        <div class="error-message text-danger" id="passwordError"></div>
-                                                    </div>
-
-                                                    <div class="input-group input-group-outline mb-3">
-                                                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" placeholder="Confirm your password" required>
-                                                        <div class="error-message text-danger" id="confirmPasswordError"></div>
-                                                    </div>
-
-                                                    <div class="input-group input-group-outline mb-3">
-                                                        <input type="text" class="form-control" id="phone" name="phone" placeholder="Enter your phone number" required>
-                                                        <div class="error-message text-danger" id="phoneError"></div>
-                                                    </div>
-
-                                                    <div class="input-group input-group-outline mb-3">
-                                                        <input type="text" class="form-control" id="location" name="location" placeholder="Enter your location" required>
-                                                        <div class="error-message text-danger" id="locationError"></div>
-                                                    </div>
-
-                                                    <input type="hidden" id="tenant_id" value="123">
-
-                                                    <div class="form-check form-check-info text-start ps-0">
-                                                        <input class="form-check-input" type="checkbox" value="" id="flexCheckDefault" required>
-                                                        <label class="form-check-label" for="flexCheckDefault">
-                                                            I agree to the <a href="javascript:;" class="text-dark font-weight-bolder">Terms and Conditions</a>
-                                                        </label>
-                                                    </div>
-
-                                                    <div class="text-center">
-                                                        <button type="submit" class="btn btn-lg bg-gradient-primary btn-lg w-100 mt-4 mb-0">Sign Up</button>
-                                                    </div>
-                                                </form>
-
-                                                <p class="mt-3 text-center">
-                                                    Already have an account? <a href="/login" class="btn btn-lg bg-gradient-primary btn-lg w-100 mt-4 mb-0">Login here</a>
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="col-lg-5 content-right">
-                                        <img src="/assets/images/login/side-bkg.png" class="img-fluid image-right" alt="Sign Up Illustration">
-                                    </div>
-                                </div>
-                            </div>
+  <div class="wrapper col-lg-12">
+    <section class="login-content">
+      <div class="container">
+        <div class="row align-items-center justify-content-center">
+          <div class="col-lg-8">
+            <div class="card auth-card">
+              <div class="card-body p-0">
+                <div class="d-flex align-items-center auth-content">
+                  <div class="col-lg-7 align-self-center">
+                    <div class="p-3">
+                      <h2 class="mb-2">Sign Up</h2>
+                      <p>Create your SalesPilot account.</p>
+                      <form id="registrationForm" autocomplete="off">
+                        <div class="mb-3">
+                          <input type="text" class="form-control" id="username" name="username" placeholder="Username" required />
+                          <div class="text-danger error-message" id="usernameError"></div>
                         </div>
+                        <div class="mb-3">
+                          <input type="email" class="form-control" id="email" name="email" placeholder="Email" required />
+                          <div class="text-danger error-message" id="emailError"></div>
+                        </div>
+                        <div class="mb-3">
+                          <input type="password" class="form-control" id="password" name="password" placeholder="Password" required />
+                          <div class="text-danger error-message" id="passwordError"></div>
+                        </div>
+                        <div class="mb-3">
+                          <input type="password" class="form-control" id="confirm_password" name="confirm_password" placeholder="Confirm Password" required />
+                          <div class="text-danger error-message" id="confirmPasswordError"></div>
+                        </div>
+                        <div class="mb-3">
+                          <input type="text" class="form-control" id="phone" name="phone" placeholder="Phone" required />
+                          <div class="text-danger error-message" id="phoneError"></div>
+                        </div>
+                        <div class="mb-3">
+                          <input type="text" class="form-control" id="location" name="location" placeholder="Location" required />
+                          <div class="text-danger error-message" id="locationError"></div>
+                        </div>
+
+                        <input type="hidden" id="tenant_id" value="123" />
+
+                        <div class="form-check mb-3">
+                          <input class="form-check-input" type="checkbox" id="termsCheck" required />
+                          <label class="form-check-label" for="termsCheck">
+                            I agree to the <a href="javascript:;" class="text-primary">Terms and Conditions</a>
+                          </label>
+                        </div>
+
+                        <div class="text-center">
+                          <button type="submit" class="btn btn-primary w-100">Sign Up</button>
+                        </div>
+                      </form>
+
+                      <p class="mt-3 text-center">
+                        Already have an account?
+                        <a href="/login" class="text-primary fw-bold">Login here</a>
+                      </p>
                     </div>
+                  </div>
+                  <div class="col-lg-5">
+                    <img src="/assets/images/login/side-bkg.png" class="img-fluid" alt="Signup Illustration" />
+                  </div>
                 </div>
+              </div>
             </div>
-        </section>
-    </div>
-
-    <!-- Modal -->
-    <div class="modal fade" id="registrationModal" tabindex="-1" aria-labelledby="registrationModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="registrationModalLabel">Registration Successful</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Your account has been successfully created. Please check your email for an activation link.</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
+          </div>
         </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Success Modal -->
+  <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content border-success">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title" id="successModalLabel">Registration Successful</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          Your account has been successfully created. Please check your email for the activation link.
+        </div>
+        <div class="modal-footer">
+          <a href="/" class="btn btn-success">Go to Home</a>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
     </div>
+  </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        $(document).ready(function () {
-            $("#registrationForm").submit(function (event) {
-                event.preventDefault(); // Prevent full page reload
+  <!-- Error Modal -->
+  <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content border-danger">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title" id="errorModalLabel">Signup Failed</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="genericErrorMessage">
+          An unexpected error occurred. Please try again later.
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-                // Clear previous errors
-                $(".error-message").text("");
-                $("#errorMessage").hide();
-                $("#successMessage").hide();
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    $(document).ready(function () {
+      $("#registrationForm").submit(function (event) {
+        event.preventDefault();
 
-                // Collect form data
-                const formData = {
-                    username: $("#username").val(),
-                    email: $("#email").val(),
-                    phone: $("#phone").val(),
-                    location: $("#location").val(),
-                    password: $("#password").val(),
-                    confirm_password: $("#confirm_password").val(),
-                };
+        $(".error-message").text("");
 
-                // Perform AJAX request
-                $.ajax({
-                    type: "POST",
-                    url: "/auth/signup", // API endpoint
-                    contentType: "application/json",
-                    data: JSON.stringify(formData),
-                    success: function (response) {
-                        // Show success modal on successful signup
-                        $('#registrationModal').modal('show');
-                        $("#registrationForm")[0].reset();
-                    },
-                    error: function (xhr) {
-                        if (xhr.responseJSON.errors) {
-                            // Display validation errors
-                            xhr.responseJSON.errors.forEach(err => {
-                                $("#" + err.param + "Error").text(err.msg);
-                            });
-                        } else {
-                            // Display server-side error message
-                            $("#errorMessage").text(xhr.responseJSON.message).show();
-                        }
-                    }
-                });
-            });
+        const formData = {
+          username: $("#username").val(),
+          email: $("#email").val(),
+          phone: $("#phone").val(),
+          location: $("#location").val(),
+          password: $("#password").val(),
+          confirm_password: $("#confirm_password").val(),
+        };
+
+        $.ajax({
+          type: "POST",
+          url: "/auth/signup",
+          contentType: "application/json",
+          data: JSON.stringify(formData),
+          success: function () {
+            $("#registrationForm")[0].reset();
+            new bootstrap.Modal(document.getElementById("successModal")).show();
+          },
+          error: function (xhr) {
+            if (xhr.responseJSON?.errors) {
+              xhr.responseJSON.errors.forEach(err => {
+                $("#" + err.param + "Error").text(err.msg);
+              });
+            } else {
+              $("#genericErrorMessage").text(xhr.responseJSON?.message || "An unexpected error occurred.");
+              new bootstrap.Modal(document.getElementById("errorModal")).show();
+            }
+          }
         });
-    </script>
+      });
+    });
+  </script>
 </body>
 </html>
