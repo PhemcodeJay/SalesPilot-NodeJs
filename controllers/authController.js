@@ -7,7 +7,7 @@ const { logError } = require('../utils/logger');
 // Secure Cookie Options
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure: process.env.NODE_ENV === 'production', // Ensure secure cookies in production
   sameSite: 'Strict',
   maxAge: 24 * 60 * 60 * 1000, // 1 day
 };
@@ -31,22 +31,32 @@ const signUpController = async (req, res) => {
     const userData = { username, email, password, phone, location, role };
     const tenantData = { name: tenantName, email: tenantEmail, phone: tenantPhone, address: tenantAddress };
 
-    // Calling signUp service to create user, tenant, and subscription
-    const { user, tenant, subscription, activationCode } = await signUp(userData, tenantData);
+    // Call signUp service
+    const { user, tenant, subscription, activationCode, redirectPath } = await signUp(userData, tenantData);
 
     const emailEnabled = process.env.EMAIL_ENABLED !== 'false';
     const responseMsg = emailEnabled
       ? 'Account created. Please activate via email.'
       : 'Account created and activated successfully.';
 
-    // Return success message
+    // Return response with optional redirect path
     return res.status(201).json({
       message: responseMsg,
       data: {
-        user,
-        tenant,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+        },
+        tenant: {
+          id: tenant.id,
+          name: tenant.name,
+          email: tenant.email,
+        },
         subscription,
-        ...(emailEnabled && { activationCode }) // Include activation code if email is enabled
+        ...(emailEnabled && { activationCode }), // Only send activation code if email is enabled
+        ...(redirectPath && { redirect: redirectPath }), // Include redirect path if applicable
       }
     });
 

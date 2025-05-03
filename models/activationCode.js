@@ -51,7 +51,24 @@ module.exports = (sequelize, DataTypes) => {
       as: 'user',
       onDelete: 'CASCADE',  // Ensures deletion of activation codes when the user is deleted
     });
+
+    // If you want to associate with the Tenant model as well:
+    ActivationCode.belongsTo(models.Tenant, {
+      foreignKey: 'tenant_id',
+      as: 'tenant',
+      onDelete: 'CASCADE',
+    });
   };
+
+  // Hook to auto-insert activation code when User is created
+  ActivationCode.addHook('afterCreate', async (activationCode, options) => {
+    try {
+      // In case you need to do additional work or send an email when an activation code is generated
+      console.log('Activation code created for user:', activationCode.user_id);
+    } catch (error) {
+      console.error('❌ Error after creating activation code:', error.message);
+    }
+  });
 
   return ActivationCode;
 };

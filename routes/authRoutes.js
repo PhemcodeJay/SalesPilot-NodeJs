@@ -36,7 +36,7 @@ router.get('/activation-status', tenantMiddleware, (req, res) => res.render('aut
 
 /**
  * POST /signup
- * Endpoint for signing up users, validating input and creating user and tenant
+ * Endpoint for signing up users, validating input, and creating user and tenant
  */
 router.post('/signup',
   tenantMiddleware,
@@ -47,7 +47,7 @@ router.post('/signup',
 
 /**
  * POST /login
- * Endpoint for logging in users, validates input and authenticates them
+ * Endpoint for logging in users, validates input, and authenticates them
  */
 router.post('/login',
   tenantMiddleware,

@@ -9,6 +9,12 @@ const { getTenantDb } = require('../config/db'); // Import getTenantDb for tenan
 const EMAIL_ENABLED = process.env.EMAIL_ENABLED !== 'false';
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
 
+// Helper to generate JWT token
+const generateToken = (user) => {
+  const payload = { id: user.id, email: user.email, tenant_id: user.tenant_id };
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
+};
+
 // Sign Up Service - Inserts into both Main and Tenant DBs
 const signUp = async (userData, tenantData) => {
   const transaction = await Tenant.sequelize.transaction();  // Main DB transaction
@@ -45,7 +51,7 @@ const signUp = async (userData, tenantData) => {
     await Order.create({ product_id: 1, tenant_id: tenant.id, quantity: 10 });
 
     await transaction.commit();
-    return { user, tenant, subscription, activationCode };
+    return { user, tenant, subscription, activationCode, redirectPath };
 
   } catch (err) {
     await transaction.rollback();
@@ -65,12 +71,7 @@ const login = async (email, password) => {
 
     if (user.status !== 'active') throw new Error('Account is not activated');
 
-    const token = jwt.sign(
-      { userId: user.id, tenantId: user.tenant_id, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-
+    const token = generateToken(user);
     return { user, token };
 
   } catch (err) {

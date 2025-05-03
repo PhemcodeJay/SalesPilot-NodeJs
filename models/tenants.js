@@ -6,21 +6,18 @@ module.exports = (sequelize, DataTypes) => {
       primaryKey: true,
       allowNull: false,
     },
-    name: {
-      type: DataTypes.STRING,
+    user_id: {
+      type: DataTypes.INTEGER,
       allowNull: false,
-    },
-    email: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true,
-      validate: {
-        isEmail: true,
+      references: {
+        model: 'users',
+        key: 'id',
       },
     },
-    phone: {
-      type: DataTypes.STRING,
-      allowNull: true,
+    subscription_type: {
+      type: DataTypes.ENUM('trial', 'starter', 'business', 'enterprise'),
+      defaultValue: 'trial',
+      allowNull: false,
     },
     address: {
       type: DataTypes.STRING,
@@ -30,43 +27,24 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.ENUM('active', 'inactive'),
       defaultValue: 'inactive',
     },
-    subscription_type: {
-      type: DataTypes.ENUM('trial', 'starter', 'business', 'enterprise'),
-      defaultValue: 'trial',
-      allowNull: false,
-    },
-    subscription_start_date: {
-      type: DataTypes.DATE,
-      allowNull: false,
-    },
-    subscription_end_date: {
-      type: DataTypes.DATE,
-      allowNull: false,
-    },
-    deleted_at: {
-      type: DataTypes.DATE,
-      allowNull: true,
-    },
   }, {
     tableName: 'tenants',
     timestamps: true,
     underscored: true,
-    paranoid: true, // enables soft deletes
     createdAt: 'created_at',
     updatedAt: 'updated_at',
-    deletedAt: 'deleted_at',
   });
 
   Tenant.associate = (models) => {
-    // One Tenant has many Users
-    Tenant.hasMany(models.User, {
-      foreignKey: 'tenant_id',
-      as: 'users',
+    // One Tenant belongs to one User
+    Tenant.belongsTo(models.User, {
+      foreignKey: 'user_id',
+      as: 'user',
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE',
     });
 
-    // One Tenant has one Subscription
+    // One Tenant has one Subscription (created automatically when Tenant is created)
     Tenant.hasOne(models.Subscription, {
       foreignKey: 'tenant_id',
       as: 'subscription',
@@ -74,6 +52,23 @@ module.exports = (sequelize, DataTypes) => {
       onUpdate: 'CASCADE',
     });
   };
+
+  // Hook to auto-insert subscription when a tenant is created
+  Tenant.addHook('afterCreate', async (tenant, options) => {
+    try {
+      const subscriptionData = {
+        tenant_id: tenant.id,
+        subscription_type: tenant.subscription_type,
+        start_date: new Date(), // Or any custom logic for start date
+        end_date: new Date(new Date().setFullYear(new Date().getFullYear() + 1)), // Subscription ends in one year
+      };
+      
+      // Create the subscription automatically after the tenant is created
+      await sequelize.models.Subscription.create(subscriptionData);
+    } catch (error) {
+      console.error('❌ Error auto-creating subscription:', error.message);
+    }
+  });
 
   return Tenant;
 };

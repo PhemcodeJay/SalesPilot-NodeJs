@@ -137,7 +137,7 @@
       $("#loginForm").submit(function (event) {
         event.preventDefault();
 
-        $(".error-message").text("");
+        $(".error-message").text("");  // Clear previous error messages
 
         const formData = {
           email: $("#email").val(),
@@ -146,19 +146,22 @@
 
         $.ajax({
           type: "POST",
-          url: "/auth/login",
+          url: "/auth/login",  // Make sure this is the correct route
           contentType: "application/json",
           data: JSON.stringify(formData),
-          success: function () {
+          success: function (response) {
+            // Show the success modal on successful login
             $('#loginModal').modal('show');
           },
           error: function (xhr) {
             if (xhr.responseJSON?.errors) {
+              // Handle validation errors (e.g., invalid email or password)
               xhr.responseJSON.errors.forEach(err => {
                 $("#" + err.param + "Error").text(err.msg);
               });
             } else {
-              $("#errorModalMessage").text(xhr.responseJSON?.message || "Login failed.");
+              // Show a generic error modal for other types of errors
+              $("#errorModalMessage").text(xhr.responseJSON?.message || "Login failed. Please try again.");
               $('#errorModal').modal('show');
             }
           }
