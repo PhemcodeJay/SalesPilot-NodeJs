@@ -26,7 +26,7 @@ const PLANS = {
   },
 };
 
-// Create a new subscription for a tenant
+// Create a new subscription for a tenant (user and tenant info are treated as same)
 const createSubscription = async (tenantId, plan = 'trial', transaction = null) => {
   try {
     const tenant = await models.Tenant.findByPk(tenantId, { transaction });
@@ -65,6 +65,7 @@ const createSubscription = async (tenantId, plan = 'trial', transaction = null) 
     const endDate = new Date();
     endDate.setMonth(now.getMonth() + planDetails.durationMonths);
 
+    // Create the subscription
     const subscription = await models.Subscription.create({
       tenant_id: tenant.id,
       subscription_plan: plan,
@@ -76,7 +77,7 @@ const createSubscription = async (tenantId, plan = 'trial', transaction = null) 
       price: planDetails.price,
     }, { transaction });
 
-    // Update tenant meta
+    // Update tenant meta data
     tenant.subscription_start_date = now;
     tenant.subscription_end_date = endDate;
     await tenant.save({ transaction });

@@ -7,18 +7,19 @@ const {
 } = require('../utils/emailUtils');
 
 // Generate and send activation code
-const generateActivationCode = async (userId) => {
+const generateActivationCode = async (tenantId) => {
   try {
-    const user = await User.findByPk(userId);
+    // Fetch user associated with the tenant (since user and tenant are the same)
+    const user = await User.findOne({ where: { tenant_id: tenantId } });
     if (!user) {
-      throw new Error('User not found');
+      throw new Error('User (Tenant) not found');
     }
 
     // Clean up expired codes before generating a new one
     await deleteExpiredActivationCodes();
 
     // Rate limit: check if a code was sent recently
-    const allowed = await canResendActivationCode(userId);
+    const allowed = await canResendActivationCode(user.id);
     if (!allowed) {
       throw new Error('You must wait before requesting another activation code.');
     }
@@ -28,7 +29,7 @@ const generateActivationCode = async (userId) => {
 
     // Save code in the database
     const activationCode = await ActivationCode.create({
-      user_id: userId,
+      user_id: user.id, // User is associated with the tenant
       code,
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
     });
@@ -47,10 +48,16 @@ const generateActivationCode = async (userId) => {
 };
 
 // Verify activation code
-const verifyActivationCode = async (code, userId) => {
+const verifyActivationCode = async (code, tenantId) => {
   try {
+    // Fetch user associated with the tenant (since user and tenant are the same)
+    const user = await User.findOne({ where: { tenant_id: tenantId } });
+    if (!user) {
+      throw new Error('User (Tenant) not found');
+    }
+
     const record = await ActivationCode.findOne({
-      where: { user_id: userId, code },
+      where: { user_id: user.id, code },
     });
 
     if (!record) {
@@ -70,20 +77,21 @@ const verifyActivationCode = async (code, userId) => {
 };
 
 // Resend activation code
-const resendActivationCode = async (userId) => {
+const resendActivationCode = async (tenantId) => {
   try {
-    const user = await User.findByPk(userId);
-    if (!user) throw new Error('User not found');
+    // Fetch user associated with the tenant (since user and tenant are the same)
+    const user = await User.findOne({ where: { tenant_id: tenantId } });
+    if (!user) throw new Error('User (Tenant) not found');
 
     // Respect rate limit
-    const allowed = await canResendActivationCode(userId);
+    const allowed = await canResendActivationCode(user.id);
     if (!allowed) {
       throw new Error('You must wait before requesting another activation code.');
     }
 
     // Clean up and generate new code
     await deleteExpiredActivationCodes();
-    const newCode = await generateActivationCode(userId);
+    const newCode = await generateActivationCode(tenantId);
 
     console.log(`New activation code sent to ${user.email}: ${newCode}`);
     return newCode;

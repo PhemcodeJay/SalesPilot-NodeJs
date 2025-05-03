@@ -1,10 +1,8 @@
-// config/db.js
-
 require('dotenv').config(); // Load environment variables
 const { Sequelize, DataTypes } = require('sequelize');
 const fs = require('fs');
 const path = require('path');
-const debug = require('debug')('models');
+const debug = require('debug')('app:db');
 
 // 🌐 Main Admin DB Setup
 const databaseUrl = process.env.DATABASE_URL;
@@ -56,9 +54,34 @@ Object.values(models).forEach(model => {
   }
 });
 
+// 🧩 Helper: Insert Into Both Main and Tenant DBs
+const insertIntoBothDb = async (mainDbData, tenantDbData, tenantDbName) => {
+  const transaction = await sequelize.transaction(); // Start main DB transaction
+  const tenantDb = getTenantDb(tenantDbName);
 
-// Admin DB Utilities
+  try {
+    // Insert into main database
+    const mainDbUser = await models.User.create(mainDbData, { transaction });
+    const mainDbTenant = await models.Tenant.create({ userId: mainDbUser.id, ...mainDbData.tenant }, { transaction });
 
+    // Insert into tenant database (after successful main DB insertion)
+    const tenantTransaction = await tenantDb.sequelize.transaction(); // Tenant DB transaction
+    await tenantDb.models.Product.create(tenantDbData.product, { transaction: tenantTransaction });
+    await tenantDb.models.Order.create(tenantDbData.order, { transaction: tenantTransaction });
+
+    // Commit transactions
+    await transaction.commit();
+    await tenantTransaction.commit();
+
+    debug('✅ Data inserted successfully into both main and tenant databases');
+  } catch (err) {
+    await transaction.rollback();
+    debug('❌ Error inserting data into main and/or tenant DB:', err.message);
+    throw err;
+  }
+};
+
+// 🧩 Test Connection to Main Database
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
@@ -69,23 +92,27 @@ const testConnection = async () => {
   }
 };
 
+// 🧩 Sync Models (Optional, use for migrations if necessary)
 const syncModels = async () => {
   try {
-    await sequelize.sync({ force: false }); // Sync models (without force drop)
-    debug('✅ Admin DB models synced.');
+    await sequelize.sync({ force: false });  // Sync main DB models
+    debug('✅ Main DB models synced');
   } catch (err) {
-    console.error('❌ Error syncing admin DB models:', err.message);
-    throw err;
+    console.error('❌ Error syncing main DB models:', err.message);
   }
 };
 
+// 🧩 Close all database connections
 const closeAllConnections = async () => {
   try {
-    await sequelize.close();
-    debug('🛑 Admin DB connection closed.');
+    await sequelize.close();  // Close main DB connection
+    debug('✅ Main DB connection closed');
+    for (const dbName in tenantDbCache) {
+      await tenantDbCache[dbName].sequelize.close();  // Close all tenant DB connections
+      debug(`✅ Tenant DB connection closed: ${dbName}`);
+    }
   } catch (err) {
-    console.error('❌ Error closing admin DB connection:', err.message);
-    throw err;
+    console.error('❌ Error closing DB connections:', err.message);
   }
 };
 
@@ -145,4 +172,5 @@ module.exports = {
   closeAllConnections,
   getTenantDb,
   testTenantConnection,
+  insertIntoBothDb,  // Export new insert function for both DBs
 };
