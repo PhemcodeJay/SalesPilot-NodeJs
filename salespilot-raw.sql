@@ -1,6 +1,5 @@
--- Database: salespilot
 -- ----------------------------
--- Table structure 
+-- Table structure for Tenants
 -- ----------------------------
 CREATE TABLE `tenants` (
   `id` CHAR(36) NOT NULL,
@@ -20,18 +19,20 @@ CREATE TABLE `tenants` (
   KEY `subscription_end_date` (`subscription_end_date`) -- Optional: Index for performance
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-
+-- ----------------------------
+-- Table structure for Users (One user per tenant)
+-- ----------------------------
 CREATE TABLE `users` (
   `id` INT NOT NULL AUTO_INCREMENT,
-  `tenant_id` CHAR(36) NOT NULL,
+  `tenant_id` CHAR(36) NOT NULL, -- One-to-one relation with tenant
   `username` VARCHAR(255) NOT NULL,
   `phone` VARCHAR(255) NOT NULL,
   `email` VARCHAR(255) NOT NULL,
   `password` VARCHAR(255) NOT NULL,
   `confirm_password` VARCHAR(255) NOT NULL,
   `location` VARCHAR(255) NOT NULL,
-  `reset_token` varchar(512) COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `reset_token_expiry` datetime DEFAULT NULL,
+  `reset_token` VARCHAR(512) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `reset_token_expiry` DATETIME DEFAULT NULL,
   `role` ENUM('sales', 'admin', 'manager') NOT NULL DEFAULT 'sales',
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
@@ -41,11 +42,13 @@ CREATE TABLE `users` (
   CONSTRAINT `users_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-
+-- ----------------------------
+-- Table structure for Activation Codes
+-- ----------------------------
 CREATE TABLE `activation_codes` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `tenant_id` CHAR(36) NOT NULL,
-  `user_id` INT NOT NULL,
+  `user_id` INT NOT NULL, -- Each user has their own activation code
   `activation_code` VARCHAR(100) NOT NULL,
   `expires_at` TIMESTAMP NOT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -56,7 +59,9 @@ CREATE TABLE `activation_codes` (
   CONSTRAINT `activation_codes_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-
+-- ----------------------------
+-- Table structure for Password Resets
+-- ----------------------------
 CREATE TABLE `password_resets` (
   `id` INT NOT NULL AUTO_INCREMENT,
   `user_id` INT NOT NULL,
@@ -70,9 +75,12 @@ CREATE TABLE `password_resets` (
   CONSTRAINT `password_resets_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- ----------------------------
+-- Table structure for Subscriptions (One subscription per tenant)
+-- ----------------------------
 CREATE TABLE `subscriptions` (
   `id` INT NOT NULL AUTO_INCREMENT,
-  `tenant_id` CHAR(36) NOT NULL,
+  `tenant_id` CHAR(36) NOT NULL, -- One-to-one relation with tenant
   `plan_name` VARCHAR(100) NOT NULL,
   `plan_description` TEXT NOT NULL,
   `plan_price` DECIMAL(10,2) NOT NULL,
@@ -85,6 +93,7 @@ CREATE TABLE `subscriptions` (
   KEY `tenant_id` (`tenant_id`),
   CONSTRAINT `subscriptions_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 
 CREATE TABLE `categories` (
   `category_id` INT NOT NULL AUTO_INCREMENT,

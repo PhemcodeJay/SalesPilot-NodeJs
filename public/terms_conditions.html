@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms and Conditions - SalesPilot</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="shortcut icon" href="/assets/images/favicon-blue.ico"/>
+  <link rel="stylesheet" href="/assets/css/backend-plugin.min.css"/>
+  <link rel="stylesheet" href="/assets/css/backend.css?v=1.0.0"/>
+  <link rel="stylesheet" href="/assets/vendor/@fortawesome/fontawesome-free/css/all.min.css"/>
+  <link rel="stylesheet" href="/assets/vendor/line-awesome/dist/line-awesome/css/line-awesome.min.css"/>
+  <link rel="stylesheet" href="/assets/vendor/remixicon/fonts/remixicon.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"/>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+  <style>
+    :root {
+    --primary: #5cccee;
+    --dark: #2d6e6e;
+    --light: #f8f9fa;
+    --gray: #6c757d;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: var(--dark);
+    background-color: var(--light);
+}
+
+.legal-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+}
+
+.logo {
+    width: 180px;
+    margin-bottom: 1rem;
+}
+
+h1 {
+    font-size: 2.5rem;
+    color: var(--primary);
+    margin-bottom: 0.5rem;
+}
+
+.subtitle {
+    color: var(--gray);
+    font-size: 1.1rem;
+}
+
+.tabs {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid #ddd;
+}
+
+.tab-btn {
+    padding: 0.8rem 2rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gray);
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.tab-btn.active {
+    color: var(--primary);
+    font-weight: bold;
+}
+
+.tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background-color: var(--primary);
+}
+
+.tab-content {
+    display: none;
+    animation: fadeIn 0.5s ease;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.section {
+    margin-bottom: 2.5rem;
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.section h2 {
+    color: var(--primary);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #eee;
+}
+
+.section h3 {
+    margin: 1.5rem 0 0.8rem;
+    color: var(--dark);
+}
+
+.section p,
+.section ul {
+    margin-bottom: 1rem;
+    color: #555;
+}
+
+.section ul {
+    padding-left: 1.5rem;
+}
+
+.section li {
+    margin-bottom: 0.5rem;
+}
+
+.back-to-top {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: var(--primary);
+    color: white;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 100;
+}
+
+.back-to-top.visible {
+    opacity: 1;
+}
+
+footer {
+    text-align: center;
+    padding: 2rem;
+    margin-top: 3rem;
+    border-top: 1px solid #eee;
+    color: var(--gray);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 768px) {
+    .legal-container {
+        padding: 1rem;
+    }
+
+    h1 {
+        font-size: 2rem;
+    }
+
+    .section {
+        padding: 1.5rem;
+    }
+}
+
+  </style>
+</head>
+<body>
+  <div class="legal-container">
+    <header>
+      <img src="/assets/images/logo-blue.png" alt="SalesPilot Logo" class="logo">
+      <h1>Legal Information</h1>
+      <p class="subtitle">Last updated: May 3, 2025</p>
+    </header>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="privacy">Privacy Policy</button>
+      <button class="tab-btn" data-tab="terms-of-service">Terms of Service</button>
+    </div>
+
+    <div id="privacy" class="tab-content active">
+      <div class="section">
+        <h2>Privacy Policy</h2>
+        <p>We value your privacy and are committed to protecting your personal information. This Privacy Policy outlines our practices regarding the collection, use, and disclosure of information when you use our web application for inventory management and sales analytics.</p>
+      </div>
+      
+      <div class="section">
+        <h3>Information We Collect</h3>
+        <h4>Personal Information</h4>
+        <p>When you register for an account, we collect your name, email address, and other contact information.</p>
+        
+        <h4>Customer and Staff Data</h4>
+        <p>We collect information about your customers and staff, including names, email addresses, and transaction details.</p>
+        
+        <h4>Usage Data</h4>
+        <p>We collect information that your browser sends whenever you visit our web app. This may include your IP address, browser type, browser version, the pages of our app that you visit, the time and date of your visit, the time spent on those pages, and other statistics.</p>
+        
+        <h4>Cookies and Tracking Technologies</h4>
+        <p>We use cookies and similar tracking technologies to track activity on our app and hold certain information.</p>
+        
+        <h4>Inventory and Sales Data</h4>
+        <p>Details about the products you manage through the app, including product types, categories, and inventory quantities.</p>
+      </div>
+
+      <div class="section">
+        <h3>How We Use Your Information</h3>
+        <h4>To Provide and Maintain Our Service</h4>
+        <p>We use the collected data to operate and maintain our web app, including managing your inventory and sales analytics.</p>
+        
+        <h4>To Improve Our Service</h4>
+        <p>We use your information to understand how our service is used and to enhance user experience, fix issues, and develop new features.</p>
+        
+        <h4>To Communicate With You</h4>
+        <p>We may use your contact information to send you updates, notifications, and promotional materials. You can opt out of receiving these communications at any time.</p>
+        
+        <h4>To Ensure Security</h4>
+        <p>We use your information to monitor for and address security issues, and to prevent fraudulent activity.</p>
+      </div>
+      
+      <div class="section">
+        <h3>Sharing and Disclosure</h3>
+        <h4>Third-Party Service Providers</h4>
+        <p>We may employ third-party companies and individuals to facilitate our service, provide the service on our behalf, perform service-related tasks, or assist us in analyzing how our service is used.</p>
+        
+        <h4>Legal Requirements</h4>
+        <p>We may disclose your personal information in the good faith belief that such action is necessary to:</p>
+        <ul>
+            <li>Comply with a legal obligation</li>
+            <li>Protect and defend our rights or property</li>
+            <li>Prevent or investigate possible wrongdoing</li>
+            <li>Protect the personal safety of users</li>
+            <li>Protect against legal liability</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h3>Data Security</h3>
+        <p>We prioritize the security of your data and use commercially acceptable means to protect it. However, no method of transmission over the internet or electronic storage is 100% secure. While we strive to use acceptable means to protect your personal information, we cannot guarantee its absolute security.</p>
+      </div>
+
+      <div class="section">
+        <h3>Your Rights</h3>
+        <p>You have the right to access, correct, update, or delete your personal information. You can do this directly within your account settings or by contacting us. We will respond to your request as soon as possible.</p>
+      </div>
+
+      <div class="section">
+        <h3>Changes to This Policy</h3>
+        <p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page. You are advised to review this Privacy Policy periodically for any changes.</p>
+      </div>
+    </div>
+
+    <div id="terms-of-service" class="tab-content">
+      <div class="section">
+        <h2>Terms of Service</h2>
+        <p>These Terms of Service govern your use of our web application for inventory management and sales analytics. By accessing or using SalesPilot, you agree to comply with and be bound by these Terms.</p>
+      </div>
+
+      <div class="section">
+        <h3>Use of the Service</h3>
+        <h4>Eligibility</h4>
+        <p>By using our service, you represent and warrant that you are at least 18 years of age or are using the service under the supervision of a guardian.</p>
+        
+        <h4>Account Responsibility</h4>
+        <p>You are responsible for maintaining the confidentiality of your account credentials and for all activities under your account.</p>
+        
+        <h4>Prohibited Activities</h4>
+        <p>You may not use our service for illegal activities, infringement of intellectual property rights, or activities that could harm the functionality of our app.</p>
+      </div>
+
+      <div class="section">
+        <h3>Subscription and Payment</h3>
+        <h4>Subscription Plans</h4>
+        <p>Our service is offered on a subscription basis. Subscription plans are subject to change, and fees may vary depending on your selected plan.</p>
+        
+        <h4>Billing</h4>
+        <p>Billing for subscription fees will be processed automatically at the beginning of each billing period, and you are responsible for ensuring that your payment method is up to date.</p>
+        
+        <h4>Refund Policy</h4>
+        <p>No refunds will be issued once a billing cycle has started. However, you may cancel your subscription at any time to avoid future charges.</p>
+      </div>
+
+      <div class="section">
+        <h3>Limitation of Liability</h3>
+        <p>We are not liable for any direct, indirect, incidental, or consequential damages resulting from your use or inability to use the service.</p>
+      </div>
+
+      <div class="section">
+        <h3>Governing Law</h3>
+        <p>These Terms of Service are governed by and construed in accordance with the laws of your jurisdiction. Any disputes related to these Terms will be resolved in the courts of that jurisdiction.</p>
+      </div>
+
+      <div class="section">
+        <h3>Termination</h3>
+        <p>We reserve the right to suspend or terminate your access to our service at any time, for any reason, including breach of these Terms of Service.</p>
+      </div>
+    </div>
+
+    <footer>
+      <p>&copy; 2025 SalesPilot. All rights reserved.</p>
+    </footer>
+  </div>
+
+  <div class="back-to-top" id="back-to-top">
+    <i class="fas fa-arrow-up"></i>
+  </div>
+
+  <script>
+    // Tab switching functionality
+  document.addEventListener('DOMContentLoaded', function () {
+    const tabs = document.querySelectorAll('.tab-btn');
+    const contents = document.querySelectorAll('.tab-content');
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const targetId = tab.getAttribute('data-tab');
+
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        contents.forEach(c => {
+          c.classList.remove('active');
+        });
+
+        const targetContent = document.getElementById(targetId);
+        if (targetContent) {
+          targetContent.classList.add('active');
+        }
+      });
+    });
+  });
+
+
+
+    // Back-to-top button functionality
+    const backToTop = document.getElementById('back-to-top');
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 500) {
+            backToTop.classList.add('visible');
+        } else {
+            backToTop.classList.remove('visible');
+        }
+    });
+
+    backToTop.addEventListener('click', () => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
+  </script>
+</body>
+</html>
