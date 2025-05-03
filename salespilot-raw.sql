@@ -44,13 +44,16 @@ CREATE TABLE `users` (
 
 CREATE TABLE `activation_codes` (
   `id` INT NOT NULL AUTO_INCREMENT,
+  `tenant_id` CHAR(36) NOT NULL,
   `user_id` INT NOT NULL,
   `activation_code` VARCHAR(100) NOT NULL,
   `expires_at` TIMESTAMP NOT NULL,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
-  CONSTRAINT `activation_codes_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `tenant_id` (`tenant_id`),
+  CONSTRAINT `activation_codes_user_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `activation_codes_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
