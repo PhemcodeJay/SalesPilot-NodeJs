@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 
-const tenantMiddleware = require('../middleware/tenantMiddleware');
 const errorLogger = require('../middleware/errorLogger');
 const { verifyResetToken } = require('../services/passwordresetService');
 const {
@@ -14,11 +13,13 @@ const {
 } = require('../middleware/authvalidator');
 
 // ✅ GET: Show Recover Password Form
-router.get('/recoverpwd', tenantMiddleware, (req, res) => {
-  res.render('auth/recoverpwd');
+// Route: GET /password-reset/recoverpwd
+router.get('/recoverpwd', (req, res) => {
+  res.render('auth/recoverpwd', { title: 'Recover Password' });
 });
 
 // ✅ GET: Show Reset Form via Token
+// Route: GET /password-reset/passwordreset?token=...
 router.get('/passwordreset', async (req, res) => {
   const { token } = req.query;
 
@@ -36,7 +37,7 @@ router.get('/passwordreset', async (req, res) => {
       });
     }
 
-    res.render('auth/passwordreset', { token });
+    res.render('auth/passwordreset', { title: 'Reset Password', token });
   } catch (err) {
     errorLogger(err, req);
     res.render('auth/reset-error', {
@@ -46,14 +47,11 @@ router.get('/passwordreset', async (req, res) => {
 });
 
 // ✅ POST: Request Password Reset Email
-router.post(
-  '/recoverpwd',
-  tenantMiddleware,
-  validateRecoverPwd,
-  requestPasswordReset
-);
+// Route: POST /password-reset/recoverpwd
+router.post('/recoverpwd', validateRecoverPwd, requestPasswordReset);
 
-// ✅ POST: Reset Password via Submitted Form
+// ✅ POST: Submit New Password
+// Route: POST /password-reset/passwordreset
 router.post('/passwordreset', validatePasswordReset, resetPassword);
 
 module.exports = router;
