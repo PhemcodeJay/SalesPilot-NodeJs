@@ -1,8 +1,28 @@
+-- Database: salespilot
+
+-- ----------------------------
+-- Table structure for Tenants
+-- ----------------------------
+CREATE TABLE `tenants` (
+  `id` CHAR(36) NOT NULL,
+  `username` VARCHAR(255) NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `phone` VARCHAR(255) DEFAULT NULL,
+  `location` VARCHAR(255) DEFAULT NULL,
+  `status` ENUM('active', 'inactive') DEFAULT 'inactive',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` TIMESTAMP NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 -- ----------------------------
 -- Table structure for Users
 -- ----------------------------
 CREATE TABLE `users` (
   `id` INT NOT NULL AUTO_INCREMENT,
+  `tenant_id` CHAR(36) NOT NULL, -- Added tenant_id to reference tenants
   `username` VARCHAR(255) NOT NULL,
   `email` VARCHAR(255) NOT NULL,
   `phone` VARCHAR(255) NOT NULL,
@@ -15,7 +35,8 @@ CREATE TABLE `users` (
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `email` (`email`)
+  UNIQUE KEY `email` (`email`),
+  CONSTRAINT `users_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ----------------------------
@@ -23,6 +44,7 @@ CREATE TABLE `users` (
 -- ----------------------------
 CREATE TABLE `subscriptions` (
   `id` INT NOT NULL AUTO_INCREMENT,
+  `tenant_id` CHAR(36) NOT NULL, -- Added tenant_id to reference tenants
   `plan_name` VARCHAR(100) NOT NULL,
   `plan_description` TEXT NOT NULL,
   `plan_price` DECIMAL(10,2) NOT NULL,
@@ -32,31 +54,9 @@ CREATE TABLE `subscriptions` (
   `subscription_status` ENUM('active','inactive','expired') NOT NULL DEFAULT 'active',
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- ----------------------------
--- Table structure for Tenants
--- ----------------------------
-CREATE TABLE `tenants` (
-  `id` CHAR(36) NOT NULL,
-  `username` VARCHAR(255) NOT NULL,
-  `email` VARCHAR(255) NOT NULL,
-  `phone` VARCHAR(255) DEFAULT NULL,
-  `location` VARCHAR(255) DEFAULT NULL,
-  `status` ENUM('active', 'inactive') DEFAULT 'inactive',
-  `user_id` INT NOT NULL,
-  `subscription_id` INT NOT NULL,
-  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-  `deleted_at` TIMESTAMP NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `email` (`email`),
-  UNIQUE KEY `user_id` (`user_id`),
-  UNIQUE KEY `subscription_id` (`subscription_id`),
-  CONSTRAINT `tenants_user_id_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `tenants_subscription_id_fk` FOREIGN KEY (`subscription_id`) REFERENCES `subscriptions` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  CONSTRAINT `subscriptions_tenant_id_fk` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- ----------------------------
 -- Table structure for Activation Codes

@@ -55,3 +55,11 @@ title is not defined
     at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
     at E:\Repositories\salespilot\routes\passwordresetRoute.js:27:16
     at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+2025-05-03 10:00:00 [ERROR]: deleteExpiredActivationCodes failed: Error
+    at Query.run (E:\Repositories\salespilot\node_modules\sequelize\lib\dialects\mysql\query.js:52:25)
+    at E:\Repositories\salespilot\node_modules\sequelize\lib\sequelize.js:315:28
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async MySQLQueryInterface.bulkDelete (E:\Repositories\salespilot\node_modules\sequelize\lib\dialects\abstract\query-interface.js:403:12)
+    at async ActivationCode.destroy (E:\Repositories\salespilot\node_modules\sequelize\lib\model.js:1838:16)
+    at async deleteExpiredActivationCodes (E:\Repositories\salespilot\utils\emailUtils.js:90:5)
+    at async Task._execution (E:\Repositories\salespilot\cron\cleanupJobs.js:8:26)
