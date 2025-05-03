@@ -572,10 +572,10 @@ DROP TABLE IF EXISTS `subscriptions`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `subscriptions` (
   `id` int NOT NULL AUTO_INCREMENT,
+  `tenant_id` char(36) COLLATE utf8mb4_general_ci NOT NULL,
   `start_date` datetime NOT NULL,
   `end_date` datetime NOT NULL,
   `subscription_type` enum('trial','starter','business','enterprise') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'trial',
-  `tenant_id` char(36) COLLATE utf8mb4_general_ci NOT NULL,
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
@@ -633,14 +633,14 @@ DROP TABLE IF EXISTS `tenants`;
 CREATE TABLE `tenants` (
   `id` char(36) COLLATE utf8mb4_general_ci NOT NULL,
   `status` enum('active','inactive') COLLATE utf8mb4_general_ci DEFAULT 'inactive',
-  `user_id` int NOT NULL,
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
+  `user_id` int DEFAULT NULL,
   `subscription_type` enum('trial','starter','business','enterprise') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'trial',
   `address` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `user_id` (`user_id`),
-  CONSTRAINT `tenants_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `tenants_user_id_foreign_idx` (`user_id`),
+  CONSTRAINT `tenants_user_id_foreign_idx` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -662,20 +662,21 @@ DROP TABLE IF EXISTS `users`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `users` (
   `id` int NOT NULL AUTO_INCREMENT,
+  `tenant_id` char(36) COLLATE utf8mb4_general_ci NOT NULL,
   `username` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `email` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
-  `phone` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `phone` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `password` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
-  `confirm_password` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
-  `location` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
-  `reset_token` varchar(512) COLLATE utf8mb4_general_ci DEFAULT NULL,
-  `reset_token_expiry` datetime DEFAULT NULL,
-  `role` enum('sales','admin','manager') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'sales',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+  `location` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL,
   `status` enum('active','inactive') COLLATE utf8mb4_general_ci DEFAULT 'inactive',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `email` (`email`)
+  UNIQUE KEY `email` (`email`),
+  UNIQUE KEY `username` (`username`),
+  UNIQUE KEY `email_2` (`email`),
+  KEY `tenant_id` (`tenant_id`),
+  CONSTRAINT `users_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -697,4 +698,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-05-03  9:49:33
+-- Dump completed on 2025-05-03 10:20:10
