@@ -8,13 +8,17 @@ const { getTenantDb } = require('../config/db'); // Per-tenant Sequelize instanc
 const { sendActivationEmail } = require('../utils/emailUtils');
 
 // Routes that don't require tenant resolution
-const skipTenantValidationRoutes = ['/', '/signup', '/login', '/recoverpwd'];
+const skipTenantValidationRoutes = ['/', '/signup', '/login', '/password-reset/recoverpwd'];
 
 const tenantMiddleware = async (req, res, next) => {
   try {
     // 🛑 Skip tenant validation for public/auth/static routes
     const isStatic = !!path.extname(req.path);
-    const shouldSkip = skipTenantValidationRoutes.includes(req.path) || req.path.startsWith('/public') || isStatic;
+    const shouldSkip =
+      skipTenantValidationRoutes.includes(req.path) ||
+      req.path.startsWith('/public') ||
+      req.path.startsWith('/password-reset') || // Covers any future reset paths
+      isStatic;
 
     if (shouldSkip) return next();
 
