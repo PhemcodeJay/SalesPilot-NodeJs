@@ -102,19 +102,7 @@ const syncModels = async () => {
   }
 };
 
-// 🧩 Close all database connections
-const closeAllConnections = async () => {
-  try {
-    await sequelize.close();  // Close main DB connection
-    debug('✅ Main DB connection closed');
-    for (const dbName in tenantDbCache) {
-      await tenantDbCache[dbName].sequelize.close();  // Close all tenant DB connections
-      debug(`✅ Tenant DB connection closed: ${dbName}`);
-    }
-  } catch (err) {
-    console.error('❌ Error closing DB connections:', err.message);
-  }
-};
+
 
 // 🧩 Dynamic Tenant DB Support
 
@@ -125,7 +113,7 @@ const getTenantDb = (dbName) => {
 
   if (tenantDbCache[dbName]) return tenantDbCache[dbName];
 
-  const envKey = `TENANT_DB_URL_${dbName.toUpperCase()}`;
+  const envKey = `TENANT_DB_URL_TENANT1${dbName.toUpperCase()}`;
   const customDbUrl = process.env[envKey];
 
   const tenantSequelize = customDbUrl
@@ -160,6 +148,21 @@ const testTenantConnection = async (dbName) => {
   } catch (err) {
     console.error(`❌ Tenant DB connection failed (${dbName}):`, err.message);
     throw err;
+  }
+};
+
+
+// 🧩 Close all database connections
+const closeAllConnections = async () => {
+  try {
+    await sequelize.close();  // Close main DB connection
+    debug('✅ Main DB connection closed');
+    for (const dbName in tenantDbCache) {
+      await tenantDbCache[dbName].sequelize.close();  // Close all tenant DB connections
+      debug(`✅ Tenant DB connection closed: ${dbName}`);
+    }
+  } catch (err) {
+    console.error('❌ Error closing DB connections:', err.message);
   }
 };
 

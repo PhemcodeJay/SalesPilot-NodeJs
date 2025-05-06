@@ -157,8 +157,8 @@ app.listen(port, async () => {
     console.log('✅ Main (Admin) DB Connected & Models Synced Successfully');
 
     // 📦 Optionally load default tenant DBs from config or list
-    const defaultTenants = process.env.DEFAULT_TENANTS
-      ? process.env.DEFAULT_TENANTS.split(',') // e.g., "tenant_alpha,tenant_beta"
+    const defaultTenants = process.env.DEFAULT_TENANT_DB
+      ? process.env.DEFAULT_TENANT_DB.split(',') // e.g., "tenant_alpha,tenant_beta"
       : [];
 
     // Create tenant databases after server and admin DB initialization
