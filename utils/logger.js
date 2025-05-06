@@ -29,8 +29,12 @@ const logger = winston.createLogger({
 });
 
 // Simple helper to log structured errors
-const logError = (message, error) => {
-  logger.error(`${message}: ${error.stack || error}`);
+const logFile = path.join(__dirname, '../logs/error.log');
+
+const logError = (label, error) => {
+  const message = `[${new Date().toISOString()}] ${label}: ${error.stack || error}\n`;
+  console.error(message); // ensure it logs to console too
+  fs.appendFileSync(logFile, message);
 };
 
 module.exports = { logger, logError };
