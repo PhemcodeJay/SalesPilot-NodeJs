@@ -1,9 +1,9 @@
-**SalesPilot (NODE-JS) – Sales Analytics and Inventory Management **
-https://salespilot.cybertrendhub.store
+**SalesPILOT – Inventory Management and Sales Analytics**
+https://www.salespilots.com
 
-SalesPilot is a comprehensive web application designed to streamline the management of sales and inventory for businesses of all sizes. This application facilitates tracking of product expenses, sales data, customer interactions, staff performance, supplier management, and provides insightful analytics for inventory management.
+SalesPILOT is a comprehensive web application designed to streamline the management of sales and inventory for businesses of all sizes. This application facilitates tracking of product expenses, sales data, customer interactions, staff performance, supplier management, and provides insightful analytics for inventory management.
 
-**Table of Contents**
+**TABLE OF CONTENTS**
 
 **Features**
 **Technologies Used**
@@ -15,59 +15,66 @@ SalesPilot is a comprehensive web application designed to streamline the managem
 
 **Features**
 
-**Sales Management: **
+**Sales Management:**
 Easily manage and track sales data, including customer information, product details, and sales records.
-**Inventory Management: ** 
+
+**Inventory Management:** 
 Monitor stock levels, track inventory expenses, and manage suppliers efficiently.
-**Customer Management: ** 
+
+**Customer Management:** 
 Store and manage customer information, including contact details and purchase history.
-**Staff Management: ** 
+
+**Staff Management:** 
 Keep track of staff performance and responsibilities in the sales process.
-**Supplier Management: ** 
+
+**Supplier Management:** 
 Manage supplier details, including contact information and inventory supplies.
-**Analytics Dashboard: ** 
+
+**Analytics Dashboard:** 
 Gain insights into sales performance, inventory turnover rates, and other key metrics through interactive dashboards.
-**Reports Generation: ** 
+
+**Reports Generation:** 
 Generate detailed reports for sales, inventory, expenses, and profit margins.
-**User Authentication: ** 
+
+**User Authentication:** 
 Secure user authentication and role-based access to the application.
 
 **Technologies Used**
-**Frontend: **
+**Frontend:**
 HTML, CSS, JavaScript, (with libraries such as jQuery and Chart.js)
-**Backend: ** 
-PHP
-**Database: ** 
+**Backend:** 
+PHP NODEJS
+**Database:** 
 MySQL
-**Version Control: ** 
+**Version Control:** 
 Git
 
 
 **Installation**
-**To get started with SalesPilot, follow these steps: **
+**To get started with SalesPILOT, follow these steps:**
 
-**Clone the repository: **
+**Clone the repository:**
 
 bash
 Copy code
-git clone https://github.com/PhemcodeJay/SalesPilot-2.0.git
+git clone https://github.com/PhemcodeJay/SalesPILOT-2.0.git
 Navigate to the project directory:
 
 bash
 Copy code
-cd salespilot
+cd SalesPILOT
 Install dependencies (if using Composer):
 
 bash
 Copy code
 composer install
 
-**Set up the database: **
+**Set up the database:**
 
 Create a new database in MySQL.
 Import the SQL file located in the database directory to set up the necessary tables.
 
-**Configure the environment: **
+**Configure the environment**
 
 Start the local server using PHP's built-in server or your preferred server setup.
 bash
@@ -75,16 +82,23 @@ Copy code
 php -S localhost:8000
 Access the application at http://localhost:8000.
 
+Start the local server using NODEJS built-in server or your preferred server setup.
+Update the node modules in the project folder before starting the server
+bash
+Copy code
+npm start
+Access the application at http://localhost:5000.
+
 **Usage**
 Upon accessing the application, you will be prompted to log in.
 Once logged in, navigate through the various sections to manage sales, inventory, customers, staff, and suppliers.
 Utilize the analytics dashboard to monitor performance metrics and generate reports.
 
 **API Documentation**
-For developers looking to integrate with or extend SalesPilot, detailed API documentation is available in the docs directory. This includes endpoints for managing products, sales, customers, and analytics.
+For developers looking to integrate with or extend SalesPILOT, detailed API documentation is available in the docs directory. This includes endpoints for managing products, sales, customers, and analytics.
 
 **Contributing**
-Contributions are welcome! If you'd like to contribute to SalesPilot, please follow these steps:
+Contributions are welcome! If you'd like to contribute to SalesPILOT, please follow these steps:
 
 **Fork the repository**
 Create a new branch (git checkout -b feature/YourFeature).

@@ -637,7 +637,7 @@ CREATE TABLE `tenants` (
   `updated_at` datetime NOT NULL,
   `user_id` int DEFAULT NULL,
   `subscription_type` enum('trial','starter','business','enterprise') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'trial',
-  `address` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `location` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `tenants_user_id_foreign_idx` (`user_id`),
   CONSTRAINT `tenants_user_id_foreign_idx` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE

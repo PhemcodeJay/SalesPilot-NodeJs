@@ -168,7 +168,7 @@ app.listen(port, async () => {
 
       try {
         const tenantDb = getTenantDb(trimmedTenantName);
-        console.log(`✅ Tenant DB '${trimmedTenantName}' Pls Wait...`);
+        console.log(`✅ Tenant DB Checking Pls Wait...`);
 
         // Sync tenant database models
         await tenantDb.sequelize.sync({ force: false }); // Sync the models for the tenant
@@ -182,7 +182,7 @@ app.listen(port, async () => {
         // Now get the tenant DB and sync models after creation
         const tenantDb = getTenantDb(trimmedTenantName);
         await tenantDb.sequelize.sync({ force: false }); // Sync the models for the new tenant
-        console.log(`✅ Tenant DB '${trimmedTenantName}' models synced.`);
+        console.log(`✅ Tenant DB '${trimmedTenantName}' Connected & Models Synced.`);
       }
     }
 

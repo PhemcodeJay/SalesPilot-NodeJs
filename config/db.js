@@ -85,7 +85,7 @@ const insertIntoBothDb = async (mainDbData, tenantDbData, tenantDbName) => {
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
-    debug('✅ Connected to admin database.');
+    debug('✅ Connected to Main Admin database.');
   } catch (err) {
     console.error('❌ Admin DB connection failed:', err.message);
     throw err;
@@ -103,9 +103,7 @@ const syncModels = async () => {
 };
 
 
-
 // 🧩 Dynamic Tenant DB Support
-
 const tenantDbCache = {};
 
 const getTenantDb = (dbName) => {
@@ -144,7 +142,7 @@ const testTenantConnection = async (dbName) => {
   try {
     const tenantDb = getTenantDb(dbName);
     await tenantDb.sequelize.authenticate();
-    debug(`✅ Connected to tenant database: ${dbName}`);
+    debug(`✅ Connected to Tenant database: ${dbName}`);
   } catch (err) {
     console.error(`❌ Tenant DB connection failed (${dbName}):`, err.message);
     throw err;
