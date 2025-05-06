@@ -113,7 +113,7 @@ const getTenantDb = (dbName) => {
 
   if (tenantDbCache[dbName]) return tenantDbCache[dbName];
 
-  const envKey = `TENANT_DB_URL_TENANT1${dbName.toUpperCase()}`;
+  const envKey = `TENANT_DB_URL_${dbName.toUpperCase()}`;
   const customDbUrl = process.env[envKey];
 
   const tenantSequelize = customDbUrl

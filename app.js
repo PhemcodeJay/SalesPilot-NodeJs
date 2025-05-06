@@ -161,17 +161,18 @@ app.listen(port, async () => {
       ? process.env.DEFAULT_TENANT_DB.split(',') // e.g., "tenant_alpha,tenant_beta"
       : [];
 
+    
     // Create tenant databases after server and admin DB initialization
     for (const tenantName of defaultTenants) {
       const trimmedTenantName = tenantName.trim();
 
       try {
         const tenantDb = getTenantDb(trimmedTenantName);
-        console.log(`✅ Tenant DB '${trimmedTenantName}' already exists.`);
+        console.log(`✅ Tenant DB '${trimmedTenantName}' Pls Wait...`);
 
         // Sync tenant database models
         await tenantDb.sequelize.sync({ force: false }); // Sync the models for the tenant
-        console.log(`✅ Tenant DB '${trimmedTenantName}' models synced.`);
+        console.log(`✅ Tenant DB '${trimmedTenantName}' Connected & Models Synced Successfully.`);
       } catch (err) {
         // Handle case when tenant DB does not exist or needs creation
         console.log(`❌ Tenant DB '${trimmedTenantName}' not found. Creating it now...`);
