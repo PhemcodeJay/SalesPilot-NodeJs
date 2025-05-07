@@ -1,0 +1,77 @@
+[2025-05-06T22:58:38.900Z] Unhandled error in GET /terms: Error: Failed to lookup view "public/signup" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at E:\Repositories\salespilot\app.js:86:37
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (E:\Repositories\salespilot\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at E:\Repositories\salespilot\node_modules\express\lib\router\index.js:284:15
+    at Function.process_params (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:346:12)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:280:10)
+[2025-05-06T23:00:43.915Z] Unhandled error in GET /terms: Error: Failed to lookup view "public/signup" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at E:\Repositories\salespilot\app.js:86:37
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (E:\Repositories\salespilot\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at E:\Repositories\salespilot\node_modules\express\lib\router\index.js:284:15
+    at Function.process_params (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:346:12)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:280:10)
+[2025-05-06T23:01:00.295Z] Unhandled error in GET /terms: Error: Failed to lookup view "public/signup" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at E:\Repositories\salespilot\app.js:86:37
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (E:\Repositories\salespilot\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at E:\Repositories\salespilot\node_modules\express\lib\router\index.js:284:15
+    at Function.process_params (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:346:12)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:280:10)
+[2025-05-06T23:01:11.415Z] Unhandled error in GET /terms: Error: Failed to lookup view "public/signup" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at E:\Repositories\salespilot\app.js:86:37
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (E:\Repositories\salespilot\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at E:\Repositories\salespilot\node_modules\express\lib\router\index.js:284:15
+    at Function.process_params (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:346:12)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:280:10)
+[2025-05-06T23:04:11.099Z] Unhandled error in GET /help: Error: Failed to lookup view "public/signup" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at E:\Repositories\salespilot\app.js:87:36
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (E:\Repositories\salespilot\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at E:\Repositories\salespilot\node_modules\express\lib\router\index.js:284:15
+    at Function.process_params (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:346:12)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:280:10)
+[2025-05-06T23:04:14.165Z] Unhandled error in GET /terms: Error: Failed to lookup view "public/signup" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at E:\Repositories\salespilot\app.js:86:37
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (E:\Repositories\salespilot\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at E:\Repositories\salespilot\node_modules\express\lib\router\index.js:284:15
+    at Function.process_params (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:346:12)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:280:10)
+[2025-05-06T23:07:18.774Z] Unhandled error in GET /terms: Error: Failed to lookup view "public/terms" in views directory "E:\Repositories\salespilot\views"
+    at Function.render (E:\Repositories\salespilot\node_modules\express\lib\application.js:597:17)
+    at ServerResponse.render (E:\Repositories\salespilot\node_modules\express\lib\response.js:1049:7)
+    at E:\Repositories\salespilot\app.js:86:37
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (E:\Repositories\salespilot\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (E:\Repositories\salespilot\node_modules\express\lib\router\layer.js:95:5)
+    at E:\Repositories\salespilot\node_modules\express\lib\router\index.js:284:15
+    at Function.process_params (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:346:12)
+    at next (E:\Repositories\salespilot\node_modules\express\lib\router\index.js:280:10)

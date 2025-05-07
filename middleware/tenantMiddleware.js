@@ -8,7 +8,7 @@ const { getTenantDb } = require('../config/db'); // Per-tenant Sequelize instanc
 const { sendActivationEmail } = require('../utils/emailUtils');
 
 // Routes that don't require tenant resolution
-const skipTenantValidationRoutes = ['/', '/signup', '/login', '/password-reset/recoverpwd', '/terms', '/help'];
+const skipTenantValidationRoutes = ['/', '/signup', '/login', '/password-reset/recoverpwd', '/terms', '/help', '/logout'];
 
 const tenantMiddleware = async (req, res, next) => {
   try {

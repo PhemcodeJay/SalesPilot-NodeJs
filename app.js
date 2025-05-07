@@ -82,7 +82,10 @@ app.use(tenantMiddleware);
 app.get('/', (req, res) => res.render('home/index', { title: 'Home' }));
 app.get('/home', (req, res) => res.render('home/index', { title: 'Home' }));
 app.get('/login', (req, res) => res.render('auth/login', { title: 'Login' }));
+app.get('/logout', (req, res) => res.render('auth/logout', { title: 'Logout' }));
 app.get('/signup', (req, res) => res.render('auth/signup', { title: 'Signup' }));
+app.get('/terms', (req, res) => res.render('public/terms', { title: 'Terms' }));
+app.get('/help', (req, res) => res.render('public/help', { title: 'Help' }));
 
 // ✅ Routes
 app.use('/auth', authRoute);
@@ -97,7 +100,12 @@ const protectedRoutes = [
   '/product',
   '/customer',
   '/inventory',
-  '/subscription',
+  '/profile-subscription',
+  '/staff',
+  '/supplier',
+  '/category',
+  '/report',
+  '/analysis',
 ];
 protectedRoutes.forEach((route) => app.use(route, authenticateUser));
 

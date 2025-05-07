@@ -22,6 +22,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false,
     },
+    confirm_password: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
     phone: {
       type: DataTypes.STRING,
       allowNull: true,
@@ -33,6 +37,10 @@ module.exports = (sequelize, DataTypes) => {
     status: {
       type: DataTypes.ENUM('active', 'inactive'),
       defaultValue: 'inactive',
+    },
+    role: {
+      type: DataTypes.ENUM('sales', 'admin', 'manager'),
+      defaultValue: 'sales',
     },
   }, {
     tableName: 'users',

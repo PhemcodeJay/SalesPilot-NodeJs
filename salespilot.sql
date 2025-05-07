@@ -24,17 +24,40 @@ DROP TABLE IF EXISTS `activation_codes`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `activation_codes` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `tenant_id` char(36) COLLATE utf8mb4_general_ci NOT NULL,
+  `tenant_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `user_id` int NOT NULL,
   `activation_code` varchar(100) COLLATE utf8mb4_general_ci NOT NULL,
   `expires_at` datetime NOT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `activation_code` (`activation_code`),
+  UNIQUE KEY `activation_code_2` (`activation_code`),
+  UNIQUE KEY `activation_code_3` (`activation_code`),
+  UNIQUE KEY `activation_code_4` (`activation_code`),
+  UNIQUE KEY `activation_code_5` (`activation_code`),
+  UNIQUE KEY `activation_code_6` (`activation_code`),
+  UNIQUE KEY `activation_code_7` (`activation_code`),
+  UNIQUE KEY `activation_code_8` (`activation_code`),
+  UNIQUE KEY `activation_code_9` (`activation_code`),
+  UNIQUE KEY `activation_code_10` (`activation_code`),
+  UNIQUE KEY `activation_code_11` (`activation_code`),
+  UNIQUE KEY `activation_code_12` (`activation_code`),
+  UNIQUE KEY `activation_code_13` (`activation_code`),
+  UNIQUE KEY `activation_code_14` (`activation_code`),
+  UNIQUE KEY `activation_code_15` (`activation_code`),
+  UNIQUE KEY `activation_code_16` (`activation_code`),
+  UNIQUE KEY `activation_code_17` (`activation_code`),
+  UNIQUE KEY `activation_code_18` (`activation_code`),
+  UNIQUE KEY `activation_code_19` (`activation_code`),
+  UNIQUE KEY `activation_code_20` (`activation_code`),
+  UNIQUE KEY `activation_code_21` (`activation_code`),
+  UNIQUE KEY `activation_code_22` (`activation_code`),
+  UNIQUE KEY `activation_code_23` (`activation_code`),
+  UNIQUE KEY `activation_code_24` (`activation_code`),
   KEY `tenant_id` (`tenant_id`),
   KEY `user_id` (`user_id`),
-  CONSTRAINT `activation_codes_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `activation_codes_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  CONSTRAINT `activation_codes_ibfk_51` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `activation_codes_ibfk_52` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -306,8 +329,8 @@ DROP TABLE IF EXISTS `page_access`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `page_access` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `page` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
-  `required_access_level` enum('trial','starter','business','enterprise') COLLATE utf8mb4_general_ci NOT NULL,
+  `page` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `required_access_level` enum('trial','starter','business','enterprise') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
@@ -338,6 +361,28 @@ CREATE TABLE `password_resets` (
   `created_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `reset_code` (`reset_code`),
+  UNIQUE KEY `reset_code_2` (`reset_code`),
+  UNIQUE KEY `reset_code_3` (`reset_code`),
+  UNIQUE KEY `reset_code_4` (`reset_code`),
+  UNIQUE KEY `reset_code_5` (`reset_code`),
+  UNIQUE KEY `reset_code_6` (`reset_code`),
+  UNIQUE KEY `reset_code_7` (`reset_code`),
+  UNIQUE KEY `reset_code_8` (`reset_code`),
+  UNIQUE KEY `reset_code_9` (`reset_code`),
+  UNIQUE KEY `reset_code_10` (`reset_code`),
+  UNIQUE KEY `reset_code_11` (`reset_code`),
+  UNIQUE KEY `reset_code_12` (`reset_code`),
+  UNIQUE KEY `reset_code_13` (`reset_code`),
+  UNIQUE KEY `reset_code_14` (`reset_code`),
+  UNIQUE KEY `reset_code_15` (`reset_code`),
+  UNIQUE KEY `reset_code_16` (`reset_code`),
+  UNIQUE KEY `reset_code_17` (`reset_code`),
+  UNIQUE KEY `reset_code_18` (`reset_code`),
+  UNIQUE KEY `reset_code_19` (`reset_code`),
+  UNIQUE KEY `reset_code_20` (`reset_code`),
+  UNIQUE KEY `reset_code_21` (`reset_code`),
+  UNIQUE KEY `reset_code_22` (`reset_code`),
+  UNIQUE KEY `reset_code_23` (`reset_code`),
   KEY `user_id` (`user_id`),
   CONSTRAINT `password_resets_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -366,7 +411,7 @@ CREATE TABLE `payments` (
   `subscription_id` int DEFAULT NULL,
   `payment_method` enum('paypal','binance','mpesa','naira') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `payment_proof` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `payment_status` enum('pending','completed','failed') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'pending',
+  `payment_status` enum('pending','completed','failed') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'pending',
   PRIMARY KEY (`id`),
   KEY `payments_fk_1` (`tenant_id`),
   KEY `payments_fk_2` (`subscription_id`),
@@ -572,7 +617,7 @@ DROP TABLE IF EXISTS `subscriptions`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `subscriptions` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `tenant_id` char(36) COLLATE utf8mb4_general_ci NOT NULL,
+  `tenant_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `start_date` datetime NOT NULL,
   `end_date` datetime NOT NULL,
   `subscription_type` enum('trial','starter','business','enterprise') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'trial',
@@ -631,16 +676,16 @@ DROP TABLE IF EXISTS `tenants`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `tenants` (
-  `id` char(36) COLLATE utf8mb4_general_ci NOT NULL,
+  `id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `status` enum('active','inactive') COLLATE utf8mb4_general_ci DEFAULT 'inactive',
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
-  `user_id` int DEFAULT NULL,
+  `user_id` int NOT NULL,
   `subscription_type` enum('trial','starter','business','enterprise') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'trial',
-  `location` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `address` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `tenants_user_id_foreign_idx` (`user_id`),
-  CONSTRAINT `tenants_user_id_foreign_idx` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  CONSTRAINT `tenants_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -662,7 +707,7 @@ DROP TABLE IF EXISTS `users`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `users` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `tenant_id` char(36) COLLATE utf8mb4_general_ci NOT NULL,
+  `tenant_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `username` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `email` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `phone` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
@@ -675,6 +720,44 @@ CREATE TABLE `users` (
   UNIQUE KEY `email` (`email`),
   UNIQUE KEY `username` (`username`),
   UNIQUE KEY `email_2` (`email`),
+  UNIQUE KEY `username_2` (`username`),
+  UNIQUE KEY `email_3` (`email`),
+  UNIQUE KEY `username_3` (`username`),
+  UNIQUE KEY `email_4` (`email`),
+  UNIQUE KEY `username_4` (`username`),
+  UNIQUE KEY `email_5` (`email`),
+  UNIQUE KEY `username_5` (`username`),
+  UNIQUE KEY `email_6` (`email`),
+  UNIQUE KEY `username_6` (`username`),
+  UNIQUE KEY `email_7` (`email`),
+  UNIQUE KEY `username_7` (`username`),
+  UNIQUE KEY `email_8` (`email`),
+  UNIQUE KEY `username_8` (`username`),
+  UNIQUE KEY `email_9` (`email`),
+  UNIQUE KEY `username_9` (`username`),
+  UNIQUE KEY `email_10` (`email`),
+  UNIQUE KEY `username_10` (`username`),
+  UNIQUE KEY `email_11` (`email`),
+  UNIQUE KEY `username_11` (`username`),
+  UNIQUE KEY `email_12` (`email`),
+  UNIQUE KEY `username_12` (`username`),
+  UNIQUE KEY `email_13` (`email`),
+  UNIQUE KEY `username_13` (`username`),
+  UNIQUE KEY `email_14` (`email`),
+  UNIQUE KEY `username_14` (`username`),
+  UNIQUE KEY `email_15` (`email`),
+  UNIQUE KEY `username_15` (`username`),
+  UNIQUE KEY `email_16` (`email`),
+  UNIQUE KEY `username_16` (`username`),
+  UNIQUE KEY `email_17` (`email`),
+  UNIQUE KEY `username_17` (`username`),
+  UNIQUE KEY `email_18` (`email`),
+  UNIQUE KEY `username_18` (`username`),
+  UNIQUE KEY `email_19` (`email`),
+  UNIQUE KEY `username_19` (`username`),
+  UNIQUE KEY `email_20` (`email`),
+  UNIQUE KEY `username_20` (`username`),
+  UNIQUE KEY `email_21` (`email`),
   KEY `tenant_id` (`tenant_id`),
   CONSTRAINT `users_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -698,4 +781,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-05-03 10:20:10
+-- Dump completed on 2025-05-07  1:45:30
