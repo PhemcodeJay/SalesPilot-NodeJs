@@ -31,33 +31,10 @@ CREATE TABLE `activation_codes` (
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `activation_code` (`activation_code`),
-  UNIQUE KEY `activation_code_2` (`activation_code`),
-  UNIQUE KEY `activation_code_3` (`activation_code`),
-  UNIQUE KEY `activation_code_4` (`activation_code`),
-  UNIQUE KEY `activation_code_5` (`activation_code`),
-  UNIQUE KEY `activation_code_6` (`activation_code`),
-  UNIQUE KEY `activation_code_7` (`activation_code`),
-  UNIQUE KEY `activation_code_8` (`activation_code`),
-  UNIQUE KEY `activation_code_9` (`activation_code`),
-  UNIQUE KEY `activation_code_10` (`activation_code`),
-  UNIQUE KEY `activation_code_11` (`activation_code`),
-  UNIQUE KEY `activation_code_12` (`activation_code`),
-  UNIQUE KEY `activation_code_13` (`activation_code`),
-  UNIQUE KEY `activation_code_14` (`activation_code`),
-  UNIQUE KEY `activation_code_15` (`activation_code`),
-  UNIQUE KEY `activation_code_16` (`activation_code`),
-  UNIQUE KEY `activation_code_17` (`activation_code`),
-  UNIQUE KEY `activation_code_18` (`activation_code`),
-  UNIQUE KEY `activation_code_19` (`activation_code`),
-  UNIQUE KEY `activation_code_20` (`activation_code`),
-  UNIQUE KEY `activation_code_21` (`activation_code`),
-  UNIQUE KEY `activation_code_22` (`activation_code`),
-  UNIQUE KEY `activation_code_23` (`activation_code`),
-  UNIQUE KEY `activation_code_24` (`activation_code`),
   KEY `tenant_id` (`tenant_id`),
   KEY `user_id` (`user_id`),
-  CONSTRAINT `activation_codes_ibfk_51` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `activation_codes_ibfk_52` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+  CONSTRAINT `activation_codes_ibfk_79` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `activation_codes_ibfk_80` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -237,8 +214,8 @@ CREATE TABLE `inventory` (
   `product_id` int NOT NULL,
   `sales_qty` int NOT NULL,
   `last_updated` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `stock_qty` int DEFAULT NULL,
-  `supply_qty` int DEFAULT NULL,
+  `stock_qty` int NOT NULL,
+  `supply_qty` int NOT NULL,
   `available_stock` int GENERATED ALWAYS AS (((`stock_qty` + `supply_qty`) - `sales_qty`)) STORED,
   `inventory_qty` int GENERATED ALWAYS AS ((`stock_qty` + `supply_qty`)) STORED,
   `product_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
@@ -362,27 +339,6 @@ CREATE TABLE `password_resets` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `reset_code` (`reset_code`),
   UNIQUE KEY `reset_code_2` (`reset_code`),
-  UNIQUE KEY `reset_code_3` (`reset_code`),
-  UNIQUE KEY `reset_code_4` (`reset_code`),
-  UNIQUE KEY `reset_code_5` (`reset_code`),
-  UNIQUE KEY `reset_code_6` (`reset_code`),
-  UNIQUE KEY `reset_code_7` (`reset_code`),
-  UNIQUE KEY `reset_code_8` (`reset_code`),
-  UNIQUE KEY `reset_code_9` (`reset_code`),
-  UNIQUE KEY `reset_code_10` (`reset_code`),
-  UNIQUE KEY `reset_code_11` (`reset_code`),
-  UNIQUE KEY `reset_code_12` (`reset_code`),
-  UNIQUE KEY `reset_code_13` (`reset_code`),
-  UNIQUE KEY `reset_code_14` (`reset_code`),
-  UNIQUE KEY `reset_code_15` (`reset_code`),
-  UNIQUE KEY `reset_code_16` (`reset_code`),
-  UNIQUE KEY `reset_code_17` (`reset_code`),
-  UNIQUE KEY `reset_code_18` (`reset_code`),
-  UNIQUE KEY `reset_code_19` (`reset_code`),
-  UNIQUE KEY `reset_code_20` (`reset_code`),
-  UNIQUE KEY `reset_code_21` (`reset_code`),
-  UNIQUE KEY `reset_code_22` (`reset_code`),
-  UNIQUE KEY `reset_code_23` (`reset_code`),
   KEY `user_id` (`user_id`),
   CONSTRAINT `password_resets_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -408,16 +364,17 @@ CREATE TABLE `payments` (
   `id` int NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL,
   `tenant_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
-  `subscription_id` int DEFAULT NULL,
+  `subscription_id` int NOT NULL,
   `payment_method` enum('paypal','binance','mpesa','naira') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `payment_proof` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
   `payment_status` enum('pending','completed','failed') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'pending',
+  `payment_type` enum('starter','business','enterprise') COLLATE utf8mb4_general_ci NOT NULL,
   PRIMARY KEY (`id`),
   KEY `payments_fk_1` (`tenant_id`),
   KEY `payments_fk_2` (`subscription_id`),
   KEY `payments_fk_3` (`user_id`),
   CONSTRAINT `payments_fk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `payments_fk_2` FOREIGN KEY (`subscription_id`) REFERENCES `subscriptions` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `payments_fk_2` FOREIGN KEY (`subscription_id`) REFERENCES `subscriptions` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `payments_fk_3` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -716,48 +673,13 @@ CREATE TABLE `users` (
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
   `status` enum('active','inactive') COLLATE utf8mb4_general_ci DEFAULT 'inactive',
+  `role` enum('sales','admin','manager') COLLATE utf8mb4_general_ci DEFAULT 'sales',
+  `confirm_password` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `email` (`email`),
   UNIQUE KEY `username` (`username`),
-  UNIQUE KEY `email_2` (`email`),
   UNIQUE KEY `username_2` (`username`),
-  UNIQUE KEY `email_3` (`email`),
-  UNIQUE KEY `username_3` (`username`),
-  UNIQUE KEY `email_4` (`email`),
-  UNIQUE KEY `username_4` (`username`),
-  UNIQUE KEY `email_5` (`email`),
-  UNIQUE KEY `username_5` (`username`),
-  UNIQUE KEY `email_6` (`email`),
-  UNIQUE KEY `username_6` (`username`),
-  UNIQUE KEY `email_7` (`email`),
-  UNIQUE KEY `username_7` (`username`),
-  UNIQUE KEY `email_8` (`email`),
-  UNIQUE KEY `username_8` (`username`),
-  UNIQUE KEY `email_9` (`email`),
-  UNIQUE KEY `username_9` (`username`),
-  UNIQUE KEY `email_10` (`email`),
-  UNIQUE KEY `username_10` (`username`),
-  UNIQUE KEY `email_11` (`email`),
-  UNIQUE KEY `username_11` (`username`),
-  UNIQUE KEY `email_12` (`email`),
-  UNIQUE KEY `username_12` (`username`),
-  UNIQUE KEY `email_13` (`email`),
-  UNIQUE KEY `username_13` (`username`),
-  UNIQUE KEY `email_14` (`email`),
-  UNIQUE KEY `username_14` (`username`),
-  UNIQUE KEY `email_15` (`email`),
-  UNIQUE KEY `username_15` (`username`),
-  UNIQUE KEY `email_16` (`email`),
-  UNIQUE KEY `username_16` (`username`),
-  UNIQUE KEY `email_17` (`email`),
-  UNIQUE KEY `username_17` (`username`),
-  UNIQUE KEY `email_18` (`email`),
-  UNIQUE KEY `username_18` (`username`),
-  UNIQUE KEY `email_19` (`email`),
-  UNIQUE KEY `username_19` (`username`),
-  UNIQUE KEY `email_20` (`email`),
-  UNIQUE KEY `username_20` (`username`),
-  UNIQUE KEY `email_21` (`email`),
+  UNIQUE KEY `email_2` (`email`),
   KEY `tenant_id` (`tenant_id`),
   CONSTRAINT `users_ibfk_1` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -781,4 +703,31 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-05-07  1:45:30
+-- Dump completed on 2025-05-07  3:45:19
+-- MySQL dump 10.13  Distrib 8.0.41, for Win64 (x86_64)
+--
+-- Host: localhost    Database: tenant1_db
+-- ------------------------------------------------------
+-- Server version	9.2.0
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- Dump completed on 2025-05-07  3:45:19
