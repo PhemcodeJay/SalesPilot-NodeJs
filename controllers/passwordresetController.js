@@ -5,14 +5,8 @@ const {
   resetPassword: resetPasswordService 
 } = require('../services/authService');
 const { logError, logSecurityEvent } = require('../utils/logger');
-const { rateLimiter } = require('../middleware/rateLimiter');
+const { apiLimiter } = require('../middleware/rateLimiter');
 
-// Password reset rate limiter configuration
-const resetRateLimiter = rateLimiter({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 3, // Limit each IP to 3 reset requests per windowMs
-  message: 'Too many password reset requests from this IP, please try again later'
-});
 
 /**
  * Request Password Reset Controller
