@@ -1,44 +1,49 @@
+const { Op } = require('sequelize');
 const { getTenantDb, models } = require('../config/db');
 const { logError, logSecurityEvent } = require('../utils/logger');
 const { sendActivationEmail } = require('../utils/emailUtils');
+const crypto = require('crypto');
 
 class ActivationCodeService {
   constructor(tenantId) {
     if (!tenantId) throw new Error('Tenant ID is required');
     this.tenantId = tenantId;
     this.tenantDb = getTenantDb(`tenant_${tenantId}`);
+    this.codeExpiryHours = parseInt(process.env.ACTIVATION_CODE_EXPIRY_HOURS) || 24;
+    this.rateLimitCount = parseInt(process.env.ACTIVATION_RATE_LIMIT) || 3;
+    this.rateLimitWindow = parseInt(process.env.ACTIVATION_RATE_LIMIT_WINDOW) || 60;
   }
 
   /**
    * Generate and store activation code for tenant user
-   * @param {object} transaction - Optional transaction
+   * @param {object} options - Configuration options
+   * @param {object} [options.transaction] - Optional transaction
+   * @param {string} [options.ipAddress] - IP address for security logging
    * @returns {Promise<string>} Generated activation code
    */
-  async generate(transaction = null) {
+  async generate({ transaction = null, ipAddress = null } = {}) {
     const t = transaction || null;
     
     try {
-      // Get user from main DB
-      const user = await models.User.findOne({ 
-        where: { tenant_id: this.tenantId },
-        transaction: t
-      });
-      
-      if (!user) {
-        throw new Error(`User not found for tenant ${this.tenantId}`);
-      }
+      // Get user from main DB with proper error handling
+      const user = await this._getUserWithValidation(t);
 
       // Clean up expired codes first
       await this._cleanupExpiredCodes(t);
 
-      // Check rate limiting
+      // Check rate limiting with configurable thresholds
       if (await this._isRateLimited(user.id, t)) {
+        logSecurityEvent('activation_rate_limited', {
+          userId: user.id,
+          tenantId: this.tenantId,
+          ipAddress
+        });
         throw new Error('Please wait before requesting another activation code');
       }
 
-      // Generate 8-character alphanumeric code
-      const code = Math.random().toString(36).substring(2, 10);
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      // Generate secure random code
+      const code = this._generateSecureCode();
+      const expiresAt = new Date(Date.now() + this.codeExpiryHours * 60 * 60 * 1000);
 
       // Create activation code in main DB
       const activationCode = await models.ActivationCode.create({
@@ -46,35 +51,31 @@ class ActivationCodeService {
         tenant_id: this.tenantId,
         code,
         expires_at: expiresAt,
-        ip_address: null // Can be set from request context
+        ip_address: ipAddress
       }, { transaction: t });
 
       // Create audit record in tenant DB
-      await this.tenantDb.models.ActivationAudit.create({
-        activation_id: activationCode.id,
-        user_id: user.id,
-        action: 'code_generated',
-        created_at: new Date()
-      }, { transaction: t });
+      await this._createAuditRecord(activationCode.id, user.id, 'code_generated', t);
 
       // Send activation email if enabled
-      if (process.env.EMAIL_ENABLED !== 'false') {
-        await sendActivationEmail(user.email, code, {
-          userName: user.name,
-          tenantId: this.tenantId
-        });
+      if (this._shouldSendEmail()) {
+        await this._sendActivationEmail(user, code);
       }
 
       logSecurityEvent('activation_code_generated', {
         userId: user.id,
         tenantId: this.tenantId,
-        codeId: activationCode.id
+        codeId: activationCode.id,
+        ipAddress
       });
 
       return code;
 
     } catch (error) {
-      logError(`Activation code generation failed for tenant ${this.tenantId}`, error);
+      logError(`Activation code generation failed for tenant ${this.tenantId}`, error, {
+        tenantId: this.tenantId,
+        operation: 'generate'
+      });
       throw error;
     }
   }
@@ -82,25 +83,17 @@ class ActivationCodeService {
   /**
    * Verify activation code validity
    * @param {string} code - Activation code to verify
-   * @param {object} transaction - Optional transaction
-   * @returns {Promise<{success: boolean, message: string}>} Verification result
+   * @param {object} options - Configuration options
+   * @param {object} [options.transaction] - Optional transaction
+   * @param {string} [options.ipAddress] - IP address for security logging
+   * @returns {Promise<{success: boolean, message: string, user?: object}>} Verification result
    */
-  async verify(code, transaction = null) {
+  async verify(code, { transaction = null, ipAddress = null } = {}) {
     const t = transaction || null;
     
     try {
-      // Get user from main DB
-      const user = await models.User.findOne({ 
-        where: { tenant_id: this.tenantId },
-        transaction: t
-      });
-      
-      if (!user) {
-        return { 
-          success: false, 
-          message: 'User account not found' 
-        };
-      }
+      // Get user from main DB with proper error handling
+      const user = await this._getUserWithValidation(t);
 
       // Find valid, unexpired code
       const record = await models.ActivationCode.findOne({
@@ -118,7 +111,8 @@ class ActivationCodeService {
         logSecurityEvent('activation_code_verification_failed', {
           userId: user.id,
           tenantId: this.tenantId,
-          reason: 'invalid_or_expired'
+          reason: 'invalid_or_expired',
+          ipAddress
         });
         
         return { 
@@ -128,116 +122,233 @@ class ActivationCodeService {
       }
 
       // Create audit record in tenant DB
-      await this.tenantDb.models.ActivationAudit.create({
-        activation_id: record.id,
-        user_id: user.id,
-        action: 'code_verified',
-        created_at: new Date()
-      }, { transaction: t });
+      await this._createAuditRecord(record.id, user.id, 'code_verified', t);
 
       // Mark code as used
       await record.update({ 
-        used_at: new Date() 
+        used_at: new Date(),
+        verification_ip: ipAddress
       }, { transaction: t });
 
       logSecurityEvent('activation_code_verified', {
         userId: user.id,
         tenantId: this.tenantId,
-        codeId: record.id
+        codeId: record.id,
+        ipAddress
       });
 
       return { 
         success: true, 
-        message: 'Activation successful' 
+        message: 'Activation successful',
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name
+        }
       };
 
     } catch (error) {
-      logError(`Activation code verification failed for tenant ${this.tenantId}`, error);
+      logError(`Activation code verification failed for tenant ${this.tenantId}`, error, {
+        tenantId: this.tenantId,
+        operation: 'verify',
+        code: code.substring(0, 2) + '...' // Partial logging for security
+      });
       throw error;
     }
   }
 
   /**
    * Resend activation code with rate limiting
-   * @param {object} transaction - Optional transaction
+   * @param {object} options - Configuration options
+   * @param {object} [options.transaction] - Optional transaction
+   * @param {string} [options.ipAddress] - IP address for security logging
    * @returns {Promise<string>} New activation code
    */
-  async resend(transaction = null) {
+  async resend({ transaction = null, ipAddress = null } = {}) {
     const t = transaction || null;
     
     try {
-      // Get user from main DB
-      const user = await models.User.findOne({ 
-        where: { tenant_id: this.tenantId },
-        transaction: t
-      });
-      
-      if (!user) {
-        throw new Error(`User not found for tenant ${this.tenantId}`);
-      }
+      // Get user from main DB with proper error handling
+      const user = await this._getUserWithValidation(t);
 
-      // Check rate limiting
+      // Check rate limiting with configurable thresholds
       if (await this._isRateLimited(user.id, t)) {
+        logSecurityEvent('activation_resend_rate_limited', {
+          userId: user.id,
+          tenantId: this.tenantId,
+          ipAddress
+        });
         throw new Error('Please wait before requesting another activation code');
       }
 
-      // Generate new code
-      const newCode = await this.generate(t);
+      // Generate new code with the same options
+      const newCode = await this.generate({ transaction: t, ipAddress });
 
       logSecurityEvent('activation_code_resent', {
         userId: user.id,
-        tenantId: this.tenantId
+        tenantId: this.tenantId,
+        ipAddress
       });
 
       return newCode;
 
     } catch (error) {
-      logError(`Activation code resend failed for tenant ${this.tenantId}`, error);
+      logError(`Activation code resend failed for tenant ${this.tenantId}`, error, {
+        tenantId: this.tenantId,
+        operation: 'resend'
+      });
       throw error;
     }
   }
 
   /**
    * Clean up expired activation codes (for cron jobs)
-   * @param {object} transaction - Optional transaction
-   * @returns {Promise<number>} Count of deleted codes
+   * @param {object} options - Configuration options
+   * @param {object} [options.transaction] - Optional transaction
+   * @param {number} [options.batchSize] - Maximum number of codes to delete at once
+   * @returns {Promise<{deletedCount: number, affectedTenants: string[]}>} Cleanup results
    */
-  static async cleanupExpiredCodes(transaction = null) {
+  static async cleanupExpiredCodes({ transaction = null, batchSize = 1000 } = {}) {
     const t = transaction || null;
     
     try {
       const now = new Date();
+      let deletedCount = 0;
+      const affectedTenants = new Set();
 
-      // Delete expired codes from main DB
-      const deletedCount = await models.ActivationCode.destroy({
-        where: {
-          expires_at: { [Op.lt]: now },
-          used_at: null
-        },
-        transaction: t
-      });
+      // Process in batches to avoid locking issues
+      while (true) {
+        const expiredCodes = await models.ActivationCode.findAll({
+          where: {
+            expires_at: { [Op.lt]: now },
+            used_at: null
+          },
+          limit: batchSize,
+          attributes: ['id', 'tenant_id'],
+          transaction: t
+        });
+
+        if (expiredCodes.length === 0) break;
+
+        const codeIds = expiredCodes.map(code => code.id);
+        expiredCodes.forEach(code => affectedTenants.add(code.tenant_id));
+
+        const count = await models.ActivationCode.destroy({
+          where: { id: codeIds },
+          transaction: t
+        });
+
+        deletedCount += count;
+        
+        // Small delay between batches to reduce DB load
+        if (expiredCodes.length === batchSize) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
 
       logSecurityEvent('activation_codes_cleaned', {
-        count: deletedCount
+        count: deletedCount,
+        affectedTenants: Array.from(affectedTenants)
       });
 
-      return deletedCount;
+      return {
+        deletedCount,
+        affectedTenants: Array.from(affectedTenants)
+      };
 
     } catch (error) {
-      logError('Failed to cleanup expired activation codes', error);
+      logError('Failed to cleanup expired activation codes', error, {
+        operation: 'cleanupExpiredCodes'
+      });
       throw error;
     }
   }
 
-  // Private helper methods
+  // ==================== PRIVATE METHODS ====================
+
+  /**
+   * Get user with validation checks
+   * @private
+   */
+  async _getUserWithValidation(transaction) {
+    const user = await models.User.findOne({ 
+      where: { tenant_id: this.tenantId },
+      transaction,
+      attributes: ['id', 'email', 'name', 'is_active']
+    });
+    
+    if (!user) {
+      throw new Error(`User not found for tenant ${this.tenantId}`);
+    }
+
+    if (user.is_active) {
+      throw new Error('User account is already active');
+    }
+
+    return user;
+  }
+
+  /**
+   * Generate secure random activation code
+   * @private
+   */
+  _generateSecureCode() {
+    // Use crypto module for secure random generation
+    const buffer = crypto.randomBytes(6);
+    // Convert to alphanumeric (0-9, A-Z)
+    return buffer.toString('base64')
+      .replace(/[+/]/g, '0') // Replace special characters with 0
+      .substring(0, 8)
+      .toUpperCase();
+  }
+
+  /**
+   * Create audit record in tenant DB
+   * @private
+   */
+  async _createAuditRecord(activationId, userId, action, transaction) {
+    return this.tenantDb.models.ActivationAudit.create({
+      activation_id: activationId,
+      user_id: userId,
+      action,
+      created_at: new Date()
+    }, { transaction });
+  }
+
+  /**
+   * Check if email should be sent
+   * @private
+   */
+  _shouldSendEmail() {
+    return process.env.EMAIL_ENABLED === 'true' && 
+           process.env.NODE_ENV !== 'test';
+  }
+
+  /**
+   * Send activation email with error handling
+   * @private
+   */
+  async _sendActivationEmail(user, code) {
+    try {
+      await sendActivationEmail(user.email, code, {
+        userName: user.name,
+        tenantId: this.tenantId,
+        expiryHours: this.codeExpiryHours
+      });
+    } catch (emailError) {
+      logError('Failed to send activation email', emailError, {
+        userId: user.id,
+        tenantId: this.tenantId
+      });
+      // Don't throw - activation code is still valid
+    }
+  }
 
   /**
    * Clean up expired codes for this tenant
-   * @param {object} transaction - Optional transaction
-   * @returns {Promise<void>}
+   * @private
    */
-  async _cleanupExpiredCodes(transaction = null) {
-    const t = transaction || null;
+  async _cleanupExpiredCodes(transaction) {
     const now = new Date();
 
     await models.ActivationCode.destroy({
@@ -246,29 +357,26 @@ class ActivationCodeService {
         expires_at: { [Op.lt]: now },
         used_at: null
       },
-      transaction: t
+      transaction
     });
   }
 
   /**
    * Check if user is rate limited for code generation
-   * @param {number} userId - User ID
-   * @param {object} transaction - Optional transaction
-   * @returns {Promise<boolean>} True if rate limited
+   * @private
    */
-  async _isRateLimited(userId, transaction = null) {
-    const t = transaction || null;
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  async _isRateLimited(userId, transaction) {
+    const timeWindow = new Date(Date.now() - this.rateLimitWindow * 60 * 1000);
 
     const recentCodes = await models.ActivationCode.count({
       where: {
         user_id: userId,
-        created_at: { [Op.gt]: oneHourAgo }
+        created_at: { [Op.gt]: timeWindow }
       },
-      transaction: t
+      transaction
     });
 
-    return recentCodes >= 3; // Max 3 codes per hour
+    return recentCodes >= this.rateLimitCount;
   }
 }
 

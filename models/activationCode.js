@@ -1,21 +1,29 @@
 module.exports = (sequelize, DataTypes) => {
   const ActivationCode = sequelize.define('ActivationCode', {
     id: {
-      type: DataTypes.UUID,  // Changed to UUID for consistency across all models
-      defaultValue: DataTypes.UUIDV4,  // Automatically generate UUID
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
       allowNull: false,
     },
     user_id: {
-      type: DataTypes.UUID,  // Changed to UUID to match the `User` model foreign key type
+      type: DataTypes.UUID,
       allowNull: false,
       references: {
-        model: 'users',  // Ensure this references the correct table name for users
+        model: 'users',
         key: 'id',
       },
     },
-    activation_code: {
-      type: DataTypes.STRING(100),
+    tenant_id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'tenants',
+        key: 'id',
+      },
+    },
+    code: {
+      type: DataTypes.STRING(8), // Matches the 8-character code from service
       allowNull: false,
       unique: true,
     },
@@ -23,52 +31,95 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DATE,
       allowNull: false,
     },
+    used_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    ip_address: {
+      type: DataTypes.STRING(45), // IPv6 max length
+      allowNull: true,
+    },
+    verification_ip: {
+      type: DataTypes.STRING(45),
+      allowNull: true,
+    },
     created_at: {
       type: DataTypes.DATE,
       allowNull: false,
-      defaultValue: sequelize.literal('CURRENT_TIMESTAMP'),  // Auto-sets creation time
+      defaultValue: sequelize.literal('CURRENT_TIMESTAMP'),
     },
   }, {
     tableName: 'activation_codes',
     underscored: true,
-    timestamps: true,  // Ensures created_at and updated_at fields are managed automatically
+    timestamps: true,
     createdAt: 'created_at',
-    updatedAt: false,  // No need for an 'updated_at' field
+    updatedAt: 'updated_at', // Now including updated_at for tracking changes
+    indexes: [
+      {
+        unique: true,
+        fields: ['code'],
+      },
+      {
+        fields: ['user_id'],
+      },
+      {
+        fields: ['tenant_id'],
+      },
+      {
+        fields: ['expires_at'],
+      },
+    ],
   });
 
-  // Logic to set expiration time before creating the activation code
+  // Set expiration time based on environment variable or default
   ActivationCode.beforeCreate((activationCode, options) => {
+    const expiryHours = process.env.ACTIVATION_CODE_EXPIRY_HOURS || 24;
     const expirationTime = new Date();
-    expirationTime.setHours(expirationTime.getHours() + 24); // Default expiration: 24 hours from creation
+    expirationTime.setHours(expirationTime.getHours() + parseInt(expiryHours));
     activationCode.expires_at = expirationTime;
   });
 
   // Associations
   ActivationCode.associate = (models) => {
-    // An ActivationCode belongs to one User (one-to-one relationship)
     ActivationCode.belongsTo(models.User, {
       foreignKey: 'user_id',
       as: 'user',
-      onDelete: 'CASCADE',  // Ensures deletion of activation codes when the user is deleted
+      onDelete: 'CASCADE',
     });
 
-    // If you want to associate with the Tenant model as well:
     ActivationCode.belongsTo(models.Tenant, {
       foreignKey: 'tenant_id',
       as: 'tenant',
       onDelete: 'CASCADE',
     });
+
+    // Add hasMany relationship if you need to track multiple codes per user
+    models.User.hasMany(ActivationCode, {
+      foreignKey: 'user_id',
+      as: 'activationCodes',
+    });
   };
 
-  // Hook to auto-insert activation code when User is created
-  ActivationCode.addHook('afterCreate', async (activationCode, options) => {
-    try {
-      // In case you need to do additional work or send an email when an activation code is generated
-      console.log('Activation code created for user:', activationCode.user_id);
-    } catch (error) {
-      console.error('❌ Error after creating activation code:', error.message);
-    }
-  });
+  // Class methods
+  ActivationCode.findValidCode = async function(code, userId, tenantId, transaction) {
+    return this.findOne({
+      where: {
+        code,
+        user_id: userId,
+        tenant_id: tenantId,
+        expires_at: { [sequelize.Op.gt]: new Date() },
+        used_at: null,
+      },
+      transaction,
+    });
+  };
+
+  // Instance methods
+  ActivationCode.prototype.markAsUsed = async function(ipAddress = null, transaction) {
+    this.used_at = new Date();
+    this.verification_ip = ipAddress;
+    return this.save({ transaction });
+  };
 
   return ActivationCode;
 };

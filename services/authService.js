@@ -1,221 +1,364 @@
 const { User, Tenant, Subscription, ActivationCode } = require('../models'); // Main DB models
-const { logError } = require('../utils/logger');
-const { generateActivationCode, verifyActivationCode } = require('./ActivationCodeService');
-const { createSubscription } = require('./subscriptionService');
+const { logError, logSecurityEvent } = require('../utils/logger');
+const ActivationCodeService = require('./ActivationCodeService');
+const SubscriptionService = require('./SubscriptionService');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { getTenantDb, insertIntoBothDb } = require('../config/db'); // Import DB utilities
+const { getTenantDb } = require('../config/db');
 
-const EMAIL_ENABLED = process.env.EMAIL_ENABLED !== 'false';
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key';
 const BCRYPT_SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 10;
 
-// Helper to generate JWT token
-const generateToken = (user) => {
-  const payload = { 
-    id: user.id, 
-    email: user.email, 
-    tenant_id: user.tenant_id,
-    role: user.role 
-  };
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
-};
+class AuthService {
+  constructor() {
+    this.emailEnabled = process.env.EMAIL_ENABLED === 'true';
+  }
 
-/**
- * Sign Up Service - Handles user registration across both main and tenant databases
- * @param {Object} userData - User information
- * @param {Object} tenantData - Tenant information
- * @param {Object} tenantDbData - Data to insert into tenant database
- * @returns {Object} Result containing user, tenant, subscription, and activation info
- */
-const signUp = async (userData, tenantData, tenantDbData = {}) => {
-  try {
-    // Hash password before storing
-    const hashedPassword = await bcrypt.hash(userData.password, BCRYPT_SALT_ROUNDS);
-    
-    // Prepare main DB data
-    const mainDbData = {
-      ...userData,
-      password: hashedPassword,
-      status: EMAIL_ENABLED ? 'inactive' : 'active',
-      tenant: tenantData // Include tenant data for creation
+  /**
+   * Generate JWT token for authenticated user
+   * @private
+   */
+  _generateToken(user) {
+    const payload = { 
+      id: user.id, 
+      email: user.email, 
+      tenant_id: user.tenant_id,
+      role: user.role 
     };
-
-    // Use the helper function to insert into both databases
-    const result = await insertIntoBothDb(mainDbData, tenantDbData, tenantData.name);
-    
-    // Generate activation code if email is enabled
-    let activationCode = null;
-    if (EMAIL_ENABLED) {
-      activationCode = await generateActivationCode(result.user.id);
-    }
-
-    return {
-      user: result.user,
-      tenant: result.tenant,
-      subscription: result.subscription,
-      activationCode,
-      redirectPath: EMAIL_ENABLED ? '/auth/activate' : null
-    };
-
-  } catch (err) {
-    logError('signUp service error', err);
-    throw new Error(err.message || 'Signup failed. Please try again.');
+    return jwt.sign(payload, JWT_SECRET, { expiresIn: '1d' });
   }
-};
 
-/**
- * Login Service - Authenticates user and generates JWT token
- * @param {String} email - User email
- * @param {String} password - User password
- * @returns {Object} Contains user info and JWT token
- */
-const login = async (email, password) => {
-  try {
-    const user = await User.findOne({ 
-      where: { email },
-      include: [{
-        model: Tenant,
-        attributes: ['id', 'name', 'status']
-      }]
-    });
+  /**
+   * Sign up new user and tenant
+   * @param {Object} userData - User information
+   * @param {Object} tenantData - Tenant information
+   * @param {string} [plan='trial'] - Subscription plan
+   * @param {Object} [options] - Optional parameters
+   * @param {Object} [options.transaction] - Sequelize transaction
+   * @param {string} [options.ipAddress] - IP address for security logging
+   * @returns {Promise<Object>} Created user, tenant, and subscription
+   */
+  async signUp(userData, tenantData, plan = 'trial', { transaction = null, ipAddress = null } = {}) {
+    const t = transaction || null;
     
-    if (!user) throw new Error('Invalid credentials');
-    if (user.status !== 'active') throw new Error('Account is not activated');
-    
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) throw new Error('Invalid credentials');
+    try {
+      // Hash password
+      const hashedPassword = await bcrypt.hash(userData.password, BCRYPT_SALT_ROUNDS);
 
-    // Check if tenant is active if user is not admin
-    if (user.role !== 'admin' && user.Tenant.status !== 'active') {
-      throw new Error('Your organization account is not active');
-    }
+      // Create tenant
+      const tenant = await Tenant.create({
+        ...tenantData,
+        status: 'pending_activation'
+      }, { transaction: t });
 
-    const token = generateToken(user);
-    return { 
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        tenant_id: user.tenant_id,
-        Tenant: user.Tenant
-      }, 
-      token 
-    };
+      // Create user
+      const user = await User.create({
+        ...userData,
+        password: hashedPassword,
+        tenant_id: tenant.id,
+        status: this.emailEnabled ? 'pending_activation' : 'active',
+        role: 'admin' // First user is always admin
+      }, { transaction: t });
 
-  } catch (err) {
-    logError('login service error', err);
-    throw new Error(err.message || 'Login failed. Check your credentials.');
-  }
-};
+      // Initialize tenant database
+      const tenantDb = await getTenantDb(`tenant_${tenant.id}`);
+      await tenantDb.sync();
 
-/**
- * Activate User Service - Activates user account using activation code
- * @param {String} activationCode - Activation code
- * @param {Number} userId - User ID to activate
- * @returns {Boolean} True if activation succeeded
- */
-const activateUser = async (activationCode, userId) => {
-  try {
-    const { success, message } = await verifyActivationCode(activationCode, userId);
-    if (!success) throw new Error(message);
+      // Create subscription
+      const subscriptionService = new SubscriptionService(tenant.id);
+      const subscription = await subscriptionService.create(plan, { 
+        transaction: t, 
+        ipAddress 
+      });
 
-    await User.update({ status: 'active' }, { where: { id: userId } });
-    return true;
-
-  } catch (err) {
-    logError('activateUser service error', err);
-    throw new Error(err.message || 'Activation failed');
-  }
-};
-
-/**
- * Refresh Token Service - Generates new JWT token
- * @param {String} oldToken - Previous JWT token
- * @returns {Object} Contains new JWT token
- */
-const refreshToken = async (oldToken) => {
-  try {
-    const decoded = jwt.verify(oldToken, JWT_SECRET);
-    const user = await User.findByPk(decoded.id);
-    
-    if (!user) throw new Error('User not found');
-    if (user.status !== 'active') throw new Error('User account is not active');
-
-    const newToken = generateToken(user);
-    return { newToken };
-
-  } catch (err) {
-    logError('refreshToken service error', err);
-    throw new Error(err.message || 'Token refresh failed');
-  }
-};
-
-/**
- * Reset Password Service - Handles password reset
- * @param {String} email - User email
- * @param {String} newPassword - New password
- * @param {String} resetToken - Password reset token
- * @returns {Boolean} True if password was reset successfully
- */
-const resetPassword = async (email, newPassword, resetToken) => {
-  try {
-    const user = await User.findOne({ where: { email } });
-    if (!user) throw new Error('User not found');
-
-    // Verify reset token (implementation depends on your reset token system)
-    const isValidToken = true; // Replace with actual token verification
-    
-    if (!isValidToken) throw new Error('Invalid reset token');
-
-    const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
-    await user.update({ password: hashedPassword });
-
-    return true;
-
-  } catch (err) {
-    logError('resetPassword service error', err);
-    throw new Error(err.message || 'Password reset failed');
-  }
-};
-
-/**
- * Request Password Reset Service - Initiates password reset process
- * @param {String} email - User email
- * @returns {Object} Contains reset token and user info
- */
-const requestPasswordReset = async (email) => {
-  try {
-    const user = await User.findOne({ where: { email } });
-    if (!user) throw new Error('User not found');
-
-    // Generate reset token (implementation depends on your system)
-    const resetToken = jwt.sign(
-      { id: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '1h' }
-    );
-
-    return {
-      resetToken,
-      user: {
-        id: user.id,
-        email: user.email
+      // Generate activation if email enabled
+      let activationCode = null;
+      if (this.emailEnabled) {
+        const activationService = new ActivationCodeService(tenant.id);
+        activationCode = await activationService.generate({ 
+          transaction: t, 
+          ipAddress 
+        });
       }
-    };
 
-  } catch (err) {
-    logError('requestPasswordReset service error', err);
-    throw new Error(err.message || 'Password reset request failed');
+      logSecurityEvent('user_signup', {
+        userId: user.id,
+        tenantId: tenant.id,
+        plan,
+        ipAddress
+      });
+
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          status: user.status
+        },
+        tenant: {
+          id: tenant.id,
+          name: tenant.name,
+          status: tenant.status
+        },
+        subscription: {
+          id: subscription.id,
+          plan: subscription.subscription_plan,
+          status: subscription.status
+        },
+        activationCode,
+        redirectPath: this.emailEnabled ? '/auth/activate' : null
+      };
+
+    } catch (error) {
+      logError('Signup failed', error, {
+        operation: 'signUp',
+        email: userData.email,
+        tenantName: tenantData.name
+      });
+      throw error;
+    }
   }
-};
 
-module.exports = {
-  signUp,
-  login,
-  activateUser,
-  refreshToken,
-  resetPassword,
-  requestPasswordReset
-};
+  /**
+   * Authenticate user
+   * @param {string} email - User email
+   * @param {string} password - User password
+   * @param {Object} [options] - Optional parameters
+   * @param {string} [options.ipAddress] - IP address for security logging
+   * @returns {Promise<Object>} User data and JWT token
+   */
+  async login(email, password, { ipAddress = null } = {}) {
+    try {
+      const user = await User.findOne({ 
+        where: { email },
+        include: [
+          {
+            model: Tenant,
+            attributes: ['id', 'name', 'status']
+          },
+          {
+            model: Subscription,
+            where: { status: 'Active' },
+            required: false,
+            order: [['created_at', 'DESC']],
+            limit: 1
+          }
+        ]
+      });
+      
+      if (!user) throw new Error('Invalid credentials');
+      
+      // Verify password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) throw new Error('Invalid credentials');
+
+      // Check account status
+      if (user.status !== 'active') {
+        throw new Error(
+          user.status === 'pending_activation' 
+            ? 'Account requires activation' 
+            : 'Account is suspended'
+        );
+      }
+
+      // Check tenant status for non-admin users
+      if (user.role !== 'admin' && user.Tenant.status !== 'active') {
+        throw new Error('Organization account is not active');
+      }
+
+      // Check subscription for non-admin users
+      if (user.role !== 'admin' && (!user.Subscriptions || user.Subscriptions.length === 0)) {
+        throw new Error('No active subscription found');
+      }
+
+      const token = this._generateToken(user);
+
+      logSecurityEvent('user_login', {
+        userId: user.id,
+        tenantId: user.tenant_id,
+        ipAddress
+      });
+
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          tenant_id: user.tenant_id,
+          Tenant: user.Tenant,
+          subscription: user.Subscriptions ? user.Subscriptions[0] : null
+        },
+        token
+      };
+
+    } catch (error) {
+      logError('Login failed', error, {
+        operation: 'login',
+        email,
+        ipAddress
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Activate user account
+   * @param {string} code - Activation code
+   * @param {string} userId - User ID to activate
+   * @param {Object} [options] - Optional parameters
+   * @param {string} [options.ipAddress] - IP address for security logging
+   * @returns {Promise<boolean>} True if activation succeeded
+   */
+  async activateUser(code, userId, { ipAddress = null } = {}) {
+    try {
+      const user = await User.findByPk(userId, {
+        include: [{
+          model: Tenant,
+          attributes: ['id']
+        }]
+      });
+
+      if (!user) throw new Error('User not found');
+      if (user.status === 'active') throw new Error('Account already active');
+
+      const activationService = new ActivationCodeService(user.Tenant.id);
+      const { success, message, user: verifiedUser } = await activationService.verify(code, { ipAddress });
+
+      if (!success) throw new Error(message);
+
+      // Update user and tenant status
+      await Promise.all([
+        user.update({ status: 'active' }),
+        Tenant.update({ status: 'active' }, { where: { id: user.tenant_id } })
+      ]);
+
+      logSecurityEvent('user_activated', {
+        userId: user.id,
+        tenantId: user.tenant_id,
+        ipAddress
+      });
+
+      return true;
+
+    } catch (error) {
+      logError('Activation failed', error, {
+        operation: 'activateUser',
+        userId,
+        ipAddress
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Refresh JWT token
+   * @param {string} token - Current JWT token
+   * @returns {Promise<Object>} New token and user data
+   */
+  async refreshToken(token) {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const user = await User.findByPk(decoded.id, {
+        attributes: ['id', 'email', 'name', 'role', 'tenant_id', 'status'],
+        include: [{
+          model: Tenant,
+          attributes: ['id', 'name', 'status']
+        }]
+      });
+      
+      if (!user) throw new Error('User not found');
+      if (user.status !== 'active') throw new Error('User account is not active');
+
+      const newToken = this._generateToken(user);
+
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          tenant_id: user.tenant_id,
+          Tenant: user.Tenant
+        },
+        newToken
+      };
+
+    } catch (error) {
+      logError('Token refresh failed', error, {
+        operation: 'refreshToken'
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Request password reset
+   * @param {string} email - User email
+   * @returns {Promise<string>} Reset token
+   */
+  async requestPasswordReset(email) {
+    try {
+      const user = await User.findOne({ where: { email } });
+      if (!user) throw new Error('User not found');
+
+      const resetToken = jwt.sign(
+        { id: user.id, email: user.email },
+        JWT_SECRET + user.password, // Include password hash in secret to invalidate when password changes
+        { expiresIn: '1h' }
+      );
+
+      logSecurityEvent('password_reset_requested', {
+        userId: user.id,
+        tenantId: user.tenant_id
+      });
+
+      return resetToken;
+
+    } catch (error) {
+      logError('Password reset request failed', error, {
+        operation: 'requestPasswordReset',
+        email
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Reset user password
+   * @param {string} resetToken - Password reset token
+   * @param {string} newPassword - New password
+   * @returns {Promise<boolean>} True if password was reset
+   */
+  async resetPassword(resetToken, newPassword) {
+    try {
+      // Find user without verifying token first to get current password
+      const decoded = jwt.decode(resetToken);
+      if (!decoded || !decoded.id) throw new Error('Invalid token');
+
+      const user = await User.findByPk(decoded.id);
+      if (!user) throw new Error('User not found');
+
+      // Now verify with user's current password in secret
+      jwt.verify(resetToken, JWT_SECRET + user.password);
+
+      const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
+      await user.update({ password: hashedPassword });
+
+      logSecurityEvent('password_reset', {
+        userId: user.id,
+        tenantId: user.tenant_id
+      });
+
+      return true;
+
+    } catch (error) {
+      logError('Password reset failed', error, {
+        operation: 'resetPassword'
+      });
+      throw error;
+    }
+  }
+}
+
+module.exports = new AuthService();

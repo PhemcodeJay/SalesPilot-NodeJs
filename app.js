@@ -154,96 +154,169 @@ app.get('/ping', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+
+
 // ✅ Start the server and initialize DBs
 app.listen(port, async () => {
-  console.log(`🚀 SalesPILOT Server is running at http://localhost:${port}`);
-
+  console.log(`🚀 SalesPILOT Server v${process.env.npm_package_version} running at http://localhost:${port}`);
+  console.log(`🛠️  Environment: ${process.env.NODE_ENV || 'development'}`);
+  
   try {
-    // 🔗 Test and sync admin DB
-    await testConnection();   // Test the connection to the main admin DB
-    await syncModels();       // Sync the models for the admin DB
-    console.log('✅ Main (Admin) DB Connected & Models Synced Successfully');
-
-    // 📦 Optionally load default tenant DBs from config or list
-    const defaultTenants = process.env.DEFAULT_TENANT_DB
-      ? process.env.DEFAULT_TENANT_DB.split(',') // e.g., "tenant_alpha,tenant_beta"
-      : [];
-
+    // 🔄 Database Initialization Sequence
+    await initializeDatabases();
+    console.log('🌈 All databases initialized successfully');
     
-    // Create tenant databases after server and admin DB initialization
-    for (const tenantName of defaultTenants) {
-      const trimmedTenantName = tenantName.trim();
-
-      try {
-        const tenantDb = getTenantDb(trimmedTenantName);
-        console.log(`✅ Tenant DB Checking Pls Wait...`);
-
-        // Sync tenant database models
-        await tenantDb.sequelize.sync({ force: false }); // Sync the models for the tenant
-        console.log(`✅ Tenant DB '${trimmedTenantName}' Connected & Models Synced Successfully.`);
-      } catch (err) {
-        // Handle case when tenant DB does not exist or needs creation
-        console.log(`❌ Tenant DB '${trimmedTenantName}' not found. Creating it now...`);
-        await createTenantDatabase(trimmedTenantName); // Create tenant DB
-        console.log(`🛠️ Tenant DB '${trimmedTenantName}' initialized.`);
-
-        // Now get the tenant DB and sync models after creation
-        const tenantDb = getTenantDb(trimmedTenantName);
-        await tenantDb.sequelize.sync({ force: false }); // Sync the models for the new tenant
-        console.log(`✅ Tenant DB '${trimmedTenantName}' Connected & Models Synced.`);
-      }
-    }
-
+    // Additional startup tasks can go here
+    await initializeBackgroundServices();
+    
   } catch (err) {
-    console.error(`❌ Startup error: ${err.message}`);
-    process.exit(1);
+    console.error(`❌ Fatal startup error: ${err.message}`);
+    console.error(err.stack);
+    process.exit(1); // Exit with error code
   }
 });
 
-// Function to create tenant database if it doesn't exist
-const createTenantDatabase = async (tenantName) => {
+/**
+ * Initializes all databases (main and tenants)
+ */
+async function initializeDatabases() {
+  // 🔗 Main Database Initialization
+  try {
+    console.time('🕒 Main DB initialization');
+    await testConnection();
+    await syncModels({ alter: process.env.NODE_ENV !== 'production' });
+    console.timeEnd('🕒 Main DB initialization');
+    console.log('✅ Main (Admin) DB: Connected & Models Synced');
+  } catch (err) {
+    throw new Error(`Main DB initialization failed: ${err.message}`);
+  }
+
+  // 📦 Tenant Databases Initialization
+  const defaultTenants = process.env.DEFAULT_TENANT_DB
+    ? process.env.DEFAULT_TENANT_DB.split(',').map(t => t.trim()).filter(Boolean)
+    : [];
+
+  if (defaultTenants.length > 0) {
+    console.log(`🔍 Initializing ${defaultTenants.length} tenant databases...`);
+    
+    await Promise.allSettled(defaultTenants.map(async (tenantName) => {
+      try {
+        console.time(`🕒 Tenant DB ${tenantName} initialization`);
+        await ensureTenantDatabase(tenantName);
+        console.timeEnd(`🕒 Tenant DB ${tenantName} initialization`);
+      } catch (err) {
+        console.error(`⚠️  Tenant DB '${tenantName}' initialization failed:`, err.message);
+        // Don't throw here to allow other tenants to initialize
+      }
+    }));
+    
+    // Verify all tenants initialized successfully
+    const failedTenants = defaultTenants.filter(tenantName => {
+      return !tenantDbCache.has(tenantName);
+    });
+    
+    if (failedTenants.length > 0) {
+      console.warn(`⚠️  ${failedTenants.length} tenant(s) failed to initialize:`, failedTenants);
+    }
+  }
+}
+
+/**
+ * Ensures a tenant database exists and is properly initialized
+ * @param {string} tenantName 
+ */
+async function ensureTenantDatabase(tenantName) {
+  try {
+    // First try to connect normally
+    const tenantDb = getTenantDb(tenantName);
+    await testTenantConnection(tenantName);
+    await syncTenantModels(tenantName, { 
+      alter: process.env.NODE_ENV !== 'production' 
+    });
+    console.log(`✅ Tenant DB '${tenantName}': Connected & Synced`);
+  } catch (initialError) {
+    if (initialError.message.includes('Unknown database')) {
+      // Database doesn't exist, create it
+      console.log(`🛠️  Tenant DB '${tenantName}' not found. Creating...`);
+      await createTenantDatabase(tenantName);
+      
+      // Verify creation was successful
+      const tenantDb = getTenantDb(tenantName);
+      await testTenantConnection(tenantName);
+      await syncTenantModels(tenantName, { force: false });
+      console.log(`🎉 Tenant DB '${tenantName}' created and initialized`);
+    } else {
+      throw initialError;
+    }
+  }
+}
+
+/**
+ * Creates a new tenant database with proper schema
+ * @param {string} tenantName 
+ */
+async function createTenantDatabase(tenantName) {
   const adminSequelize = new Sequelize(process.env.DATABASE_URL, {
     dialect: 'mysql',
-    logging: false, // Disable logging for this query
+    logging: false,
+    pool: { max: 1 } // Single connection for admin operations
   });
 
   try {
-    // Check if tenant database already exists
-    const result = await adminSequelize.query(`SHOW DATABASES LIKE '${tenantName}'`);
-    if (result[0].length > 0) {
-      console.log(`✅ Tenant DB '${tenantName}' already exists.`);
+    // Verify database doesn't already exist
+    const [results] = await adminSequelize.query(
+      `SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?`, 
+      { replacements: [tenantName] }
+    );
+
+    if (results.length > 0) {
+      console.log(`ℹ️  Tenant DB '${tenantName}' already exists`);
       return;
     }
 
-    // Tenant DB does not exist, so create it
-    await adminSequelize.query(`CREATE DATABASE ${tenantName}`);
-    console.log(`🛠️ Tenant DB '${tenantName}' created successfully.`);
+    // Create database with UTF8MB4 encoding for full Unicode support
+    await adminSequelize.query(`CREATE DATABASE \`${tenantName}\` 
+      CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
 
-    // Optionally, you can also initialize tenant-specific tables here by syncing models
-    const tenantDb = getTenantDb(tenantName);
-    await tenantDb.sequelize.sync({ force: false }); // Sync the models for the new tenant
-    console.log(`✅ Tenant DB '${tenantName}' initialized and models synced.`);
+    console.log(`🛠️  Created tenant DB '${tenantName}'`);
+
+    // Apply baseline privileges if using separate DB users
+    if (process.env.TENANT_DB_USER) {
+      await adminSequelize.query(
+        `GRANT ALL PRIVILEGES ON \`${tenantName}\`.* TO ?@'%'`,
+        { replacements: [process.env.TENANT_DB_USER] }
+      );
+      console.log(`🔑 Granted privileges to ${process.env.TENANT_DB_USER}`);
+    }
 
   } catch (err) {
-    console.error(`❌ Error creating tenant DB '${tenantName}':`, err.message);
-    throw err;
+    console.error(`❌ Tenant DB creation failed for '${tenantName}':`, err.message);
+    throw new Error(`Could not create tenant DB: ${err.message}`);
   } finally {
-    await adminSequelize.close(); // Close the connection to admin DB
+    await adminSequelize.close();
   }
-};
+}
 
-// 🧹 Graceful shutdown
-const shutdown = async () => {
-  console.log('\n👋 DB Shutting down...');
-  try {
-    await closeAllConnections();  // Close all DB connections
-    console.log('✅ Main (Admin) DB Disconnected and Closed.');
-    process.exit(0);
-  } catch (err) {
-    console.error('❌ Error during shutdown:', err.message);
-    process.exit(1);
+/**
+ * Initialize background services after DBs are ready
+ */
+async function initializeBackgroundServices() {
+  // Example: Start your background workers, message queues, etc.
+  if (process.env.ENABLE_BACKGROUND_WORKERS === 'true') {
+    console.log('🔄 Starting background workers...');
+    // Initialize your background services here
   }
-};
+}
 
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+// Graceful shutdown handling
+process.on('SIGTERM', async () => {
+  console.log('🛑 Received SIGTERM. Gracefully shutting down...');
+  await closeAllConnections();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('🛑 Received SIGINT. Gracefully shutting down...');
+  await closeAllConnections();
+  process.exit(0);
+});
