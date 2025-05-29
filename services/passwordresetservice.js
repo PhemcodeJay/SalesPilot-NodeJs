@@ -12,12 +12,14 @@ class PasswordResetService {
   }
 
   /**
-   * Generate a password reset token
+   * Generate a password reset token with transaction support
    * @param {number} userId - User ID
-   * @param {object} transaction - Optional transaction
+   * @param {object} options - Optional parameters
+   * @param {object} options.transaction - Optional transaction
+   * @param {string} options.ipAddress - Optional IP address for audit
    * @returns {Promise<{code: string, resetRecord: object}>} Reset token and record
    */
-  async generateResetToken(userId, transaction = null) {
+  async generateResetToken(userId, { transaction = null, ipAddress = null } = {}) {
     const t = transaction || null;
     
     try {
@@ -34,19 +36,25 @@ class PasswordResetService {
         created_at: new Date()
       }, { transaction: t });
 
-      // Create audit record in tenant DB
-      await this.tenantDb.models.PasswordResetAudit.create({
+      // Create audit records in both main and tenant DBs
+      const auditData = {
         reset_id: resetRecord.id,
         user_id: userId,
         action: 'token_generated',
-        ip_address: null, // Can be added from request context
+        ip_address: ipAddress,
         created_at: new Date()
-      }, { transaction: t });
+      };
+
+      await Promise.all([
+        models.PasswordResetAudit.create(auditData, { transaction: t }),
+        this.tenantDb.models.PasswordResetAudit.create(auditData, { transaction: t })
+      ]);
 
       logSecurityEvent('password_reset_token_generated', {
         userId,
         tenantId: this.tenantId,
-        resetId: resetRecord.id
+        resetId: resetRecord.id,
+        ipAddress
       });
 
       return { code, resetRecord };
@@ -60,10 +68,12 @@ class PasswordResetService {
   /**
    * Verify a password reset token
    * @param {string} code - Reset token
-   * @param {object} transaction - Optional transaction
+   * @param {object} options - Optional parameters
+   * @param {object} options.transaction - Optional transaction
+   * @param {string} options.ipAddress - Optional IP address for audit
    * @returns {Promise<object|null>} Reset record if valid, null otherwise
    */
-  async verifyResetToken(code, transaction = null) {
+  async verifyResetToken(code, { transaction = null, ipAddress = null } = {}) {
     const t = transaction || null;
     
     try {
@@ -83,7 +93,8 @@ class PasswordResetService {
         logSecurityEvent('password_reset_token_verification_failed', {
           code,
           tenantId: this.tenantId,
-          reason: 'invalid_or_expired'
+          reason: 'invalid_or_expired',
+          ipAddress
         });
         return null;
       }
@@ -97,17 +108,19 @@ class PasswordResetService {
   }
 
   /**
-   * Reset user password using valid token
+   * Reset user password using valid token with transaction support
    * @param {string} resetCode - Reset token
    * @param {string} newPassword - New password
-   * @param {object} transaction - Optional transaction
+   * @param {object} options - Optional parameters
+   * @param {object} options.transaction - Optional transaction
+   * @param {string} options.ipAddress - Optional IP address for audit
    * @returns {Promise<boolean>} True if successful
    */
-  async resetPassword(resetCode, newPassword, transaction = null) {
+  async resetPassword(resetCode, newPassword, { transaction = null, ipAddress = null } = {}) {
     const t = transaction || null;
     
     try {
-      const resetRecord = await this.verifyResetToken(resetCode, t);
+      const resetRecord = await this.verifyResetToken(resetCode, { transaction: t, ipAddress });
       if (!resetRecord) {
         throw new Error('Invalid or expired reset token');
       }
@@ -125,42 +138,41 @@ class PasswordResetService {
         throw new Error('User not found');
       }
 
-      // Update password in main DB
+      // Update password in both databases
       const hashedPassword = await bcrypt.hash(newPassword, 12);
-      await user.update({ password: hashedPassword }, { transaction: t });
-
-      // Update password in tenant DB (if needed)
-      await this.tenantDb.models.User.update(
-        { password_hash: hashedPassword },
-        { where: { id: user.id }, transaction: t }
-      );
+      
+      await Promise.all([
+        user.update({ password: hashedPassword }, { transaction: t }),
+        this.tenantDb.models.User.update(
+          { password_hash: hashedPassword },
+          { where: { id: user.id }, transaction: t }
+        )
+      ]);
 
       // Mark reset token as used
       await resetRecord.update({
         used_at: new Date()
       }, { transaction: t });
 
-      // Create audit records
-      await models.PasswordResetAudit.create({
+      // Create audit records in both databases
+      const auditData = {
         reset_id: resetRecord.id,
         user_id: user.id,
         action: 'password_reset',
-        ip_address: null,
+        ip_address: ipAddress,
         created_at: new Date()
-      }, { transaction: t });
+      };
 
-      await this.tenantDb.models.PasswordResetAudit.create({
-        reset_id: resetRecord.id,
-        user_id: user.id,
-        action: 'password_reset',
-        ip_address: null,
-        created_at: new Date()
-      }, { transaction: t });
+      await Promise.all([
+        models.PasswordResetAudit.create(auditData, { transaction: t }),
+        this.tenantDb.models.PasswordResetAudit.create(auditData, { transaction: t })
+      ]);
 
       logSecurityEvent('password_reset_successful', {
         userId: user.id,
         tenantId: this.tenantId,
-        resetId: resetRecord.id
+        resetId: resetRecord.id,
+        ipAddress
       });
 
       return true;
@@ -173,10 +185,11 @@ class PasswordResetService {
 
   /**
    * Clean up expired reset tokens (for cron jobs)
-   * @param {object} transaction - Optional transaction
+   * @param {object} options - Optional parameters
+   * @param {object} options.transaction - Optional transaction
    * @returns {Promise<number>} Count of deleted tokens
    */
-  static async cleanupExpiredTokens(transaction = null) {
+  static async cleanupExpiredTokens({ transaction = null } = {}) {
     const t = transaction || null;
     
     try {
@@ -192,7 +205,6 @@ class PasswordResetService {
       });
 
       // Note: Tenant DB audit records should be kept for compliance
-
       logSecurityEvent('password_reset_tokens_cleaned', {
         count: deletedCount
       });
@@ -201,6 +213,44 @@ class PasswordResetService {
 
     } catch (error) {
       logError('Failed to cleanup expired password reset tokens', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Execute password reset flow in a single transaction across both databases
+   * @param {string} resetCode - Reset token
+   * @param {string} newPassword - New password
+   * @param {string} ipAddress - IP address for audit
+   * @returns {Promise<boolean>} True if successful
+   */
+  async securePasswordReset(resetCode, newPassword, ipAddress) {
+    // Start transactions in both databases
+    const mainTransaction = await sequelize.transaction();
+    const tenantTransaction = await this.tenantDb.sequelize.transaction();
+
+    try {
+      // Perform the reset operation with both transactions
+      const result = await this.resetPassword(resetCode, newPassword, {
+        transaction: mainTransaction,
+        ipAddress
+      });
+
+      // If successful, commit both transactions
+      await Promise.all([
+        mainTransaction.commit(),
+        tenantTransaction.commit()
+      ]);
+
+      return result;
+    } catch (error) {
+      // If any error occurs, rollback both transactions
+      await Promise.allSettled([
+        mainTransaction.rollback(),
+        tenantTransaction.rollback()
+      ]);
+      
+      logError('Secure password reset failed', error);
       throw error;
     }
   }
